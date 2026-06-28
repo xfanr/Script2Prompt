@@ -64,6 +64,12 @@ export interface AutoSyncNotice {
   message: string
 }
 
+export interface PromptReview {
+  rating: number
+  noSubtitle: boolean
+  note: string
+}
+
 export interface Shot {
   id: string
   text: string
@@ -71,6 +77,7 @@ export interface Shot {
   usePositionReference: boolean
   characters: CharacterConfig[]
   status: CompletionStatus
+  review: PromptReview
   pendingDetection: PendingDetection | null
   autoSyncNotice: AutoSyncNotice | null
   undoCharacters: CharacterConfig[] | null
@@ -104,6 +111,8 @@ export interface AppState {
 export interface ExportPayload {
   version: number
   exportedAt: string
-  episode: Episode
+  episode?: Episode
+  episodes?: Episode[]
+  episodeGroups?: EpisodeGroup[]
   globalConfigSnapshot: GlobalConfig
 }

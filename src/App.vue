@@ -140,18 +140,21 @@
                 <h3>本集基础素材</h3>
                 <el-button class="add-material-button" type="primary" text @click="openMaterialDialog">添加素材</el-button>
               </div>
-              <el-dropdown class="shot-create-actions" split-button type="primary" @click="openBatchShotDialog" @command="handleAddShotCommand">
-                添加分镜
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="start">添至开头</el-dropdown-item>
-                    <el-dropdown-item command="end">添至末尾</el-dropdown-item>
-                    <el-dropdown-item v-for="(_, shotIndex) in activeEpisode.shots" :key="shotIndex" :command="{ action: 'after', index: shotIndex }">
-                      添至 #{{ shotIndex + 1 }} 后
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+              <div class="stage-actions">
+                <el-button :icon="DataAnalysis" plain @click="openReviewSummary">评分汇总</el-button>
+                <el-dropdown class="shot-create-actions" split-button type="primary" @click="openBatchShotDialog" @command="handleAddShotCommand">
+                  添加分镜
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="start">添至开头</el-dropdown-item>
+                      <el-dropdown-item command="end">添至末尾</el-dropdown-item>
+                      <el-dropdown-item v-for="(_, shotIndex) in activeEpisode.shots" :key="shotIndex" :command="{ action: 'after', index: shotIndex }">
+                        添至 #{{ shotIndex + 1 }} 后
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
             </div>
             <div class="asset-editor">
               <div class="asset-tags">
@@ -280,7 +283,18 @@
                 </section>
 
                 <section class="shot-cell preview-cell">
-                  <div class="cell-title">完整提示词预览</div>
+                  <div class="cell-title preview-title">
+                    <span>完整提示词预览</span>
+                    <el-button
+                      class="review-trigger"
+                      :icon="isShotReviewed(shot) ? StarFilled : Star"
+                      type="warning"
+                      text
+                      @click="openReviewDialog(shot)"
+                    >
+                      评分
+                    </el-button>
+                  </div>
                   <pre>{{ promptFor(shot) }}</pre>
                 </section>
               </div>
@@ -374,6 +388,73 @@
           </div>
         </template>
       </el-dialog>
+      <el-dialog v-model="reviewDialogVisible" title="提示词评分" width="520px" class="review-dialog" @closed="activeReviewShotId = null">
+        <el-form label-position="top">
+          <el-form-item label="评分">
+            <el-rate
+              v-model="reviewDraft.rating"
+              clearable
+              show-text
+              :texts="reviewRateTexts"
+              :low-threshold="2"
+            />
+          </el-form-item>
+          <el-form-item label="无字幕">
+            <el-checkbox v-model="reviewDraft.noSubtitle" class="review-subtitle-checkbox" border>
+              无字幕
+            </el-checkbox>
+          </el-form-item>
+          <el-form-item label="备注">
+            <el-input v-model="reviewDraft.note" type="textarea" :rows="4" resize="vertical" placeholder="输入评分备注" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="reviewDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="saveReviewDialog">保存</el-button>
+        </template>
+      </el-dialog>
+      <el-dialog v-model="reviewSummaryVisible" title="评分汇总" width="760px" class="review-summary-dialog">
+        <div class="review-summary-stats">
+          <div>
+            <strong>{{ reviewSummary.total }}</strong>
+            <span>总分镜</span>
+          </div>
+          <div>
+            <strong>{{ reviewSummary.reviewedRate }}</strong>
+            <span>已评分率</span>
+          </div>
+          <div>
+            <strong>{{ reviewSummary.average }}</strong>
+            <span>平均评分</span>
+          </div>
+          <div>
+            <strong>{{ reviewSummary.noSubtitleRate }}</strong>
+            <span>无字幕率</span>
+          </div>
+        </div>
+        <el-table :data="reviewSummaryRows" max-height="430" empty-text="暂无分镜">
+          <el-table-column prop="index" label="#" width="64" />
+          <el-table-column label="状态" width="96">
+            <template #default="{ row }">
+              <el-tag :type="row.reviewed ? 'warning' : 'info'" effect="light">{{ row.reviewed ? '已评分' : '未评分' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="评分" width="110">
+            <template #default="{ row }">{{ row.ratingText }}</template>
+          </el-table-column>
+          <el-table-column label="无字幕" width="86">
+            <template #default="{ row }">
+              <el-tag :type="row.noSubtitle ? 'success' : 'danger'" effect="light">{{ row.noSubtitle ? '无' : '有' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="noteText" label="备注" min-width="180" show-overflow-tooltip />
+          <el-table-column label="操作" width="84" fixed="right" align="center" header-align="center">
+            <template #default="{ row }">
+              <el-button text type="primary" @click="openReviewDialog(row.shot)">编辑</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-dialog>
       <el-dialog v-model="materialDialogVisible" title="添加基础素材" width="420px">
         <el-form label-position="top">
           <el-form-item label="素材类型">
@@ -425,12 +506,13 @@
 import { computed, ref } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, Delete, Download, FolderAdd, MostlyCloudy, Plus, Search, Setting } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, Delete, Download, FolderAdd, MostlyCloudy, Plus, Search, Setting, Star, StarFilled } from '@element-plus/icons-vue'
 import {
   createCharacterConfig,
   createEpisode,
   createEpisodeGroup,
   createId,
+  createPromptReview,
   createSceneAsset,
   createSceneConfig,
   createShot,
@@ -444,7 +526,7 @@ import {
   mergeDetectedCharacters,
   recommendedSeconds,
 } from './prompt'
-import type { Episode, EpisodeGroup, ExportPayload, GlobalConfig, PendingDetection, SceneAsset, SceneConfig, SceneSpace, SceneTime, SectionKey, Shot } from './types'
+import type { Episode, EpisodeGroup, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, SectionKey, Shot } from './types'
 import { useAppState } from './useAppState'
 
 type MaterialKind = 'characters' | 'scenes'
@@ -476,6 +558,11 @@ const openGroupMenuId = ref<string | null>(null)
 const episodeDropdownRefs = new Map<string, { handleClose?: () => void }>()
 const groupDropdownRefs = new Map<string, { handleClose?: () => void }>()
 const fileInputRef = ref<HTMLInputElement | null>(null)
+const reviewDialogVisible = ref(false)
+const reviewSummaryVisible = ref(false)
+const activeReviewShotId = ref<string | null>(null)
+const reviewDraft = ref<PromptReview>(createPromptReview())
+const reviewRateTexts = ['拉完了', 'NPC', '人上人', '顶级', '夯']
 
 const savedText = computed(() => {
   if (!state.lastSavedAt) {
@@ -494,6 +581,29 @@ const sortedUngroupedEpisodes = computed(() => sortEpisodesForDisplay(state.epis
 const batchShotSegments = computed(() => splitBatchShotText(batchShotDraft.value))
 const detectionConflictShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === detectionConflictShotId.value) ?? null)
 const detectionConflict = computed(() => detectionConflictShot.value?.pendingDetection ?? null)
+const activeReviewShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === activeReviewShotId.value) ?? null)
+const reviewSummaryRows = computed(() => activeEpisode.value?.shots.map((shot, index) => ({
+  shot,
+  index: `#${index + 1}`,
+  reviewed: isShotReviewed(shot),
+  rating: shot.review.rating,
+  ratingText: shot.review.rating ? `${shot.review.rating} 星` : '未评分',
+  noSubtitle: shot.review.noSubtitle,
+  noteText: shot.review.note.trim() || '无',
+})) ?? [])
+const reviewSummary = computed(() => {
+  const rows = reviewSummaryRows.value
+  const ratedRows = rows.filter((row) => row.rating > 0)
+  const ratingTotal = ratedRows.reduce((total, row) => total + row.rating, 0)
+  const percent = (value: number) => `${rows.length ? Math.round((value / rows.length) * 100) : 0}%`
+
+  return {
+    total: rows.length,
+    reviewedRate: percent(rows.filter((row) => row.reviewed).length),
+    average: ratedRows.length ? (ratingTotal / ratedRows.length).toFixed(1) : '0.0',
+    noSubtitleRate: percent(rows.filter((row) => row.noSubtitle).length),
+  }
+})
 
 function sectionTitle(key: SectionKey) {
   return titleFromSections(state.globalConfig.sections, key)
@@ -1105,6 +1215,49 @@ function cancelActiveDetection() {
   detectionDialogVisible.value = false
 }
 
+function normalizePromptReview(review: unknown): PromptReview {
+  if (!review || typeof review !== 'object') {
+    return createPromptReview()
+  }
+
+  const value = review as Partial<PromptReview>
+  const rating = typeof value.rating === 'number' && Number.isFinite(value.rating)
+    ? Math.max(0, Math.min(5, Math.round(value.rating)))
+    : 0
+
+  return {
+    rating,
+    noSubtitle: Boolean(value.noSubtitle),
+    note: typeof value.note === 'string' ? value.note : '',
+  }
+}
+
+function isShotReviewed(shot: Shot) {
+  return shot.review.rating > 0 || shot.review.noSubtitle || Boolean(shot.review.note.trim())
+}
+
+function openReviewDialog(shot: Shot) {
+  activeReviewShotId.value = shot.id
+  reviewDraft.value = { ...normalizePromptReview(shot.review) }
+  reviewDialogVisible.value = true
+}
+
+function saveReviewDialog() {
+  const shot = activeReviewShot.value
+
+  if (!shot) {
+    reviewDialogVisible.value = false
+    return
+  }
+
+  shot.review = normalizePromptReview(reviewDraft.value)
+  reviewDialogVisible.value = false
+  ElMessage.success('已保存评分')
+}
+
+function openReviewSummary() {
+  reviewSummaryVisible.value = true
+}
 
 function promptFor(shot: Shot) {
   return composePrompt(state.globalConfig, shot)
@@ -1192,6 +1345,7 @@ function exportAllEpisodes() {
   downloadJson('script2prompt-episodes.json', {
     version: state.version,
     exportedAt: new Date().toISOString(),
+    episodeGroups: JSON.parse(JSON.stringify(state.episodeGroups)) as EpisodeGroup[],
     episodes: JSON.parse(JSON.stringify(state.episodes)) as Episode[],
     globalConfigSnapshot: JSON.parse(JSON.stringify(state.globalConfig)),
   })
@@ -1227,8 +1381,16 @@ async function importEpisode(event: Event) {
         throw new Error('invalid episode')
       }
 
+      const importedGroups = normalizeImportedEpisodeGroups(payload.episodeGroups)
+      const groupIdMap = new Map(importedGroups.map((group) => [group.sourceId, group.group.id]))
+
+      importedGroups.forEach(({ group }) => {
+        state.episodeGroups.push(group)
+        expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, group.id]))
+      })
+
       episodes.forEach((episode) => {
-        const imported = normalizeImportedEpisode(episode)
+        const imported = normalizeImportedEpisode(episode, groupIdMap)
         state.episodes.push(imported)
         state.activeEpisodeId = imported.id
         importedCount += 1
@@ -1297,15 +1459,46 @@ function normalizeImportedShotScene(scene: unknown, assets: SceneAsset[]): Scene
   )
 }
 
-function normalizeImportedEpisode(episode: Episode): Episode {
+function normalizeImportedEpisodeGroups(groups: unknown): Array<{ sourceId: string; group: EpisodeGroup }> {
+  if (!Array.isArray(groups)) {
+    return []
+  }
+
+  return groups
+    .map((group, index) => {
+      if (!group || typeof group !== 'object') {
+        return null
+      }
+
+      const value = group as Partial<EpisodeGroup>
+      const sourceId = typeof value.id === 'string' ? value.id : ''
+      const title = typeof value.title === 'string' && value.title.trim() ? value.title.trim() : `导入分组 ${index + 1}`
+
+      if (!sourceId) {
+        return null
+      }
+
+      return {
+        sourceId,
+        group: {
+          id: createId('group'),
+          title,
+        },
+      }
+    })
+    .filter((group): group is { sourceId: string; group: EpisodeGroup } => Boolean(group))
+}
+
+function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string, string>()): Episode {
   const scenes = normalizeSceneAssets(episode.scenes)
   const shots = Array.isArray(episode.shots) ? episode.shots : []
+  const groupId = typeof episode.groupId === 'string' ? groupIdMap.get(episode.groupId) ?? null : null
 
   return {
     ...episode,
     id: createId('episode'),
     title: episode.title || '导入单集',
-    groupId: null,
+    groupId,
     starred: Boolean(episode.starred),
     characters: Array.isArray(episode.characters) ? episode.characters : [],
     scenes,
@@ -1317,6 +1510,7 @@ function normalizeImportedEpisode(episode: Episode): Episode {
       pendingDetection: null,
       autoSyncNotice: null,
       undoCharacters: null,
+      review: normalizePromptReview(shot.review),
       scenes: Array.isArray(shot.scenes)
         ? shot.scenes.map((scene) => normalizeImportedShotScene(scene, scenes)).filter((scene): scene is SceneConfig => Boolean(scene))
         : [],

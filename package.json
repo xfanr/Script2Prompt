@@ -5,8 +5,9 @@
     "type":  "module",
     "scripts":  {
                     "dev":  "vite",
-                    "build":  "vue-tsc --noEmit \u0026\u0026 vite build",
-                    "preview":  "vite preview"
+                    "build":  "npm run check:encoding \u0026\u0026 vue-tsc --noEmit \u0026\u0026 vite build",
+                    "preview":  "vite preview",
+                    "check:encoding":  "node scripts/check-encoding.cjs"
                 },
     "dependencies":  {
                          "@element-plus/icons-vue":  "^2.3.1",

@@ -1,6 +1,6 @@
 import { computed, reactive, watch } from 'vue'
-import { APP_VERSION, createEpisode, createInitialState, createSceneAsset, STORAGE_KEY } from './defaults'
-import type { AppState, SceneAsset, SceneConfig } from './types'
+import { APP_VERSION, createEpisode, createInitialState, createPromptReview, createSceneAsset, STORAGE_KEY } from './defaults'
+import type { AppState, PromptReview, SceneAsset, SceneConfig } from './types'
 
 function normalizeSceneAsset(scene: unknown): SceneAsset | null {
   if (typeof scene === 'string') {
@@ -46,6 +46,23 @@ function normalizeShotScene(scene: SceneConfig, assets: SceneAsset[]): SceneConf
   }
 }
 
+function normalizePromptReview(review: unknown): PromptReview {
+  if (!review || typeof review !== 'object') {
+    return createPromptReview()
+  }
+
+  const value = review as Partial<PromptReview>
+  const rating = typeof value.rating === 'number' && Number.isFinite(value.rating)
+    ? Math.max(0, Math.min(5, Math.round(value.rating)))
+    : 0
+
+  return {
+    rating,
+    noSubtitle: Boolean(value.noSubtitle),
+    note: typeof value.note === 'string' ? value.note : '',
+  }
+}
+
 function loadState(): AppState {
   const raw = localStorage.getItem(STORAGE_KEY)
 
@@ -80,6 +97,7 @@ function loadState(): AppState {
         shot.characters.forEach((character) => {
           character.statusText ??= ''
         })
+        shot.review = normalizePromptReview(shot.review)
       })
     })
 
