@@ -66,8 +66,15 @@ export interface AutoSyncNotice {
 
 export interface PromptReview {
   rating: number
-  noSubtitle: boolean
+  drawCount: number
+  noSubtitleCount: number
   note: string
+}
+
+export interface EpisodeProductionData {
+  pointUsage: number
+  pointCost: number
+  productionDate: string
 }
 
 export interface Shot {
@@ -96,6 +103,8 @@ export interface Episode {
   characters: string[]
   scenes: SceneAsset[]
   props: string[]
+  productionData: EpisodeProductionData
+  scriptText: string
   shots: Shot[]
 }
 

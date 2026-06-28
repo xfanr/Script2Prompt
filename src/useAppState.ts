@@ -1,6 +1,6 @@
 import { computed, reactive, watch } from 'vue'
-import { APP_VERSION, createEpisode, createInitialState, createPromptReview, createSceneAsset, STORAGE_KEY } from './defaults'
-import type { AppState, PromptReview, SceneAsset, SceneConfig } from './types'
+import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, STORAGE_KEY } from './defaults'
+import type { AppState, EpisodeProductionData, PromptReview, SceneAsset, SceneConfig } from './types'
 
 function normalizeSceneAsset(scene: unknown): SceneAsset | null {
   if (typeof scene === 'string') {
@@ -55,11 +55,33 @@ function normalizePromptReview(review: unknown): PromptReview {
   const rating = typeof value.rating === 'number' && Number.isFinite(value.rating)
     ? Math.max(0, Math.min(5, Math.round(value.rating)))
     : 0
+  const drawCount = typeof value.drawCount === 'number' && Number.isFinite(value.drawCount)
+    ? Math.max(1, Math.min(8, Math.round(value.drawCount)))
+    : 1
+  const legacyNoSubtitle = 'noSubtitle' in value ? Boolean((value as Partial<PromptReview> & { noSubtitle?: boolean }).noSubtitle) : false
+  const noSubtitleCount = typeof value.noSubtitleCount === 'number' && Number.isFinite(value.noSubtitleCount)
+    ? Math.max(0, Math.min(drawCount, Math.round(value.noSubtitleCount)))
+    : legacyNoSubtitle ? drawCount : 0
 
   return {
     rating,
-    noSubtitle: Boolean(value.noSubtitle),
+    drawCount,
+    noSubtitleCount,
     note: typeof value.note === 'string' ? value.note : '',
+  }
+}
+
+function normalizeEpisodeProductionData(data: unknown): EpisodeProductionData {
+  if (!data || typeof data !== 'object') {
+    return createEpisodeProductionData()
+  }
+
+  const value = data as Partial<EpisodeProductionData>
+
+  return {
+    pointUsage: typeof value.pointUsage === 'number' && Number.isFinite(value.pointUsage) ? Math.max(0, Math.round(value.pointUsage)) : 0,
+    pointCost: typeof value.pointCost === 'number' && Number.isFinite(value.pointCost) ? Math.max(0, Number(value.pointCost.toFixed(4))) : 0,
+    productionDate: typeof value.productionDate === 'string' ? value.productionDate : '',
   }
 }
 
@@ -91,6 +113,8 @@ function loadState(): AppState {
       episode.characters ??= []
       episode.scenes = normalizeSceneAssets(episode.scenes)
       episode.props ??= []
+      episode.productionData = normalizeEpisodeProductionData(episode.productionData)
+      episode.scriptText = typeof episode.scriptText === 'string' ? episode.scriptText : ''
       episode.shots?.forEach((shot) => {
         shot.scenes = Array.isArray(shot.scenes) ? shot.scenes.map((scene) => normalizeShotScene(scene, episode.scenes)) : []
         shot.characters ??= []

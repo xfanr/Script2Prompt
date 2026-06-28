@@ -270,22 +270,30 @@ h3,
 
 .rename-inline {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 28px 28px;
+  grid-template-columns: minmax(0, 1fr) 22px 22px;
   align-items: center;
-  gap: 6px;
+  gap: 3px;
   width: 100%;
+}
+
+.episode-group-row .rename-inline,
+.episode-tree-item .rename-inline {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
 }
 
 .rename-inline .el-input__wrapper {
   box-shadow: 0 0 0 1px #cfdced inset;
 }
 
-.rename-confirm {
-  color: #2f8f46;
-}
-
-.rename-cancel {
-  color: #c45656;
+.rename-confirm.el-button,
+.rename-cancel.el-button {
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0;
+  font-size: 12px;
 }
 
 .sidebar-footer {
@@ -355,6 +363,30 @@ h3,
   align-items: center;
   gap: 8px;
   white-space: nowrap;
+}
+
+.stage-action-group {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.stage-action-group > .el-button,
+.stage-action-group .shot-create-actions .el-button {
+  border-radius: 0;
+}
+
+.stage-action-group > .el-button:first-child {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+
+.stage-action-group .shot-create-actions .el-button:last-child {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+.stage-action-group .shot-create-actions {
+  margin-left: -1px;
 }
 
 .asset-editor {
@@ -445,6 +477,13 @@ h3,
   background: #f0f9eb;
 }
 
+.shot-review-button:not(.el-button--warning):hover,
+.shot-review-button:not(.el-button--warning):focus {
+  border-color: #e6a23c;
+  color: #e6a23c;
+  background: #fdf6ec;
+}
+
 .shot-tools .el-button--danger:hover,
 .shot-tools .el-button--danger:focus {
   border-color: #f56c6c;
@@ -493,10 +532,6 @@ h3,
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-}
-
-.review-trigger {
-  flex: 0 0 auto;
 }
 
 .script-input-wrap {
@@ -691,29 +726,104 @@ h3,
   align-items: center;
 }
 
-.review-subtitle-checkbox.is-bordered {
-  border-color: var(--el-color-primary);
-  color: var(--el-color-primary);
+.episode-script-dialog .el-textarea__inner {
+  min-height: 360px !important;
+  font-size: 15px;
+  line-height: 1.7;
 }
 
-.review-subtitle-checkbox .el-checkbox__inner {
-  border-color: var(--el-color-primary);
+.review-slider-line {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 48px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
 }
 
-.review-subtitle-checkbox .el-checkbox__label {
-  color: var(--el-color-primary);
-}
-
-.review-subtitle-checkbox.is-checked .el-checkbox__inner {
-  border-color: var(--el-color-primary);
-  background-color: var(--el-color-primary);
+.review-slider-line span {
+  color: #253654;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: right;
 }
 
 .review-summary-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 14px;
+}
+
+.episode-data-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.72fr);
+  align-items: stretch;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.episode-data-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dbe5f2;
+  border-radius: 6px;
+  background: #fbfdff;
+}
+
+.episode-data-card.cost-card {
+  grid-template-columns: auto auto minmax(110px, 1fr);
+  align-items: center;
+}
+
+.episode-data-card.date-card {
+  align-content: center;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.episode-data-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.episode-data-heading {
+  grid-column: 1 / -1;
+  color: #17233f;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.episode-data-field > span {
+  color: #6b7d96;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.episode-data-field > strong {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  color: #17233f;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.compact-cost-input {
+  width: 132px;
+}
+
+.compact-cost-input .el-input-group__prepend {
+  padding: 0 9px;
+}
+
+.total-cost-field {
+  min-width: 110px;
+}
+
+.episode-data-field .el-date-editor {
+  width: 100%;
 }
 
 .review-summary-stats > div {
@@ -721,6 +831,7 @@ h3,
   min-width: 0;
   flex-direction: column;
   gap: 2px;
+  justify-content: center;
   padding: 12px;
   border: 1px solid #dbe5f2;
   border-radius: 6px;
@@ -731,6 +842,22 @@ h3,
   color: #17233f;
   font-size: 20px;
   line-height: 1.2;
+}
+
+.summary-average-rate {
+  height: 24px;
+  --el-rate-fill-color: #e6a23c;
+  --el-rate-void-color: #dcdfe6;
+  --el-rate-disabled-void-color: #dcdfe6;
+}
+
+.summary-average-rate.muted {
+  --el-rate-fill-color: #a8abb2;
+}
+
+.summary-average-rate .el-rate__icon {
+  margin-right: 1px;
+  font-size: 18px;
 }
 
 .review-summary-stats span {

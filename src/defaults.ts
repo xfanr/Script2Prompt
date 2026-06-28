@@ -1,4 +1,4 @@
-import type { AppState, CharacterConfig, Episode, EpisodeGroup, GlobalConfig, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
+import type { AppState, CharacterConfig, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
 export const APP_VERSION = 1
@@ -63,8 +63,17 @@ export function createCharacterConfig(name = '', includeVoice = false): Characte
 export function createPromptReview(): PromptReview {
   return {
     rating: 0,
-    noSubtitle: false,
+    drawCount: 1,
+    noSubtitleCount: 0,
     note: '',
+  }
+}
+
+export function createEpisodeProductionData(): EpisodeProductionData {
+  return {
+    pointUsage: 0,
+    pointCost: 0,
+    productionDate: '',
   }
 }
 
@@ -99,6 +108,8 @@ export function createEpisode(index = 1): Episode {
     starred: false,
     scenes: [],
     props: [],
+    productionData: createEpisodeProductionData(),
+    scriptText: '',
     shots: [createShot()],
   }
 }
