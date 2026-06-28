@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <el-config-provider>
     <div class="app-shell">
       <input ref="fileInputRef" class="file-input" type="file" accept="application/json,.json" multiple @change="importEpisode" />
@@ -6,11 +6,20 @@
       <div class="workspace">
         <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
           <section class="sidebar-brand">
-            <button class="brand-mark" type="button" @click="sidebarCollapsed = !sidebarCollapsed">S2P</button>
+            <div class="brand-mark"><img :src="brandIconUrl" alt="Script2Prompt" /></div>
             <div v-if="!sidebarCollapsed" class="brand-text">
-              <strong>Script2Prompt</strong>
-              <span>短剧提示词工作台</span>
+              <strong>短剧提示词工作台</strong>
+              <span>Script2Prompt</span>
             </div>
+            <el-button
+              v-if="!sidebarCollapsed"
+              class="global-config-icon"
+              :icon="Setting"
+              circle
+              title="全局配置"
+              aria-label="全局配置"
+              @click="openGlobalDialog"
+            />
           </section>
 
           <template v-if="!sidebarCollapsed">
@@ -18,46 +27,107 @@
               <div class="episode-header">
                 <span>剧本管理</span>
                 <el-button-group class="episode-actions">
-                  <el-button :icon="Plus" type="primary" title="添加" aria-label="添加" @click="addEpisode" />
-                  <el-button :icon="Upload" title="批量导入" aria-label="批量导入" @click="triggerImport" />
-                  <el-button :icon="Download" title="批量导出" aria-label="批量导出" @click="exportAllEpisodes" />
-                  <el-button :icon="Delete" type="danger" plain title="批量删除" aria-label="批量删除" @click="deleteOtherEpisodes" />
+                  <el-button :icon="Plus" title="添加单集" aria-label="添加单集" @click="addEpisode" />
+                  <el-button :icon="FolderAdd" title="新建分组" aria-label="新建分组" @click="addEpisodeGroup" />
+                  <el-button :icon="Download" title="导入数据" aria-label="导入数据" @click="triggerImport" />
+                  <el-button :icon="MostlyCloudy" title="导出数据" aria-label="导出数据" @click="exportAllEpisodes" />
                 </el-button-group>
               </div>
-              <el-scrollbar max-height="250px">
-                <div
-                  v-for="episode in state.episodes"
-                  :key="episode.id"
-                  class="episode-item"
-                  :class="{ active: episode.id === state.activeEpisodeId }"
-                >
-                  <div class="episode-title-area" @click="state.activeEpisodeId = episode.id">
-                    <el-input
-                      v-if="editingEpisodeId === episode.id"
-                      v-model="episode.title"
-                      class="episode-title-input"
-                      placeholder="本集标题"
-                      @click.stop
-                      @keyup.enter="editingEpisodeId = null"
-                      @blur="editingEpisodeId = null"
-                    />
-                    <span v-else class="episode-title-text">{{ episode.title }}</span>
-                  </div>
-                  <div class="episode-row-actions">
-                    <el-button-group>
-                      <el-button :icon="EditPen" title="修改" aria-label="修改" @click="editingEpisodeId = episode.id" />
-                      <el-button :icon="Download" title="单集导出" aria-label="单集导出" @click="exportEpisodeById(episode.id)" />
-                      <el-button :icon="Delete" type="danger" plain title="删除" aria-label="删除" @click="deleteEpisodeById(episode.id)" />
-                    </el-button-group>
-                  </div>
+              <el-scrollbar class="episode-scrollbar">
+                <div class="episode-tree">
+                  <section class="episode-group-block">
+                    <div class="episode-group-row default-group" role="button" tabindex="0" @contextmenu.prevent.stop @click="toggleGroup('ungrouped')" @keyup.enter="toggleGroup('ungrouped')">
+                      <el-icon class="group-caret" :class="{ expanded: isGroupExpanded('ungrouped') }"><ArrowRight /></el-icon>
+                      <span>未分组</span>
+                      <em>{{ sortedUngroupedEpisodes.length }}</em>
+                    </div>
+                    <div v-if="isGroupExpanded('ungrouped')" class="episode-children">
+                      <el-dropdown
+                        :ref="(dropdown) => setEpisodeDropdownRef(episode.id, dropdown)"
+                        v-for="episode in sortedUngroupedEpisodes"
+                        :key="episode.id"
+                        trigger="contextmenu"
+                        :visible="openEpisodeMenuId === episode.id"
+                        @visible-change="(visible) => handleEpisodeMenuVisibleChange(visible, episode.id)"
+                        @command="(command) => handleEpisodeCommand(command, episode)"
+                      >
+                        <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="state.activeEpisodeId = episode.id">
+                          <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
+                            <el-input v-model="episode.title" class="episode-title-input" placeholder="本集标题" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename" />
+                            <el-button class="rename-confirm" :icon="Check" circle text @click="finishEpisodeRename" />
+                            <el-button class="rename-cancel" :icon="Close" circle text @click="cancelEpisodeRename(episode)" />
+                          </div>
+                          <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="episode.starred" class="episode-star">⭐️</span></span>
+                        </div>
+                        <template #dropdown>
+                          <el-dropdown-menu>
+                            <el-dropdown-item command="edit">重命名</el-dropdown-item>
+                            <el-dropdown-item command="toggleStar">{{ episode.starred ? '取消星标' : '星标' }}</el-dropdown-item>
+                            <el-dropdown-item command="delete">删除</el-dropdown-item>
+                            <el-dropdown-item v-for="(group, groupIndex) in sortedEpisodeGroups" :key="group.id" :divided="groupIndex === 0" :command="{ action: 'move', groupId: group.id }">移至 {{ group.title }}
+                            </el-dropdown-item>
+                          </el-dropdown-menu>
+                        </template>
+                      </el-dropdown>
+                    </div>
+                  </section>
+
+                  <section v-for="group in sortedEpisodeGroups" :key="group.id" class="episode-group-block">
+                    <el-dropdown :ref="(dropdown) => setGroupDropdownRef(group.id, dropdown)" trigger="contextmenu" :visible="openGroupMenuId === group.id" @visible-change="(visible) => handleGroupMenuVisibleChange(visible, group.id)" @command="(command) => handleGroupCommand(command, group.id)">
+                      <div class="episode-group-row" role="button" tabindex="0" @click="toggleGroup(group.id)" @keyup.enter="toggleGroup(group.id)">
+                        <el-icon class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
+                        <div v-if="editingGroupId === group.id" class="rename-inline" @click.stop @keydown.stop>
+                          <el-input v-model="group.title" class="episode-title-input" placeholder="分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
+                          <el-button class="rename-confirm" :icon="Check" circle text @click="finishGroupRename" />
+                          <el-button class="rename-cancel" :icon="Close" circle text @click="cancelGroupRename(group)" />
+                        </div>
+                        <span v-else>{{ group.title }}</span>
+                        <em v-if="editingGroupId !== group.id">{{ episodesForGroup(group.id).length }}</em>
+                      </div>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item command="edit">重命名</el-dropdown-item>
+                          <el-dropdown-item command="delete">删除</el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
+                    <div v-if="isGroupExpanded(group.id)" class="episode-children">
+                      <el-dropdown
+                        :ref="(dropdown) => setEpisodeDropdownRef(episode.id, dropdown)"
+                        v-for="episode in episodesForGroup(group.id)"
+                        :key="episode.id"
+                        trigger="contextmenu"
+                        :visible="openEpisodeMenuId === episode.id"
+                        @visible-change="(visible) => handleEpisodeMenuVisibleChange(visible, episode.id)"
+                        @command="(command) => handleEpisodeCommand(command, episode)"
+                      >
+                        <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="state.activeEpisodeId = episode.id">
+                          <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
+                            <el-input v-model="episode.title" class="episode-title-input" placeholder="本集标题" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename" />
+                            <el-button class="rename-confirm" :icon="Check" circle text @click="finishEpisodeRename" />
+                            <el-button class="rename-cancel" :icon="Close" circle text @click="cancelEpisodeRename(episode)" />
+                          </div>
+                          <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="episode.starred" class="episode-star">⭐️</span></span>
+                        </div>
+                        <template #dropdown>
+                          <el-dropdown-menu>
+                            <el-dropdown-item command="edit">重命名</el-dropdown-item>
+                            <el-dropdown-item command="toggleStar">{{ episode.starred ? '取消星标' : '星标' }}</el-dropdown-item>
+                            <el-dropdown-item command="delete">删除</el-dropdown-item>
+                            <el-dropdown-item divided :command="{ action: 'move', groupId: null }">移至未分组</el-dropdown-item>
+                            <el-dropdown-item v-for="targetGroup in sortedEpisodeGroups" :key="targetGroup.id" :command="{ action: 'move', groupId: targetGroup.id }">移至 {{ targetGroup.title }}
+                            </el-dropdown-item>
+                          </el-dropdown-menu>
+                        </template>
+                      </el-dropdown>
+                    </div>
+                  </section>
                 </div>
               </el-scrollbar>
             </section>
 
-            <el-button class="global-config-entry" type="primary" plain @click="globalDialogVisible = true">全局配置</el-button>
-
             <div class="sidebar-footer">
-              <span>共 {{ state.episodes.length }} 集</span>
+              <span>共 {{ state.episodes.length }} 集，{{ state.episodeGroups.length }} 分组</span>
               <span>{{ savedText }}</span>
             </div>
           </template>
@@ -65,29 +135,32 @@
 
         <main v-if="activeEpisode" class="main-stage">
           <section class="stage-header">
-            <div class="stage-left">
-              <div class="stage-title-row">
-                <h2>{{ activeEpisode.title }}</h2>
-                <div class="stage-summary">{{ completedCount }}/{{ activeEpisode.shots.length }} 分镜</div>
-              </div>
-              <el-button-group class="shot-create-actions">
-                <el-button :icon="Plus" type="primary" @click="addShot">添加分镜</el-button>
-                <el-button :icon="DocumentAdd" type="primary" plain @click="openBatchShotDialog">批量分镜</el-button>
-              </el-button-group>
-            </div>
-            <div class="stage-divider" aria-hidden="true"></div>
-            <div class="asset-editor">
+            <div class="stage-topline">
               <div class="asset-heading">
                 <h3>本集基础素材</h3>
+                <el-button class="add-material-button" type="primary" text @click="openMaterialDialog">添加素材</el-button>
               </div>
+              <el-dropdown class="shot-create-actions" split-button type="primary" @click="openBatchShotDialog" @command="handleAddShotCommand">
+                添加分镜
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="start">添至开头</el-dropdown-item>
+                    <el-dropdown-item command="end">添至末尾</el-dropdown-item>
+                    <el-dropdown-item v-for="(_, shotIndex) in activeEpisode.shots" :key="shotIndex" :command="{ action: 'after', index: shotIndex }">
+                      添至 #{{ shotIndex + 1 }} 后
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+            <div class="asset-editor">
               <div class="asset-tags">
-                <el-tag v-for="item in activeEpisode.characters" :key="`character-${item}`" type="primary" :effect="isCharacterUsed(item) ? 'dark' : 'plain'" closable @close="removeMaterial('characters', item)">
+                <el-tag size="large" v-for="item in activeEpisode.characters" :key="`character-${item}`" type="primary" :effect="isCharacterUsed(item) ? 'light' : 'plain'" closable @close="removeMaterial('characters', item)">
                   人物 · {{ item }}
                 </el-tag>
-                <el-tag v-for="item in activeEpisode.scenes" :key="`scene-${item}`" type="success" :effect="isSceneUsed(item) ? 'dark' : 'plain'" closable @close="removeMaterial('scenes', item)">
-                  场景 · {{ item }}
+                <el-tag size="large" v-for="item in activeEpisode.scenes" :key="`scene-${item.name}`" type="success" :effect="isSceneUsed(item.name) ? 'light' : 'plain'" closable @close="removeMaterial('scenes', item.name)">
+                  场景 · {{ item.name }} · {{ item.time }} · {{ item.space }}
                 </el-tag>
-                <el-tag class="add-material-tag" type="warning" effect="dark" @click="openMaterialDialog">+ 添加素材</el-tag>
               </div>
             </div>
           </section>
@@ -109,107 +182,78 @@
                 <div class="shot-tools">
                   <el-button-group>
                     <el-button
+                      class="shot-status-button"
                       :icon="shot.status === 'complete' ? CircleCheckFilled : CircleCheck"
-                      :title="shot.status === 'complete' ? '已完成' : '未完成'"
-                      :aria-label="shot.status === 'complete' ? '已完成' : '未完成'"
+                      :type="shot.status === 'complete' ? 'success' : undefined"
+                      :title="shot.status === 'complete' ? '完成' : '待办'"
+                      :aria-label="shot.status === 'complete' ? '完成' : '待办'"
                       @click="setShotStatus(shot, shot.status !== 'complete')"
-                    />
+                    >
+                      {{ shot.status === 'complete' ? '完成' : '待办' }}
+                    </el-button>
                     <el-button :icon="CopyDocument" @click="copyPrompt(shot)">复制</el-button>
-                    <el-button :icon="Delete" type="danger" plain @click="deleteShot(shot.id)">删除</el-button>
+                    <el-popconfirm title="确认删除这条分镜？" confirm-button-text="删除" cancel-button-text="取消" @confirm="deleteShot(shot.id)">
+                      <template #reference>
+                        <el-button :icon="Delete" type="danger" plain>删除</el-button>
+                      </template>
+                    </el-popconfirm>
                   </el-button-group>
                 </div>
               </div>
 
               <div v-if="!isShotCollapsed(shot)" class="shot-grid">
                 <section class="shot-cell script-cell">
-                  <div class="cell-title">分镜详情</div>
+                  <div class="cell-title script-title">
+                    <span>{{ sectionTitle('shot') }}</span>
+                    <el-button :icon="Search" text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
+                  </div>
                   <div class="script-input-wrap" :class="{ warn: durationState(shot.text).warn }">
+                    <div class="script-highlight-layer" v-html="highlightedShotText(shot)"></div>
                     <el-input
                       v-model="shot.text"
                       type="textarea"
                       :rows="9"
                       resize="vertical"
                       placeholder="输入或粘贴 40-120 字分段剧本。系统会匹配本集人物，并识别对白格式。"
-                      @input="() => handleShotTextInput(shot)"
                     />
                     <div class="script-inline-stats">
                       <span>{{ characterCount(shot.text) }}/140 字</span>
                       <span>推荐 {{ durationText(shot.text) }}</span>
                     </div>
                   </div>
-                  <el-alert
-                    v-if="shot.autoSyncNotice"
-                    class="sync-alert"
-                    :title="shot.autoSyncNotice.message"
-                    type="success"
-                    show-icon
-                    :closable="false"
-                  >
-                    <el-button link type="primary" @click="undoAutoSync(shot)">撤销</el-button>
-                  </el-alert>
-                  <el-alert
-                    v-if="shot.pendingDetection"
-                    class="sync-alert"
-                    title="检测到人物配置差异"
-                    type="warning"
-                    show-icon
-                    :closable="false"
-                  >
-                    <div class="detect-diff">
-                      <p>当前已有：{{ namesText(shot.pendingDetection.currentNames) }}</p>
-                      <p>本次检测：{{ namesText(shot.pendingDetection.replaceNames) }}</p>
-                      <p>合并后：{{ namesText(shot.pendingDetection.mergeNames) }}</p>
-                      <p>替换后：{{ namesText(shot.pendingDetection.replaceNames) }}</p>
-                      <p v-if="shot.pendingDetection.voiceSuggestions.length">
-                        音色建议：{{ namesText(shot.pendingDetection.voiceSuggestions) }}
-                      </p>
-                    </div>
-                    <div class="detect-actions">
-                      <el-button type="primary" @click="mergeDetected(shot, true)">合并</el-button>
-                      <el-button @click="replaceDetected(shot)">替换</el-button>
-                      <el-button v-if="shot.pendingDetection.voiceSuggestions.length" @click="mergeDetected(shot, false)">
-                        保持原样
-                      </el-button>
-                      <el-button text @click="cancelDetection(shot)">取消</el-button>
-                    </div>
-                  </el-alert>
                 </section>
 
                 <section class="shot-cell config-cell">
-                  <div class="cell-title">
-                    <span>第二节交互配置</span>
-                    <el-checkbox v-model="shot.usePositionReference">多角色位置参考</el-checkbox>
-                  </div>
-
                   <div class="config-group">
                     <div class="config-heading">
                       <span>场景配置</span>
                       <el-button :icon="Plus" text type="primary" @click="addSceneToShot(shot)">添加场景</el-button>
                     </div>
                     <div v-if="!shot.scenes.length" class="empty-note">暂无场景项</div>
-                    <div v-for="scene in shot.scenes" :key="scene.id" class="config-line">
-                      <el-select v-model="scene.name" placeholder="选择场景" filterable>
-                        <el-option v-for="item in activeEpisode.scenes" :key="item" :label="item" :value="item" />
+                    <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line">
+                      <el-select v-model="scene.name" placeholder="选择场景" filterable @change="syncSceneFromAsset(scene)">
+                        <el-option v-for="item in activeEpisode.scenes" :key="item.name" :label="item.name" :value="item.name" />
                       </el-select>
-                      <el-radio-group v-model="scene.time">
-                        <el-radio-button label="白天" value="白天" />
-                        <el-radio-button label="深夜" value="深夜" />
-                      </el-radio-group>
-                      <el-radio-group v-model="scene.space">
-                        <el-radio-button label="室内" value="室内" />
-                        <el-radio-button label="室外" value="室外" />
-                      </el-radio-group>
-                      <el-button :icon="Close" circle text @click="removeSceneFromShot(shot, scene.id)" />
+                      <span class="scene-config-meta">{{ scene.time }} · {{ scene.space }}</span>
+                      <el-popconfirm title="确认删除这个场景配置？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeSceneFromShot(shot, scene.id)">
+                        <template #reference>
+                          <el-button :icon="Close" circle text />
+                        </template>
+                      </el-popconfirm>
                     </div>
                   </div>
 
-                  <div class="config-group">
-                    <div class="config-heading">
-                      <span>人物配置</span>
+                  <div class="config-group character-config-group">
+                    <div class="config-heading character-heading">
+                      <div class="character-heading-title">
+                        <span>人物配置</span>
+                        <el-checkbox v-model="shot.usePositionReference">多角色位置参考</el-checkbox>
+                      </div>
                       <el-button :icon="Plus" text type="primary" @click="addCharacterToShot(shot)">添加人物</el-button>
                     </div>
-                    <div v-if="!shot.characters.length" class="empty-note">暂无人物项</div>
-                    <div v-for="character in shot.characters" :key="character.id" class="config-line character-line">
+                    <div class="character-config-list">
+                      <div v-if="!shot.characters.length" class="empty-note">暂无人物项</div>
+                      <div v-for="character in shot.characters" :key="character.id" class="config-line character-line">
                       <el-select v-model="character.name" placeholder="选择人物" filterable>
                         <el-option
                           v-for="item in activeEpisode.characters"
@@ -219,16 +263,18 @@
                           :disabled="isCharacterOptionDisabled(shot, character.id, item)"
                         />
                       </el-select>
-                      <el-checkbox v-model="character.includeVoice">音色</el-checkbox>
-                      <el-checkbox v-model="character.includeState">状态</el-checkbox>
+                      <el-checkbox v-model="character.includeVoice" border :class="{ 'is-voice-overflow': isVoiceOverflow(shot) && character.includeVoice }">音色</el-checkbox>
                       <el-input
                         v-model="character.statusText"
                         class="character-status-input"
-                        :class="{ 'is-hidden': !character.includeState }"
-                        :disabled="!character.includeState"
                         placeholder="状态内容"
                       />
-                      <el-button :icon="Close" circle text @click="removeCharacterFromShot(shot, character.id)" />
+                      <el-popconfirm title="确认删除这个人物配置？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeCharacterFromShot(shot, character.id)">
+                          <template #reference>
+                            <el-button :icon="Close" circle text />
+                          </template>
+                        </el-popconfirm>
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -244,57 +290,91 @@
       </div>
     </div>
 
-      <el-dialog v-model="globalDialogVisible" title="全局配置" width="760px" class="global-config-dialog">
+      <el-dialog v-model="globalDialogVisible" title="全局配置" width="760px" class="global-config-dialog" @close="cancelGlobalDialog">
         <el-form label-position="top">
-          <el-form-item label="基础设定">
-            <el-input v-model="state.globalConfig.baseSetting" type="textarea" :rows="7" resize="vertical" />
-          </el-form-item>
-          <el-form-item label="第二节后缀">
-            <el-input v-model="state.globalConfig.sceneRoleSuffix" type="textarea" :rows="4" resize="vertical" />
-          </el-form-item>
-          <el-form-item label="已完成分镜">
-            <el-switch
-              v-model="state.globalConfig.autoCollapseCompletedShots"
-              active-text="自动折叠已完成分镜"
-              inactive-text="保持展开"
-            />
-          </el-form-item>
-          <el-form-item label="章节标题、排序与开关">
+          <el-form-item label="章节设置">
             <div class="section-config-list">
-              <div v-for="section in state.globalConfig.sections" :key="section.key" class="section-config">
+              <div v-for="section in globalConfigDraft.sections" :key="section.key" class="section-config">
                 <el-switch v-model="section.enabled" />
                 <el-input v-model="section.title" />
-                <el-input-number v-model="section.order" :min="1" :max="9" controls-position="right" />
+                <el-input-number v-model="section.order" :min="1" :max="9" />
               </div>
+            </div>
+          </el-form-item>
+          <el-form-item :label="draftSectionTitle('base')">
+            <el-input v-model="globalConfigDraft.baseSetting" type="textarea" :rows="7" resize="vertical" />
+          </el-form-item>
+          <el-form-item :label="draftSectionTitle('sceneRole') + ' 后缀'">
+            <el-input v-model="globalConfigDraft.sceneRoleSuffix" type="textarea" :rows="4" resize="vertical" />
+          </el-form-item>
+          <el-form-item label="分镜折叠">
+            <el-switch v-model="globalConfigDraft.autoCollapseCompletedShots" />
+          </el-form-item>
+          <el-form-item label="安全时长">
+            <div class="duration-range-config slider-range-config">
+              <span>{{ durationRangeDraft[0].toFixed(1) }}</span>
+              <el-slider v-model="durationRangeDraft" range :min="0" :max="30" :step="0.1" :format-tooltip="formatDurationTooltip" />
+              <span>{{ durationRangeDraft[1].toFixed(1) }}</span>
             </div>
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button type="primary" @click="globalDialogVisible = false">完成</el-button>
+          <el-button @click="cancelGlobalDialog">取消</el-button>
+          <el-button type="primary" @click="saveGlobalDialog">保存</el-button>
         </template>
       </el-dialog>
-      <el-dialog v-model="batchShotDialogVisible" title="批量分镜" width="620px">
+      <el-dialog v-model="detectionDialogVisible" title="人物识别冲突" width="520px" class="detection-dialog" @closed="cancelActiveDetection">
+        <div v-if="detectionConflict" class="detect-diff dialog-detect-diff">
+          <p>当前已有：{{ namesText(detectionConflict.currentNames) }}</p>
+          <p>本次识别：{{ namesText(detectionConflict.replaceNames) }}</p>
+          <p>合并后：{{ namesText(detectionConflict.mergeNames) }}</p>
+          <p v-if="detectionConflict.voiceSuggestions.length">音色建议：{{ namesText(detectionConflict.voiceSuggestions) }}</p>
+        </div>
+        <template #footer>
+          <el-button @click="cancelActiveDetection">取消</el-button>
+          <el-button type="primary" @click="mergeActiveDetection">合并</el-button>
+        </template>
+      </el-dialog>
+      <el-dialog v-model="batchShotDialogVisible" title="批量分镜" width="960px" class="batch-shot-dialog">
         <el-form label-position="top">
-          <el-form-item label="长文本">
-            <el-input
+          <el-input
               v-model="batchShotDraft"
               type="textarea"
               :rows="10"
               placeholder="用连续三个短横线 --- 分割每条分镜"
             />
-          </el-form-item>
-          <el-alert
-            :title="`已识别 ${batchShotSegments.length} 条分镜`"
-            type="info"
-            show-icon
-            :closable="false"
-          />
+
+          <div v-if="batchShotSegments.length" class="batch-shot-preview">
+            <div
+              v-for="(text, index) in batchShotSegments"
+              :key="`${index}-${text.length}`"
+              class="batch-shot-preview-item"
+              :class="{ warn: durationState(text).warn }"
+            >
+              <span class="batch-shot-index">#{{ index + 1 }}</span>
+              <p>{{ text }}</p>
+              <span class="batch-shot-stat">{{ characterCount(text) }} 字</span>
+              <span class="batch-shot-stat">推荐 {{ durationText(text) }}</span>
+            </div>
+          </div>
         </el-form>
         <template #footer>
-          <el-button @click="batchShotDialogVisible = false">取消</el-button>
-          <el-button type="primary" :disabled="!batchShotSegments.length" @click="confirmBatchShots">批量添加</el-button>
+          <div class="batch-shot-footer">
+            <el-alert
+              class="batch-shot-count-alert"
+              :title="`已识别 ${batchShotSegments.length} 条分镜`"
+              type="success"
+              show-icon
+              :closable="false"
+            />
+            <div class="batch-shot-footer-actions">
+              <el-button @click="batchShotDialogVisible = false">取消</el-button>
+              <el-button type="primary" :disabled="!batchShotSegments.length" @click="confirmBatchShots">批量添加</el-button>
+            </div>
+          </div>
         </template>
-      </el-dialog>      <el-dialog v-model="materialDialogVisible" title="添加基础素材" width="420px">
+      </el-dialog>
+      <el-dialog v-model="materialDialogVisible" title="添加基础素材" width="420px">
         <el-form label-position="top">
           <el-form-item label="素材类型">
             <el-radio-group v-model="materialKind">
@@ -304,13 +384,34 @@
           </el-form-item>
           <el-form-item label="素材名称">
             <el-input
+              v-if="materialKind === 'characters'"
               v-model="materialDraft"
               type="textarea"
               :rows="4"
               placeholder="可输入多个名称，用 、；， 或换行分割"
               @keyup.ctrl.enter="confirmMaterialDialog"
             />
+            <el-input
+              v-else
+              v-model="materialDraft"
+              placeholder="输入单个场景名称"
+              @keyup.enter="confirmMaterialDialog"
+            />
           </el-form-item>
+          <template v-if="materialKind === 'scenes'">
+            <el-form-item label="时间">
+              <el-radio-group v-model="materialSceneTime">
+                <el-radio-button label="白天" value="白天" />
+                <el-radio-button label="深夜" value="深夜" />
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label="空间">
+              <el-radio-group v-model="materialSceneSpace">
+                <el-radio-button label="室内" value="室内" />
+                <el-radio-button label="室外" value="室外" />
+              </el-radio-group>
+            </el-form-item>
+          </template>
         </el-form>
         <template #footer>
           <el-button @click="materialDialogVisible = false">取消</el-button>
@@ -322,13 +423,15 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleCheck, CircleCheckFilled, Close, CopyDocument, Delete, DocumentAdd, Download, EditPen, Plus, Upload } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, Delete, Download, FolderAdd, MostlyCloudy, Plus, Search, Setting } from '@element-plus/icons-vue'
 import {
-  cloneCharacters,
   createCharacterConfig,
   createEpisode,
+  createEpisodeGroup,
   createId,
+  createSceneAsset,
   createSceneConfig,
   createShot,
 } from './defaults'
@@ -341,7 +444,7 @@ import {
   mergeDetectedCharacters,
   recommendedSeconds,
 } from './prompt'
-import type { Episode, ExportPayload, PendingDetection, Shot } from './types'
+import type { Episode, EpisodeGroup, ExportPayload, GlobalConfig, PendingDetection, SceneAsset, SceneConfig, SceneSpace, SceneTime, SectionKey, Shot } from './types'
 import { useAppState } from './useAppState'
 
 type MaterialKind = 'characters' | 'scenes'
@@ -349,12 +452,29 @@ type MaterialKind = 'characters' | 'scenes'
 const { state, activeEpisode } = useAppState()
 const materialDialogVisible = ref(false)
 const globalDialogVisible = ref(false)
+const globalConfigDraft = ref<GlobalConfig>(cloneGlobalConfig(state.globalConfig))
+const durationRangeDraft = ref<[number, number]>([
+  state.globalConfig.recommendedDurationRange.min,
+  state.globalConfig.recommendedDurationRange.max,
+])
 const batchShotDialogVisible = ref(false)
+const detectionDialogVisible = ref(false)
+const detectionConflictShotId = ref<string | null>(null)
 const sidebarCollapsed = ref(false)
 const materialDraft = ref('')
+const materialSceneTime = ref<SceneTime>('白天')
+const materialSceneSpace = ref<SceneSpace>('室内')
 const batchShotDraft = ref('')
 const materialKind = ref<MaterialKind>('characters')
 const editingEpisodeId = ref<string | null>(null)
+const editingEpisodeOriginalTitle = ref('')
+const editingGroupId = ref<string | null>(null)
+const editingGroupOriginalTitle = ref('')
+const expandedGroupIds = ref<string[]>(['ungrouped'])
+const openEpisodeMenuId = ref<string | null>(null)
+const openGroupMenuId = ref<string | null>(null)
+const episodeDropdownRefs = new Map<string, { handleClose?: () => void }>()
+const groupDropdownRefs = new Map<string, { handleClose?: () => void }>()
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
 const savedText = computed(() => {
@@ -369,7 +489,223 @@ const savedText = computed(() => {
 })
 
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
+const sortedEpisodeGroups = computed(() => state.episodeGroups.slice().sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
+const sortedUngroupedEpisodes = computed(() => sortEpisodesForDisplay(state.episodes.filter((episode) => !episode.groupId)))
 const batchShotSegments = computed(() => splitBatchShotText(batchShotDraft.value))
+const detectionConflictShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === detectionConflictShotId.value) ?? null)
+const detectionConflict = computed(() => detectionConflictShot.value?.pendingDetection ?? null)
+
+function sectionTitle(key: SectionKey) {
+  return titleFromSections(state.globalConfig.sections, key)
+}
+
+function draftSectionTitle(key: SectionKey) {
+  return titleFromSections(globalConfigDraft.value.sections, key)
+}
+
+function titleFromSections(sections: GlobalConfig['sections'], key: SectionKey) {
+  const fallback: Record<SectionKey, string> = {
+    base: '基础设定',
+    sceneRole: '场景与角色设定',
+    shot: '分镜详情',
+  }
+
+  return sections.find((section) => section.key === key)?.title.trim() || fallback[key]
+}
+
+function cloneGlobalConfig(config: GlobalConfig): GlobalConfig {
+  return JSON.parse(JSON.stringify(config)) as GlobalConfig
+}
+
+function openGlobalDialog() {
+  globalConfigDraft.value = cloneGlobalConfig(state.globalConfig)
+  durationRangeDraft.value = [
+    state.globalConfig.recommendedDurationRange.min,
+    state.globalConfig.recommendedDurationRange.max,
+  ]
+  globalDialogVisible.value = true
+}
+
+function saveGlobalDialog() {
+  const [min, max] = durationRangeDraft.value
+  state.globalConfig = {
+    ...cloneGlobalConfig(globalConfigDraft.value),
+    recommendedDurationRange: {
+      min: Math.min(min, max),
+      max: Math.max(min, max),
+    },
+  }
+  globalDialogVisible.value = false
+}
+
+function cancelGlobalDialog() {
+  globalDialogVisible.value = false
+}
+
+function formatDurationTooltip(value: number) {
+  return value.toFixed(1) + ' 秒'
+}
+
+function isGroupExpanded(id: string) {
+  return expandedGroupIds.value.includes(id)
+}
+
+function toggleGroup(id: string) {
+  expandedGroupIds.value = isGroupExpanded(id)
+    ? expandedGroupIds.value.filter((item) => item !== id)
+    : [...expandedGroupIds.value, id]
+}
+
+
+function groupSortTitle(group: EpisodeGroup) {
+  return editingGroupId.value === group.id ? editingGroupOriginalTitle.value : group.title
+}
+
+function episodeSortTitle(episode: Episode) {
+  return editingEpisodeId.value === episode.id ? editingEpisodeOriginalTitle.value : episode.title
+}
+
+function sortEpisodesForDisplay(episodes: Episode[]) {
+  return episodes.slice().sort((a, b) => episodeSortTitle(a).localeCompare(episodeSortTitle(b), 'zh-CN', { numeric: true }))
+}
+
+function episodesForGroup(groupId: string) {
+  return sortEpisodesForDisplay(state.episodes.filter((episode) => episode.groupId === groupId))
+}
+
+function finishEpisodeRename() {
+  editingEpisodeId.value = null
+  editingEpisodeOriginalTitle.value = ''
+}
+
+function cancelEpisodeRename(episode: Episode) {
+  episode.title = editingEpisodeOriginalTitle.value || episode.title
+  finishEpisodeRename()
+}
+
+function finishGroupRename() {
+  editingGroupId.value = null
+  editingGroupOriginalTitle.value = ''
+}
+
+function cancelGroupRename(group: { title: string }) {
+  group.title = editingGroupOriginalTitle.value || group.title
+  finishGroupRename()
+}
+
+function addEpisodeGroup() {
+  const group = createEpisodeGroup(state.episodeGroups.length + 1)
+  state.episodeGroups.push(group)
+  expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, group.id]))
+}
+
+function setEpisodeDropdownRef(id: string, dropdown: unknown) {
+  if (dropdown && typeof dropdown === 'object') {
+    episodeDropdownRefs.set(id, dropdown as { handleClose?: () => void })
+  } else {
+    episodeDropdownRefs.delete(id)
+  }
+}
+
+function setGroupDropdownRef(id: string, dropdown: unknown) {
+  if (dropdown && typeof dropdown === 'object') {
+    groupDropdownRefs.set(id, dropdown as { handleClose?: () => void })
+  } else {
+    groupDropdownRefs.delete(id)
+  }
+}
+
+function closeDropdownsExcept(type: 'episode' | 'group', id: string) {
+  episodeDropdownRefs.forEach((dropdown, key) => {
+    if (type !== 'episode' || key !== id) {
+      dropdown.handleClose?.()
+    }
+  })
+  groupDropdownRefs.forEach((dropdown, key) => {
+    if (type !== 'group' || key !== id) {
+      dropdown.handleClose?.()
+    }
+  })
+}
+
+function handleEpisodeMenuVisibleChange(visible: boolean, episodeId: string) {
+  openEpisodeMenuId.value = visible ? episodeId : openEpisodeMenuId.value === episodeId ? null : openEpisodeMenuId.value
+  if (visible) {
+    openGroupMenuId.value = null
+    closeDropdownsExcept('episode', episodeId)
+  }
+}
+
+function handleGroupMenuVisibleChange(visible: boolean, groupId: string) {
+  openGroupMenuId.value = visible ? groupId : openGroupMenuId.value === groupId ? null : openGroupMenuId.value
+  if (visible) {
+    openEpisodeMenuId.value = null
+    closeDropdownsExcept('group', groupId)
+  }
+}
+
+function handleEpisodeCommand(command: string | { action: 'move'; groupId: string | null }, episode: Episode) {
+  openEpisodeMenuId.value = null
+  if (typeof command !== 'string') {
+    if (command.action === 'move') {
+      episode.groupId = command.groupId
+    }
+    return
+  }
+
+  if (command === 'edit') {
+    editingEpisodeOriginalTitle.value = episode.title
+    editingEpisodeId.value = episode.id
+    return
+  }
+
+  if (command === 'toggleStar') {
+    episode.starred = !episode.starred
+    return
+  }
+
+  if (command === 'delete') {
+    void deleteEpisodeById(episode.id)
+  }
+}
+
+async function handleGroupCommand(command: string, groupId: string) {
+  openGroupMenuId.value = null
+  if (command === 'edit') {
+    const group = state.episodeGroups.find((item) => item.id === groupId)
+    editingGroupOriginalTitle.value = group?.title ?? ''
+    editingGroupId.value = groupId
+    return
+  }
+
+  if (command !== 'delete') {
+    return
+  }
+
+  const group = state.episodeGroups.find((item) => item.id === groupId)
+
+  if (!group) {
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm('删除分组后，组内剧本会移至未分组。', '删除分组', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+
+  state.episodes.forEach((episode) => {
+    if (episode.groupId === groupId) {
+      episode.groupId = null
+    }
+  })
+  state.episodeGroups = state.episodeGroups.filter((item) => item.id !== groupId)
+  expandedGroupIds.value = expandedGroupIds.value.filter((id) => id !== groupId)
+}
 
 function openMaterialDialog() {
   materialKind.value = 'characters'
@@ -393,15 +729,15 @@ function isSceneUsed(name: string) {
 
 function addEpisode() {
   const episode = createEpisode(state.episodes.length + 1)
+  episode.groupId = activeEpisode.value?.groupId ?? null
   state.episodes.push(episode)
   state.activeEpisodeId = episode.id
-}
 
-async function deleteEpisode() {
-  if (activeEpisode.value) {
-    await deleteEpisodeById(activeEpisode.value.id)
+  if (episode.groupId) {
+    expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, episode.groupId]))
   }
 }
+
 
 async function deleteEpisodeById(id: string) {
   if (state.episodes.length === 1) {
@@ -433,27 +769,30 @@ async function deleteEpisodeById(id: string) {
   }
 }
 
-async function deleteOtherEpisodes() {
-  if (state.episodes.length === 1) {
-    ElMessage.warning('没有可批量删除的其它剧本')
+
+function addShotAt(index: number) {
+  const episode = activeEpisode.value
+
+  if (!episode) {
     return
   }
 
-  try {
-    await ElMessageBox.confirm('确认删除当前剧本之外的所有剧本？', '批量删除', {
-      type: 'warning',
-      confirmButtonText: '删除其它剧本',
-      cancelButtonText: '取消',
-    })
-  } catch {
-    return
-  }
-
-  state.episodes = state.episodes.filter((episode) => episode.id === state.activeEpisodeId)
+  const safeIndex = Math.max(0, Math.min(index, episode.shots.length))
+  episode.shots.splice(safeIndex, 0, createShot())
 }
 
-function addShot() {
-  activeEpisode.value?.shots.push(createShot())
+function handleAddShotCommand(command: 'start' | 'end' | { action: 'after'; index: number }) {
+  if (command === 'start') {
+    addShotAt(0)
+    return
+  }
+
+  if (command === 'end') {
+    addShotAt(activeEpisode.value?.shots.length ?? 0)
+    return
+  }
+
+  addShotAt(command.index + 1)
 }
 
 function openBatchShotDialog() {
@@ -470,19 +809,35 @@ function splitBatchShotText(value: string) {
 
 function confirmBatchShots() {
   const episode = activeEpisode.value
+  const segments = batchShotSegments.value
 
-  if (!episode || !batchShotSegments.value.length) {
+  if (!episode || !segments.length) {
     return
   }
 
-  batchShotSegments.value.forEach((text) => {
-    const shot = createShot()
-    shot.text = text
-    episode.shots.push(shot)
-    handleShotTextInput(shot)
-  })
+  const firstShot = episode.shots[0]
+  const shouldReuseFirstShot = episode.shots.length === 1 && firstShot && !firstShot.text.trim()
 
-  ElMessage.success(`已批量添加 ${batchShotSegments.value.length} 条分镜`)
+  if (shouldReuseFirstShot) {
+    firstShot.text = segments[0]
+    detectShotCharacters(firstShot, { silent: true, showConflict: false })
+
+    segments.slice(1).forEach((text) => {
+      const shot = createShot()
+      shot.text = text
+      episode.shots.push(shot)
+      detectShotCharacters(shot, { silent: true, showConflict: false })
+    })
+  } else {
+    segments.forEach((text) => {
+      const shot = createShot()
+      shot.text = text
+      episode.shots.push(shot)
+      detectShotCharacters(shot, { silent: true, showConflict: false })
+    })
+  }
+
+  ElMessage.success('已批量添加 ' + segments.length + ' 条分镜')
   batchShotDraft.value = ''
   batchShotDialogVisible.value = false
 }
@@ -491,23 +846,13 @@ function isShotCollapsed(shot: Shot) {
   return state.globalConfig.autoCollapseCompletedShots && shot.status === 'complete'
 }
 
-async function deleteShot(id: string) {
+function deleteShot(id: string) {
   if (!activeEpisode.value) {
     return
   }
 
   if (activeEpisode.value.shots.length === 1) {
     ElMessage.warning('至少保留一条分镜')
-    return
-  }
-
-  try {
-    await ElMessageBox.confirm('确认删除这条分镜？', '删除分镜', {
-      type: 'warning',
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-    })
-  } catch {
     return
   }
 
@@ -521,24 +866,41 @@ function addMaterial(kind: MaterialKind, value: string) {
     return
   }
 
-  const items = splitMaterialInput(value)
+  if (kind === 'characters') {
+    const items = splitMaterialInput(value)
 
-  if (!items.length) {
+    if (!items.length) {
+      return
+    }
+
+    const added = items.filter((item) => !episode.characters.includes(item))
+    const skipped = items.length - added.length
+
+    episode.characters.push(...added)
+
+    if (added.length && skipped) {
+      ElMessage.success(`已添加 ${added.length} 项，跳过 ${skipped} 个重复项`)
+    } else if (added.length) {
+      ElMessage.success(`已添加 ${added.length} 项`)
+    } else {
+      ElMessage.info('输入的素材已存在')
+    }
     return
   }
 
-  const added = items.filter((item) => !episode[kind].includes(item))
-  const skipped = items.length - added.length
+  const name = value.trim()
 
-  episode[kind].push(...added)
-
-  if (added.length && skipped) {
-    ElMessage.success(`已添加 ${added.length} 项，跳过 ${skipped} 个重复项`)
-  } else if (added.length) {
-    ElMessage.success(`已添加 ${added.length} 项`)
-  } else {
-    ElMessage.info('输入的素材已存在')
+  if (!name) {
+    return
   }
+
+  if (episode.scenes.some((scene) => scene.name === name)) {
+    ElMessage.info('输入的场景已存在')
+    return
+  }
+
+  episode.scenes.push(createSceneAsset(name, materialSceneTime.value, materialSceneSpace.value))
+  ElMessage.success('已添加 1 项')
 }
 
 function splitMaterialInput(value: string) {
@@ -559,11 +921,28 @@ function removeMaterial(kind: MaterialKind, value: string) {
     return
   }
 
-  episode[kind] = episode[kind].filter((item) => item !== value)
+  if (kind === 'characters') {
+    episode.characters = episode.characters.filter((item) => item !== value)
+    return
+  }
+
+  episode.scenes = episode.scenes.filter((item) => item.name !== value)
 }
 
 function addSceneToShot(shot: Shot) {
-  shot.scenes.push(createSceneConfig(activeEpisode.value?.scenes[0] ?? ''))
+  const firstScene = activeEpisode.value?.scenes[0]
+  shot.scenes.push(createSceneConfig(firstScene?.name ?? '', firstScene?.time ?? '白天', firstScene?.space ?? '室内'))
+}
+
+function syncSceneFromAsset(scene: SceneConfig) {
+  const selected = activeEpisode.value?.scenes.find((item) => item.name === scene.name)
+
+  if (!selected) {
+    return
+  }
+
+  scene.time = selected.time
+  scene.space = selected.space
 }
 
 function removeSceneFromShot(shot: Shot, id: string) {
@@ -589,22 +968,70 @@ function isCharacterOptionDisabled(shot: Shot, currentId: string, name: string) 
   return shot.characters.some((character) => character.id !== currentId && character.name === name)
 }
 
+function isVoiceOverflow(shot: Shot) {
+  return shot.characters.filter((character) => character.includeVoice).length > 3
+}
+
+function highlightedShotText(shot: Shot) {
+  const text = shot.text || ' '
+  const characters = shot.characters
+    .map((character) => ({ name: character.name.trim(), includeVoice: character.includeVoice }))
+    .filter((character, index, list) => character.name && list.findIndex((item) => item.name === character.name) === index)
+    .sort((a, b) => b.name.length - a.name.length)
+
+  if (!characters.length) {
+    return escapeHtml(text)
+  }
+
+  const pattern = new RegExp(characters.map((character) => escapeRegExp(character.name)).join('|'), 'g')
+  const rawParts: string[] = []
+  let cursor = 0
+
+  text.replace(pattern, (match, offset: number) => {
+    rawParts.push(escapeHtml(text.slice(cursor, offset)))
+    const character = characters.find((item) => item.name === match)
+    const className = character?.includeVoice ? 'matched-character with-voice' : 'matched-character without-voice'
+    rawParts.push('<mark class="' + className + '">' + escapeHtml(match) + '</mark>')
+    cursor = offset + match.length
+    return match
+  })
+
+  rawParts.push(escapeHtml(text.slice(cursor)))
+  return rawParts.join('')
+}
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
 function setShotStatus(shot: Shot, done: boolean) {
   shot.status = done ? 'complete' : 'incomplete'
 }
 
-function handleShotTextInput(shot: Shot) {
+function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConflict?: boolean } = {}) {
   const episode = activeEpisode.value
+  const showConflict = options.showConflict ?? true
 
   if (!episode) {
-    return
+    return false
   }
 
   const detected = detectCharacters(shot.text, episode.characters)
+  shot.autoSyncNotice = null
 
   if (!detected.length) {
     shot.pendingDetection = null
-    return
+    if (!options.silent) {
+      ElMessage.info('未识别到本集人物')
+    }
+    return false
   }
 
   const currentNames = shot.characters.map((character) => character.name).filter(Boolean)
@@ -614,21 +1041,22 @@ function handleShotTextInput(shot: Shot) {
     .map((character) => character.name)
 
   if (!currentNames.length) {
-    shot.undoCharacters = cloneCharacters(shot.characters)
     shot.characters = buildDetectedCharacters(detected)
     shot.pendingDetection = null
-    shot.autoSyncNotice = {
-      id: createId('notice'),
-      message: `已自动添加 ${detected.length} 个人物：${detected.map((character) => character.name).join('、')}。`,
+    if (!options.silent) {
+      ElMessage.success('已识别并添加人物配置')
     }
-    return
+    return true
   }
 
   const mergeNames = Array.from(new Set([...currentNames, ...detected.map((character) => character.name)]))
   const replaceNames = detected.map((character) => character.name)
 
   if (sameNames(currentNames, replaceNames) && !voiceSuggestions.length) {
-    return
+    if (!options.silent) {
+      ElMessage.success('人物配置已匹配')
+    }
+    return true
   }
 
   shot.pendingDetection = {
@@ -639,51 +1067,44 @@ function handleShotTextInput(shot: Shot) {
     replaceNames,
     voiceSuggestions,
   }
-  shot.autoSyncNotice = null
+
+  if (!showConflict) {
+    shot.characters = mergeDetectedCharacters(shot.characters, detected, true)
+    shot.pendingDetection = null
+    return true
+  }
+
+  detectionConflictShotId.value = shot.id
+  detectionDialogVisible.value = true
+  return false
 }
 
-function mergeDetected(shot: Shot, updateVoiceSuggestions: boolean) {
-  if (!shot.pendingDetection) {
+function mergeActiveDetection() {
+  const shot = detectionConflictShot.value
+
+  if (!shot?.pendingDetection) {
+    detectionDialogVisible.value = false
     return
   }
 
-  shot.undoCharacters = cloneCharacters(shot.characters)
-  shot.characters = mergeDetectedCharacters(shot.characters, shot.pendingDetection.detected, updateVoiceSuggestions)
-  shot.autoSyncNotice = {
-    id: createId('notice'),
-    message: `已合并人物配置：${shot.pendingDetection.mergeNames.join('、')}。`,
-  }
+  shot.characters = mergeDetectedCharacters(shot.characters, shot.pendingDetection.detected, true)
+  ElMessage.success('已合并人物配置')
   shot.pendingDetection = null
+  detectionConflictShotId.value = null
+  detectionDialogVisible.value = false
 }
 
-function replaceDetected(shot: Shot) {
-  if (!shot.pendingDetection) {
-    return
+function cancelActiveDetection() {
+  const shot = detectionConflictShot.value
+
+  if (shot?.pendingDetection) {
+    shot.pendingDetection = null
   }
 
-  shot.undoCharacters = cloneCharacters(shot.characters)
-  shot.characters = buildDetectedCharacters(shot.pendingDetection.detected)
-  shot.autoSyncNotice = {
-    id: createId('notice'),
-    message: `已替换为本次检测人物：${shot.pendingDetection.replaceNames.join('、')}。`,
-  }
-  shot.pendingDetection = null
+  detectionConflictShotId.value = null
+  detectionDialogVisible.value = false
 }
 
-function cancelDetection(shot: Shot) {
-  shot.pendingDetection = null
-}
-
-function undoAutoSync(shot: Shot) {
-  if (!shot.undoCharacters) {
-    return
-  }
-
-  shot.characters = cloneCharacters(shot.undoCharacters)
-  shot.undoCharacters = null
-  shot.autoSyncNotice = null
-  ElMessage.success('已撤销自动同步')
-}
 
 function promptFor(shot: Shot) {
   return composePrompt(state.globalConfig, shot)
@@ -704,12 +1125,14 @@ function durationText(text: string) {
 
 function durationState(text: string): { type: 'success' | 'warning' | 'danger'; warn: boolean } {
   const seconds = recommendedSeconds(text)
+  const min = Math.min(state.globalConfig.recommendedDurationRange.min, state.globalConfig.recommendedDurationRange.max)
+  const max = Math.max(state.globalConfig.recommendedDurationRange.min, state.globalConfig.recommendedDurationRange.max)
 
   if (!text.trim()) {
     return { type: 'warning', warn: false }
   }
 
-  if (seconds < 4 || seconds > 23) {
+  if (seconds < min || seconds > max) {
     return { type: 'danger', warn: true }
   }
 
@@ -728,26 +1151,6 @@ function triggerImport() {
   fileInputRef.value?.click()
 }
 
-function exportEpisode() {
-  if (activeEpisode.value) {
-    exportEpisodeById(activeEpisode.value.id)
-  }
-}
-
-function exportEpisodeById(id: string) {
-  const episode = state.episodes.find((item) => item.id === id)
-
-  if (!episode) {
-    return
-  }
-
-  downloadJson(`${episode.title || 'episode'}.json`, {
-    version: state.version,
-    exportedAt: new Date().toISOString(),
-    episode: JSON.parse(JSON.stringify(episode)) as Episode,
-    globalConfigSnapshot: JSON.parse(JSON.stringify(state.globalConfig)),
-  })
-}
 
 function exportAllEpisodes() {
   downloadJson('script2prompt-episodes.json', {
@@ -804,22 +1207,83 @@ async function importEpisode(event: Event) {
   }
 }
 
+function normalizeSceneAsset(scene: unknown): SceneAsset | null {
+  if (typeof scene === 'string') {
+    const name = scene.trim()
+    return name ? createSceneAsset(name) : null
+  }
+
+  if (!scene || typeof scene !== 'object') {
+    return null
+  }
+
+  const value = scene as Partial<SceneAsset>
+  const name = typeof value.name === 'string' ? value.name.trim() : ''
+
+  if (!name) {
+    return null
+  }
+
+  return createSceneAsset(
+    name,
+    value.time === '深夜' ? '深夜' : '白天',
+    value.space === '室外' ? '室外' : '室内',
+  )
+}
+
+function normalizeSceneAssets(scenes: unknown): SceneAsset[] {
+  if (!Array.isArray(scenes)) {
+    return []
+  }
+
+  const normalized = scenes.map(normalizeSceneAsset).filter((scene): scene is SceneAsset => Boolean(scene))
+  return normalized.filter((scene, index, list) => list.findIndex((item) => item.name === scene.name) === index)
+}
+
+function normalizeImportedShotScene(scene: unknown, assets: SceneAsset[]): SceneConfig | null {
+  if (!scene || typeof scene !== 'object') {
+    return null
+  }
+
+  const value = scene as Partial<SceneConfig>
+  const name = typeof value.name === 'string' ? value.name.trim() : ''
+
+  if (!name) {
+    return null
+  }
+
+  const asset = assets.find((item) => item.name === name)
+
+  return createSceneConfig(
+    name,
+    value.time ?? asset?.time ?? '白天',
+    value.space ?? asset?.space ?? '室内',
+  )
+}
+
 function normalizeImportedEpisode(episode: Episode): Episode {
+  const scenes = normalizeSceneAssets(episode.scenes)
+  const shots = Array.isArray(episode.shots) ? episode.shots : []
+
   return {
     ...episode,
     id: createId('episode'),
     title: episode.title || '导入单集',
+    groupId: null,
+    starred: Boolean(episode.starred),
     characters: Array.isArray(episode.characters) ? episode.characters : [],
-    scenes: Array.isArray(episode.scenes) ? episode.scenes : [],
+    scenes,
     props: [],
-    shots: episode.shots.map((shot) => ({
+    shots: shots.map((shot) => ({
       ...createShot(),
       ...shot,
       id: createId('shot'),
       pendingDetection: null,
       autoSyncNotice: null,
       undoCharacters: null,
-      scenes: Array.isArray(shot.scenes) ? shot.scenes.map((scene) => ({ ...scene, id: createId('scene') })) : [],
+      scenes: Array.isArray(shot.scenes)
+        ? shot.scenes.map((scene) => normalizeImportedShotScene(scene, scenes)).filter((scene): scene is SceneConfig => Boolean(scene))
+        : [],
       characters: Array.isArray(shot.characters)
         ? shot.characters.map((character) => ({ ...character, id: createId('character') }))
         : [],
@@ -827,8 +1291,3 @@ function normalizeImportedEpisode(episode: Episode): Episode {
   }
 }
 </script>
-
-
-
-
-

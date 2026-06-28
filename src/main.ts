@@ -5,4 +5,4 @@ import 'element-plus/dist/index.css'
 import './styles.css'
 import App from './App.vue'
 
-createApp(App).use(ElementPlus, { locale: zhCn, size: 'small' }).mount('#app')
+createApp(App).use(ElementPlus, { locale: zhCn }).mount('#app')

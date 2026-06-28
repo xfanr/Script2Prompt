@@ -1,4 +1,4 @@
-﻿import type { AppState, CharacterConfig, Episode, GlobalConfig, SceneConfig, Shot } from './types'
+import type { AppState, CharacterConfig, Episode, EpisodeGroup, GlobalConfig, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
 export const APP_VERSION = 1
@@ -14,6 +14,7 @@ export function createId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+
 export function cloneCharacters(characters: CharacterConfig[]) {
   return characters.map((character) => ({ ...character }))
 }
@@ -23,6 +24,7 @@ export function createGlobalConfig(): GlobalConfig {
     baseSetting: defaultBaseSetting,
     sceneRoleSuffix: defaultSceneRoleSuffix,
     autoCollapseCompletedShots: true,
+    recommendedDurationRange: { min: 4, max: 23 },
     sections: [
       { key: 'base', title: '基础设定', order: 1, enabled: true },
       { key: 'sceneRole', title: '场景与角色设定', order: 2, enabled: true },
@@ -31,12 +33,20 @@ export function createGlobalConfig(): GlobalConfig {
   }
 }
 
-export function createSceneConfig(name = ''): SceneConfig {
+export function createSceneAsset(name = '', time: SceneTime = '白天', space: SceneSpace = '室内'): SceneAsset {
+  return {
+    name,
+    time,
+    space,
+  }
+}
+
+export function createSceneConfig(name = '', time: SceneTime = '白天', space: SceneSpace = '室内'): SceneConfig {
   return {
     id: createId('scene'),
     name,
-    time: '白天',
-    space: '室内',
+    time,
+    space,
   }
 }
 
@@ -64,11 +74,20 @@ export function createShot(): Shot {
   }
 }
 
+export function createEpisodeGroup(index = 1): EpisodeGroup {
+  return {
+    id: createId('group'),
+    title: `新分组 ${index}`,
+  }
+}
+
 export function createEpisode(index = 1): Episode {
   return {
     id: createId('episode'),
     title: `第 ${index} 集`,
     characters: [],
+    groupId: null,
+    starred: false,
     scenes: [],
     props: [],
     shots: [createShot()],
@@ -81,9 +100,9 @@ export function createInitialState(): AppState {
   return {
     version: APP_VERSION,
     globalConfig: createGlobalConfig(),
+    episodeGroups: [],
     episodes: [episode],
     activeEpisodeId: episode.id,
     lastSavedAt: null,
   }
 }
-

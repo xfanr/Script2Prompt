@@ -64,7 +64,7 @@ export function composePrompt(globalConfig: GlobalConfig, shot: Shot) {
   const sectionContent: Record<SectionKey, string> = {
     base: globalConfig.baseSetting.trim(),
     sceneRole: composeSceneRoleSection(globalConfig, shot),
-    shot: shot.text.trim(),
+    shot: shot.text.trim().replaceAll('△', ''),
   }
 
   return globalConfig.sections
@@ -73,7 +73,8 @@ export function composePrompt(globalConfig: GlobalConfig, shot: Shot) {
     .sort((a, b) => a.order - b.order)
     .map((section, index) => {
       const number = chineseNumbers[index] ?? String(index + 1)
-      return `${number}、${section.title.trim() || '未命名章节'}\n${sectionContent[section.key]}`
+      const title = section.title.trim() || '未命名章节'
+      return `${number}、${title}\n${sectionContent[section.key]}`
     })
     .join('\n\n')
 }
@@ -100,7 +101,7 @@ function composeSceneRoleSection(globalConfig: GlobalConfig, shot: Shot) {
         parts.push('音色是@')
       }
 
-      if (character.includeState && character.statusText?.trim()) {
+      if (character.statusText?.trim()) {
         parts.push(character.statusText.trim())
       }
 
