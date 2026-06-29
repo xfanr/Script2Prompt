@@ -104,6 +104,9 @@ function loadState(): AppState {
     parsed.globalConfig.recommendedDurationRange.min ??= 4
     parsed.globalConfig.recommendedDurationRange.max ??= 23
     parsed.episodeGroups ??= []
+    parsed.episodeGroups.forEach((group) => {
+      group.starred ??= false
+    })
 
     const groupIds = new Set(parsed.episodeGroups.map((group) => group.id))
 

@@ -210,10 +210,15 @@ h3,
   border-radius: 6px;
   color: #1f2a44;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .episode-group-row {
   font-weight: 900;
+}
+
+.episode-group-row.empty {
+  cursor: default;
 }
 
 .episode-group-row:hover,
@@ -232,13 +237,21 @@ h3,
 }
 
 .group-caret {
-  flex: 0 0 auto;
+  flex: 0 0 14px;
   color: #49657f;
   transition: transform 0.16s ease;
 }
 
 .group-caret.expanded {
   transform: rotate(90deg);
+}
+
+.group-dot {
+  flex: 0 0 14px;
+  color: #8da0b8;
+  font-size: 18px;
+  line-height: 1;
+  text-align: center;
 }
 
 .episode-children {
@@ -263,8 +276,21 @@ h3,
   white-space: nowrap;
 }
 
+.group-title-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .episode-star {
   flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.group-star-placeholder {
+  flex: 0 0 18px;
   margin-left: auto;
 }
 
@@ -272,8 +298,9 @@ h3,
   display: grid;
   grid-template-columns: minmax(0, 1fr) 22px 22px;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   width: 100%;
+  min-width: 0;
 }
 
 .episode-group-row .rename-inline,
@@ -289,11 +316,24 @@ h3,
 
 .rename-confirm.el-button,
 .rename-cancel.el-button {
-  width: 22px;
-  height: 22px;
-  min-height: 22px;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  flex: 0 0 22px;
   padding: 0;
+  border-radius: 50%;
   font-size: 12px;
+  margin-left: 0;
+}
+
+.rename-confirm.el-button.is-circle,
+.rename-cancel.el-button.is-circle {
+  width: 22px !important;
+}
+
+.rename-inline .el-button + .el-button {
+  margin-left: 0;
 }
 
 .sidebar-footer {
@@ -380,13 +420,18 @@ h3,
   border-bottom-left-radius: 4px;
 }
 
-.stage-action-group .shot-create-actions .el-button:last-child {
+.stage-action-group .shot-create-actions .el-button {
   border-top-right-radius: 4px;
   border-bottom-right-radius: 4px;
 }
 
 .stage-action-group .shot-create-actions {
   margin-left: -1px;
+}
+
+.stage-action-group .shot-create-actions .el-button {
+  position: relative;
+  height: 32px;
 }
 
 .asset-editor {
@@ -561,7 +606,8 @@ h3,
   position: absolute;
   inset: 1px;
   z-index: 1;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-width: none;
   padding: 10px 11px;
   border-radius: 4px;
   color: transparent;
@@ -571,6 +617,10 @@ h3,
   white-space: pre-wrap;
   word-break: break-word;
   pointer-events: none;
+}
+
+.script-highlight-layer::-webkit-scrollbar {
+  display: none;
 }
 
 .script-highlight-layer mark {
@@ -727,7 +777,8 @@ h3,
 }
 
 .episode-script-dialog .el-textarea__inner {
-  min-height: 360px !important;
+  min-height: 320px !important;
+  max-height: 42vh;
   font-size: 15px;
   line-height: 1.7;
 }
@@ -838,6 +889,10 @@ h3,
   background: #f8fbff;
 }
 
+.review-summary-stats > div:not(.summary-average-card) {
+  padding-top: 18px;
+}
+
 .review-summary-stats strong {
   color: #17233f;
   font-size: 20px;
@@ -899,12 +954,48 @@ h3,
   color: #32435f;
 }
 
+.preview-copy-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .batch-shot-dialog .el-dialog__body {
   max-height: calc(100vh - 190px);
   overflow: hidden;
 }
 
-.batch-shot-dialog .el-textarea__inner {
+.episode-script-dialog.el-dialog,
+.episode-script-dialog .el-dialog {
+  display: flex;
+  max-height: calc(100vh - 48px);
+  flex-direction: column;
+  margin-top: 24px !important;
+  margin-bottom: 24px !important;
+}
+
+.episode-script-dialog .el-dialog__body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.episode-script-dialog .el-dialog__header,
+.episode-script-dialog .el-dialog__footer {
+  flex: 0 0 auto;
+}
+
+.episode-script-dialog .el-textarea {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.batch-shot-dialog .el-textarea__inner,
+.episode-script-dialog .el-textarea__inner {
   min-height: 240px !important;
 }
 
@@ -916,6 +1007,12 @@ h3,
   margin-top: 12px;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.episode-script-dialog .batch-shot-preview {
+  min-height: 0;
+  max-height: none;
+  flex: 1 1 auto;
 }
 
 .batch-shot-preview-item {
@@ -973,6 +1070,7 @@ h3,
 .batch-shot-footer-actions {
   display: flex;
   gap: 8px;
+  margin-left: auto;
 }
 
 @media (max-width: 1220px) {
@@ -1127,10 +1225,16 @@ h3,
 
 .is-voice-overflow,
 .is-voice-overflow.is-bordered,
+.is-voice-overflow .el-checkbox__input,
 .is-voice-overflow .el-checkbox__inner,
+.is-voice-overflow .el-checkbox__inner::after,
 .is-voice-overflow .el-checkbox__label {
   transition-duration: 0.12s !important;
   transition-property: border-color, background-color, color, box-shadow !important;
+}
+
+.is-voice-overflow .el-checkbox__inner::after {
+  transition-property: transform, border-color !important;
 }
 
 .script-input-wrap.warn .el-textarea__inner,

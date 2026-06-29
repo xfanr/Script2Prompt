@@ -64,7 +64,7 @@ export function composePrompt(globalConfig: GlobalConfig, shot: Shot) {
   const sectionContent: Record<SectionKey, string> = {
     base: globalConfig.baseSetting.trim(),
     sceneRole: composeSceneRoleSection(globalConfig, shot),
-    shot: shot.text.trim().replaceAll('△', ''),
+    shot: shot.text.trim(),
   }
 
   return globalConfig.sections
@@ -74,7 +74,7 @@ export function composePrompt(globalConfig: GlobalConfig, shot: Shot) {
     .map((section, index) => {
       const number = chineseNumbers[index] ?? String(index + 1)
       const title = section.title.trim() || '未命名章节'
-      return `${number}、${title}\n${sectionContent[section.key]}`
+      return `${number}、${title}\n\n${sectionContent[section.key]}`
     })
     .join('\n\n')
 }

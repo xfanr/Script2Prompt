@@ -36,12 +36,13 @@
               <el-scrollbar class="episode-scrollbar">
                 <div class="episode-tree">
                   <section class="episode-group-block">
-                    <div class="episode-group-row default-group" role="button" tabindex="0" @contextmenu.prevent.stop @click="toggleGroup('ungrouped')" @keyup.enter="toggleGroup('ungrouped')">
-                      <el-icon class="group-caret" :class="{ expanded: isGroupExpanded('ungrouped') }"><ArrowRight /></el-icon>
+                    <div class="episode-group-row default-group" :class="{ empty: isGroupEmpty('ungrouped') }" role="button" tabindex="0" @contextmenu.prevent.stop @click="toggleGroupIfNotEmpty('ungrouped')" @keyup.enter="toggleGroupIfNotEmpty('ungrouped')">
+                      <span v-if="isGroupEmpty('ungrouped')" class="group-dot">•</span>
+                      <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded('ungrouped') }"><ArrowRight /></el-icon>
                       <span>未分组</span>
                       <em>{{ sortedUngroupedEpisodes.length }}</em>
                     </div>
-                    <div v-if="isGroupExpanded('ungrouped')" class="episode-children">
+                    <div v-if="!isGroupEmpty('ungrouped') && isGroupExpanded('ungrouped')" class="episode-children">
                       <el-dropdown
                         :ref="(dropdown) => setEpisodeDropdownRef(episode.id, dropdown)"
                         v-for="episode in sortedUngroupedEpisodes"
@@ -62,7 +63,7 @@
                         <template #dropdown>
                           <el-dropdown-menu>
                             <el-dropdown-item command="edit" :icon="EditPen">重命名</el-dropdown-item>
-                            <el-dropdown-item command="toggleStar" :icon="episode.starred ? StarFilled : Star">{{ episode.starred ? '取消星标' : '星标' }}</el-dropdown-item>
+                            <el-dropdown-item command="toggleStar" :icon="episode.starred ? Star : StarFilled">{{ episode.starred ? '取消星标' : '星标' }}</el-dropdown-item>
                             <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
                             <el-dropdown-item v-for="(group, groupIndex) in sortedEpisodeGroups" :key="group.id" :divided="groupIndex === 0" :command="{ action: 'move', groupId: group.id }">移至 {{ group.title }}
                             </el-dropdown-item>
@@ -74,24 +75,27 @@
 
                   <section v-for="group in sortedEpisodeGroups" :key="group.id" class="episode-group-block">
                     <el-dropdown :ref="(dropdown) => setGroupDropdownRef(group.id, dropdown)" trigger="contextmenu" :visible="openGroupMenuId === group.id" @visible-change="(visible) => handleGroupMenuVisibleChange(visible, group.id)" @command="(command) => handleGroupCommand(command, group.id)">
-                      <div class="episode-group-row" role="button" tabindex="0" @click="toggleGroup(group.id)" @keyup.enter="toggleGroup(group.id)">
-                        <el-icon class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
+                      <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @click="toggleGroupIfNotEmpty(group.id)" @keyup.enter="toggleGroupIfNotEmpty(group.id)">
+                        <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
+                        <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
                         <div v-if="editingGroupId === group.id" class="rename-inline" @click.stop @keydown.stop>
                           <el-input v-model="group.title" class="episode-title-input" placeholder="分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
                           <el-button class="rename-confirm" :icon="Check" circle type="success" @click="finishGroupRename" />
                           <el-button class="rename-cancel" :icon="Close" circle type="danger" @click="cancelGroupRename(group)" />
                         </div>
-                        <span v-else>{{ group.title }}</span>
-                        <em v-if="editingGroupId !== group.id">{{ episodesForGroup(group.id).length }}</em>
+                        <span v-else class="group-title-text">{{ group.title }}</span>
+                        <span v-if="editingGroupId !== group.id && group.starred" class="episode-star group-star">⭐️</span>
+                        <span v-else-if="editingGroupId !== group.id" class="group-star-placeholder" aria-hidden="true"></span>
                       </div>
                       <template #dropdown>
                         <el-dropdown-menu>
                           <el-dropdown-item command="edit" :icon="EditPen">重命名</el-dropdown-item>
+                          <el-dropdown-item command="toggleStar" :icon="group.starred ? Star : StarFilled">{{ group.starred ? '取消星标' : '星标' }}</el-dropdown-item>
                           <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
                         </el-dropdown-menu>
                       </template>
                     </el-dropdown>
-                    <div v-if="isGroupExpanded(group.id)" class="episode-children">
+                    <div v-if="!isGroupEmpty(group.id) && isGroupExpanded(group.id)" class="episode-children">
                       <el-dropdown
                         :ref="(dropdown) => setEpisodeDropdownRef(episode.id, dropdown)"
                         v-for="episode in episodesForGroup(group.id)"
@@ -112,7 +116,7 @@
                         <template #dropdown>
                           <el-dropdown-menu>
                             <el-dropdown-item command="edit" :icon="EditPen">重命名</el-dropdown-item>
-                            <el-dropdown-item command="toggleStar" :icon="episode.starred ? StarFilled : Star">{{ episode.starred ? '取消星标' : '星标' }}</el-dropdown-item>
+                            <el-dropdown-item command="toggleStar" :icon="episode.starred ? Star : StarFilled">{{ episode.starred ? '取消星标' : '星标' }}</el-dropdown-item>
                             <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
                             <el-dropdown-item divided :command="{ action: 'move', groupId: null }">移至未分组</el-dropdown-item>
                             <el-dropdown-item v-for="targetGroup in sortedEpisodeGroups" :key="targetGroup.id" :command="{ action: 'move', groupId: targetGroup.id }">移至 {{ targetGroup.title }}
@@ -142,10 +146,9 @@
               </div>
               <div class="stage-actions">
                 <el-button-group class="stage-action-group">
-                  <el-button :icon="Document" plain @click="openEpisodeScriptDialog">本集剧本</el-button>
                   <el-button :icon="DataAnalysis" plain @click="openReviewSummary">本集数据</el-button>
-                  <el-dropdown class="shot-create-actions" split-button type="primary" @click="openBatchShotDialog" @command="handleAddShotCommand">
-                    添加分镜
+                  <el-dropdown class="shot-create-actions" split-button type="primary" @click="openEpisodeScriptDialog" @command="handleAddShotCommand">
+                    导入分镜
                     <template #dropdown>
                       <el-dropdown-menu>
                         <el-dropdown-item command="start">添至开头</el-dropdown-item>
@@ -223,8 +226,9 @@
                     <el-button :icon="Search" text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
                   </div>
                   <div class="script-input-wrap" :class="{ warn: durationState(shot.text).warn }">
-                    <div class="script-highlight-layer" v-html="highlightedShotText(shot)"></div>
+                    <div :ref="(element) => setScriptHighlightRef(shot.id, element)" class="script-highlight-layer" v-html="highlightedShotText(shot)"></div>
                     <el-input
+                      :ref="(input) => setScriptInputRef(shot.id, input)"
                       v-model="shot.text"
                       type="textarea"
                       :rows="9"
@@ -297,7 +301,10 @@
                 <section class="shot-cell preview-cell">
                   <div class="cell-title preview-title">
                     <span>完整提示词预览</span>
-                    <el-button :icon="CopyDocument" text type="primary" @click="copyPrompt(shot)">复制</el-button>
+                    <div class="preview-copy-actions">
+                      <el-button :icon="CopyDocument" text type="primary" @click="copyShotDetail(shot)">复制详情</el-button>
+                      <el-button :icon="CopyDocument" text type="primary" @click="copyPrompt(shot)">复制整段</el-button>
+                    </div>
                   </div>
                   <pre>{{ promptFor(shot) }}</pre>
                 </section>
@@ -337,7 +344,7 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="cancelGlobalDialog">取消</el-button>
+          <el-button @click="resetGlobalDialog">重置</el-button>
           <el-button type="primary" @click="saveGlobalDialog">保存</el-button>
         </template>
       </el-dialog>
@@ -351,45 +358,6 @@
         <template #footer>
           <el-button @click="cancelActiveDetection">取消</el-button>
           <el-button type="primary" @click="mergeActiveDetection">合并</el-button>
-        </template>
-      </el-dialog>
-      <el-dialog v-model="batchShotDialogVisible" title="批量分镜" width="960px" class="batch-shot-dialog">
-        <el-form label-position="top">
-          <el-input
-              v-model="batchShotDraft"
-              type="textarea"
-              :rows="10"
-              placeholder="用连续三个短横线 --- 分割每条分镜"
-            />
-
-          <div v-if="batchShotSegments.length" class="batch-shot-preview">
-            <div
-              v-for="(text, index) in batchShotSegments"
-              :key="`${index}-${text.length}`"
-              class="batch-shot-preview-item"
-              :class="{ warn: durationState(text).warn }"
-            >
-              <span class="batch-shot-index">#{{ index + 1 }}</span>
-              <p>{{ text }}</p>
-              <span class="batch-shot-stat">{{ characterCount(text) }} 字</span>
-              <span class="batch-shot-stat">推荐 {{ durationText(text) }}</span>
-            </div>
-          </div>
-        </el-form>
-        <template #footer>
-          <div class="batch-shot-footer">
-            <el-alert
-              class="batch-shot-count-alert"
-              :title="`已识别 ${batchShotSegments.length} 条分镜`"
-              type="success"
-              show-icon
-              :closable="false"
-            />
-            <div class="batch-shot-footer-actions">
-              <el-button @click="batchShotDialogVisible = false">取消</el-button>
-              <el-button type="primary" :disabled="!batchShotSegments.length" @click="confirmBatchShots">批量添加</el-button>
-            </div>
-          </div>
         </template>
       </el-dialog>
       <el-dialog v-model="reviewDialogVisible" title="提示词评分" width="520px" class="review-dialog" @closed="activeReviewShotId = null">
@@ -434,7 +402,7 @@
             <strong>{{ reviewSummary.reviewedRate }}</strong>
             <span>已评分率</span>
           </div>
-          <div>
+          <div class="summary-average-card">
             <el-rate
               class="summary-average-rate"
               :class="{ muted: reviewSummary.averageValue <= 2 }"
@@ -520,17 +488,55 @@
           </el-table-column>
         </el-table>
       </el-dialog>
-      <el-dialog v-model="episodeScriptDialogVisible" title="本集剧本" width="760px" class="episode-script-dialog">
+      <el-dialog v-model="episodeScriptDialogVisible" title="本集剧本" width="960px" class="episode-script-dialog">
         <el-input
           v-model="episodeScriptDraft"
           type="textarea"
           :rows="16"
           resize="vertical"
-          placeholder="粘贴或输入本集完整剧本文字"
+          placeholder="粘贴或输入本集完整剧本文字；使用 --- 分段后可保存为分镜"
+          @input="autoRecognizeEpisodeScriptShots"
         />
+        <div v-if="batchShotSegments.length" class="batch-shot-preview">
+          <div
+            v-for="(text, index) in batchShotSegments"
+            :key="`${index}-${text.length}`"
+            class="batch-shot-preview-item"
+            :class="{ warn: durationState(text).warn }"
+          >
+            <span class="batch-shot-index">#{{ index + 1 }}</span>
+            <p>{{ text }}</p>
+            <span class="batch-shot-stat">{{ characterCount(text) }} 字</span>
+            <span class="batch-shot-stat">推荐 {{ durationText(text) }}</span>
+          </div>
+        </div>
         <template #footer>
-          <el-button @click="episodeScriptDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveEpisodeScriptDialog">保存</el-button>
+          <div class="batch-shot-footer">
+            <el-alert
+              v-if="batchShotSegments.length"
+              class="batch-shot-count-alert"
+              :title="`已识别 ${batchShotSegments.length} 条分镜`"
+              type="success"
+              show-icon
+              :closable="false"
+            />
+            <div class="batch-shot-footer-actions">
+              <el-button @click="organizeEpisodeScriptDraft">整理</el-button>
+              <el-button plain @click="saveEpisodeScriptDialog">保存</el-button>
+              <el-popconfirm
+                v-if="activeEpisode && hasModifiedShots(activeEpisode)"
+                title="当前分镜已有修改，确认导入分镜？"
+                confirm-button-text="导入"
+                cancel-button-text="取消"
+                @confirm="importEpisodeScriptShots"
+              >
+                <template #reference>
+                  <el-button type="primary">导入分镜</el-button>
+                </template>
+              </el-popconfirm>
+              <el-button v-else type="primary" @click="importEpisodeScriptShots">导入分镜</el-button>
+            </div>
+          </div>
         </template>
       </el-dialog>
       <el-dialog v-model="materialDialogVisible" title="添加基础素材" width="420px">
@@ -584,12 +590,13 @@
 import { computed, ref } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, Delete, Document, Download, EditPen, FolderAdd, MostlyCloudy, Plus, Search, Setting, Star, StarFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, Delete, Download, EditPen, FolderAdd, MostlyCloudy, Plus, Search, Setting, Star, StarFilled } from '@element-plus/icons-vue'
 import {
   createCharacterConfig,
   createEpisode,
   createEpisodeGroup,
   createEpisodeProductionData,
+  createGlobalConfig,
   createId,
   createPromptReview,
   createSceneAsset,
@@ -619,14 +626,13 @@ const durationRangeDraft = ref<[number, number]>([
   state.globalConfig.recommendedDurationRange.min,
   state.globalConfig.recommendedDurationRange.max,
 ])
-const batchShotDialogVisible = ref(false)
 const detectionDialogVisible = ref(false)
 const detectionConflictShotId = ref<string | null>(null)
 const sidebarCollapsed = ref(false)
 const materialDraft = ref('')
 const materialSceneTime = ref<SceneTime>('白天')
 const materialSceneSpace = ref<SceneSpace>('室内')
-const batchShotDraft = ref('')
+const batchShotSegments = ref<string[]>([])
 const materialKind = ref<MaterialKind>('characters')
 const editingEpisodeId = ref<string | null>(null)
 const editingEpisodeOriginalTitle = ref('')
@@ -637,6 +643,8 @@ const openEpisodeMenuId = ref<string | null>(null)
 const openGroupMenuId = ref<string | null>(null)
 const episodeDropdownRefs = new Map<string, { handleClose?: () => void }>()
 const groupDropdownRefs = new Map<string, { handleClose?: () => void }>()
+const scriptInputRefs = new Map<string, { textarea: HTMLTextAreaElement; handler: () => void }>()
+const scriptHighlightRefs = new Map<string, HTMLElement>()
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const reviewDialogVisible = ref(false)
 const reviewSummaryVisible = ref(false)
@@ -662,7 +670,6 @@ const savedText = computed(() => {
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
 const sortedEpisodeGroups = computed(() => state.episodeGroups.slice().sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
 const sortedUngroupedEpisodes = computed(() => sortEpisodesForDisplay(state.episodes.filter((episode) => !episode.groupId)))
-const batchShotSegments = computed(() => splitBatchShotText(batchShotDraft.value))
 const detectionConflictShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === detectionConflictShotId.value) ?? null)
 const detectionConflict = computed(() => detectionConflictShot.value?.pendingDetection ?? null)
 const activeReviewShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === activeReviewShotId.value) ?? null)
@@ -788,6 +795,14 @@ function cancelGlobalDialog() {
   globalDialogVisible.value = false
 }
 
+function resetGlobalDialog() {
+  globalConfigDraft.value = createGlobalConfig()
+  durationRangeDraft.value = [
+    globalConfigDraft.value.recommendedDurationRange.min,
+    globalConfigDraft.value.recommendedDurationRange.max,
+  ]
+}
+
 function formatDurationTooltip(value: number) {
   return value.toFixed(1) + ' 秒'
 }
@@ -800,6 +815,20 @@ function toggleGroup(id: string) {
   expandedGroupIds.value = isGroupExpanded(id)
     ? expandedGroupIds.value.filter((item) => item !== id)
     : [...expandedGroupIds.value, id]
+}
+
+function groupEpisodeCount(id: string) {
+  return id === 'ungrouped' ? sortedUngroupedEpisodes.value.length : episodesForGroup(id).length
+}
+
+function isGroupEmpty(id: string) {
+  return groupEpisodeCount(id) === 0
+}
+
+function toggleGroupIfNotEmpty(id: string) {
+  if (!isGroupEmpty(id)) {
+    toggleGroup(id)
+  }
 }
 
 
@@ -840,9 +869,10 @@ function cancelGroupRename(group: { title: string }) {
 }
 
 function addEpisodeGroup() {
-  const group = createEpisodeGroup(state.episodeGroups.length + 1)
+  const group = createEpisodeGroup()
   state.episodeGroups.push(group)
-  expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, group.id]))
+  editingGroupOriginalTitle.value = group.title
+  editingGroupId.value = group.id
 }
 
 function setEpisodeDropdownRef(id: string, dropdown: unknown) {
@@ -859,6 +889,52 @@ function setGroupDropdownRef(id: string, dropdown: unknown) {
   } else {
     groupDropdownRefs.delete(id)
   }
+}
+
+function setScriptHighlightRef(id: string, element: unknown) {
+  if (element instanceof HTMLElement) {
+    scriptHighlightRefs.set(id, element)
+    syncScriptHighlightScroll(id)
+    return
+  }
+
+  scriptHighlightRefs.delete(id)
+}
+
+function setScriptInputRef(id: string, input: unknown) {
+  const existing = scriptInputRefs.get(id)
+
+  if (!input || typeof input !== 'object') {
+    existing?.textarea.removeEventListener('scroll', existing.handler)
+    scriptInputRefs.delete(id)
+    return
+  }
+
+  const candidate = input as { textarea?: HTMLTextAreaElement; $el?: HTMLElement }
+  const textarea = candidate.textarea ?? candidate.$el?.querySelector('textarea') ?? null
+
+  if (!textarea || existing?.textarea === textarea) {
+    syncScriptHighlightScroll(id)
+    return
+  }
+
+  existing?.textarea.removeEventListener('scroll', existing.handler)
+  const handler = () => syncScriptHighlightScroll(id)
+  textarea.addEventListener('scroll', handler, { passive: true })
+  scriptInputRefs.set(id, { textarea, handler })
+  syncScriptHighlightScroll(id)
+}
+
+function syncScriptHighlightScroll(id: string) {
+  const inputRef = scriptInputRefs.get(id)
+  const highlight = scriptHighlightRefs.get(id)
+
+  if (!inputRef || !highlight) {
+    return
+  }
+
+  highlight.scrollTop = inputRef.textarea.scrollTop
+  highlight.scrollLeft = inputRef.textarea.scrollLeft
 }
 
 function closeDropdownsExcept(type: 'episode' | 'group', id: string) {
@@ -924,6 +1000,15 @@ async function handleGroupCommand(command: string, groupId: string) {
     return
   }
 
+  if (command === 'toggleStar') {
+    const group = state.episodeGroups.find((item) => item.id === groupId)
+
+    if (group) {
+      group.starred = !group.starred
+    }
+    return
+  }
+
   if (command !== 'delete') {
     return
   }
@@ -975,13 +1060,12 @@ function isSceneUsed(name: string) {
 
 function addEpisode() {
   const episode = createEpisode(state.episodes.length + 1)
-  episode.groupId = activeEpisode.value?.groupId ?? null
+  episode.groupId = null
   state.episodes.push(episode)
   state.activeEpisodeId = episode.id
-
-  if (episode.groupId) {
-    expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, episode.groupId]))
-  }
+  expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, 'ungrouped']))
+  editingEpisodeOriginalTitle.value = episode.title
+  editingEpisodeId.value = episode.id
 }
 
 
@@ -1041,11 +1125,6 @@ function handleAddShotCommand(command: 'start' | 'end' | { action: 'after'; inde
   addShotAt(command.index + 1)
 }
 
-function openBatchShotDialog() {
-  batchShotDraft.value = ''
-  batchShotDialogVisible.value = true
-}
-
 function splitBatchShotText(value: string) {
   return value
     .split(/---/g)
@@ -1053,12 +1132,9 @@ function splitBatchShotText(value: string) {
     .filter(Boolean)
 }
 
-function confirmBatchShots() {
-  const episode = activeEpisode.value
-  const segments = batchShotSegments.value
-
+function insertBatchShots(episode: Episode, segments: string[]) {
   if (!episode || !segments.length) {
-    return
+    return 0
   }
 
   const firstShot = episode.shots[0]
@@ -1083,13 +1159,22 @@ function confirmBatchShots() {
     })
   }
 
-  ElMessage.success('已批量添加 ' + segments.length + ' 条分镜')
-  batchShotDraft.value = ''
-  batchShotDialogVisible.value = false
+  return segments.length
 }
 
 function isShotCollapsed(shot: Shot) {
   return state.globalConfig.autoCollapseCompletedShots && shot.status === 'complete'
+}
+
+function hasModifiedShots(episode: Episode) {
+  return episode.shots.some((shot) => (
+    Boolean(shot.text.trim())
+    || shot.scenes.length > 0
+    || shot.characters.length > 0
+    || shot.usePositionReference
+    || shot.status !== 'incomplete'
+    || !isReviewDefault(shot.review)
+  ))
 }
 
 function deleteShot(id: string) {
@@ -1435,7 +1520,36 @@ function openReviewSummary() {
 
 function openEpisodeScriptDialog() {
   episodeScriptDraft.value = activeEpisode.value?.scriptText ?? ''
+  autoRecognizeEpisodeScriptShots()
   episodeScriptDialogVisible.value = true
+}
+
+function organizeEpisodeScriptDraft() {
+  episodeScriptDraft.value = episodeScriptDraft.value
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]*---[ \t]*/g, '\n---\n')
+    .replace(/[△▲][ \t]*/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .trim()
+  autoRecognizeEpisodeScriptShots()
+  ElMessage.success('已整理剧本文字')
+}
+
+function autoRecognizeEpisodeScriptShots() {
+  batchShotSegments.value = splitBatchShotText(episodeScriptDraft.value)
+}
+
+function refreshBatchShotSegments() {
+  batchShotSegments.value = splitBatchShotText(episodeScriptDraft.value)
+
+  if (!batchShotSegments.value.length) {
+    ElMessage.warning('没有识别到可用分镜')
+    return false
+  }
+
+  return true
 }
 
 function saveEpisodeScriptDialog() {
@@ -1448,7 +1562,22 @@ function saveEpisodeScriptDialog() {
 
   episode.scriptText = episodeScriptDraft.value
   episodeScriptDialogVisible.value = false
+  batchShotSegments.value = []
   ElMessage.success('已保存本集剧本')
+}
+
+function importEpisodeScriptShots() {
+  const episode = activeEpisode.value
+
+  if (!episode || !refreshBatchShotSegments()) {
+    return
+  }
+
+  episode.scriptText = episodeScriptDraft.value
+  const insertedCount = insertBatchShots(episode, batchShotSegments.value)
+  episodeScriptDialogVisible.value = false
+  batchShotSegments.value = []
+  ElMessage.success(`已导入 ${insertedCount} 条分镜`)
 }
 
 function promptFor(shot: Shot) {
@@ -1460,6 +1589,17 @@ async function copyPrompt(shot: Shot) {
 
   if (copied) {
     ElMessage.success('已复制当前提示词')
+    return
+  }
+
+  ElMessage.error('复制失败，请手动选择文本复制')
+}
+
+async function copyShotDetail(shot: Shot) {
+  const copied = await copyText(shot.text)
+
+  if (copied) {
+    ElMessage.success('已复制分镜详情')
     return
   }
 
@@ -1534,13 +1674,25 @@ function triggerImport() {
 
 
 function exportAllEpisodes() {
-  downloadJson('script2prompt-episodes.json', {
+  downloadJson(`${archiveFilename()}.json`, {
     version: state.version,
     exportedAt: new Date().toISOString(),
     episodeGroups: JSON.parse(JSON.stringify(state.episodeGroups)) as EpisodeGroup[],
     episodes: JSON.parse(JSON.stringify(state.episodes)) as Episode[],
     globalConfigSnapshot: JSON.parse(JSON.stringify(state.globalConfig)),
   })
+}
+
+function archiveFilename() {
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  const year = pad(now.getFullYear() % 100)
+  const month = pad(now.getMonth() + 1)
+  const day = pad(now.getDate())
+  const hour = pad(now.getHours())
+  const minute = pad(now.getMinutes())
+
+  return `S2P ${year}年${month}月${day}日 ${hour}时${minute}分`
 }
 
 function downloadJson(filename: string, payload: unknown) {
@@ -1771,6 +1923,7 @@ function normalizeImportedEpisodeGroups(groups: unknown): Array<{ sourceId: stri
         group: {
           id: createId('group'),
           title,
+          starred: Boolean(value.starred),
         },
       }
     })

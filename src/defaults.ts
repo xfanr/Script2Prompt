@@ -92,17 +92,18 @@ export function createShot(): Shot {
   }
 }
 
-export function createEpisodeGroup(index = 1): EpisodeGroup {
+export function createEpisodeGroup(): EpisodeGroup {
   return {
     id: createId('group'),
-    title: `新分组 ${index}`,
+    title: '新分组',
+    starred: false,
   }
 }
 
 export function createEpisode(index = 1): Episode {
   return {
     id: createId('episode'),
-    title: `第 ${index} 集`,
+    title: '第 x 集',
     characters: [],
     groupId: null,
     starred: false,

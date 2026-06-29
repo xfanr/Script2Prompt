@@ -93,6 +93,7 @@ export interface Shot {
 export interface EpisodeGroup {
   id: string
   title: string
+  starred: boolean
 }
 
 export interface Episode {
