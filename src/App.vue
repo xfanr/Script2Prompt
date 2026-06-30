@@ -62,6 +62,7 @@
                         </div>
                         <template #dropdown>
                           <el-dropdown-menu>
+                            <el-dropdown-item command="summary" :icon="DataAnalysis">本集数据</el-dropdown-item>
                             <el-dropdown-item command="edit" :icon="EditPen">重命名</el-dropdown-item>
                             <el-dropdown-item command="toggleStar" :icon="episode.starred ? Star : StarFilled">{{ episode.starred ? '取消星标' : '星标' }}</el-dropdown-item>
                             <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
@@ -115,6 +116,7 @@
                         </div>
                         <template #dropdown>
                           <el-dropdown-menu>
+                            <el-dropdown-item command="summary" :icon="DataAnalysis">本集数据</el-dropdown-item>
                             <el-dropdown-item command="edit" :icon="EditPen">重命名</el-dropdown-item>
                             <el-dropdown-item command="toggleStar" :icon="episode.starred ? Star : StarFilled">{{ episode.starred ? '取消星标' : '星标' }}</el-dropdown-item>
                             <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
@@ -129,6 +131,30 @@
                 </div>
               </el-scrollbar>
             </section>
+
+            <div class="weekly-report-row">
+              <span>复制周报</span>
+              <el-date-picker
+                v-model="weeklyReportWeek"
+                class="weekly-report-picker"
+                type="week"
+                size="small"
+                format="[第] ww [周]"
+                value-format="YYYY-MM-DD"
+                placeholder="选择周"
+                :clearable="false"
+                @change="copyWeeklyReport"
+              >
+                <template #default="cell">
+                  <div class="el-date-table-cell weekly-report-date-cell" :class="{ 'has-production': hasProductionOnPickerCell(cell) }">
+                    <span class="el-date-table-cell__text">
+                      {{ cell.text }}
+                      <i v-if="hasProductionOnPickerCell(cell)" aria-hidden="true"></i>
+                    </span>
+                  </div>
+                </template>
+              </el-date-picker>
+            </div>
 
             <div class="sidebar-footer">
               <span>共 {{ state.episodes.length }} 集，{{ state.episodeGroups.length }} 分组</span>
@@ -164,11 +190,33 @@
             </div>
             <div class="asset-editor">
               <div class="asset-tags">
-                <el-tag size="large" v-for="item in activeEpisode.characters" :key="`character-${item}`" type="primary" :effect="isCharacterUsed(item) ? 'light' : 'plain'" closable @close="removeMaterial('characters', item)">
-                  人物 · {{ item }}
+                <el-tag
+                  v-for="item in activeEpisode.characters"
+                  :key="`character-${item}`"
+                  size="large"
+                  type="primary"
+                  :effect="isCharacterUsed(item) ? 'light' : 'plain'"
+                >
+                  <span>人物 · {{ item }}</span>
+                  <el-popconfirm title="确认删除这个人物素材？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeMaterial('characters', item)">
+                    <template #reference>
+                      <el-button class="asset-tag-close" :icon="Close" circle text aria-label="删除人物素材" @click.stop />
+                    </template>
+                  </el-popconfirm>
                 </el-tag>
-                <el-tag size="large" v-for="item in activeEpisode.scenes" :key="`scene-${item.name}`" type="success" :effect="isSceneUsed(item.name) ? 'light' : 'plain'" closable @close="removeMaterial('scenes', item.name)">
-                  场景 · {{ item.name }} · {{ item.time }} · {{ item.space }}
+                <el-tag
+                  v-for="item in activeEpisode.scenes"
+                  :key="`scene-${item.name}`"
+                  size="large"
+                  type="success"
+                  :effect="isSceneUsed(item.name) ? 'light' : 'plain'"
+                >
+                  <span>场景 · {{ item.name }} · {{ item.time }} · {{ item.space }}</span>
+                  <el-popconfirm title="确认删除这个场景素材？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeMaterial('scenes', item.name)">
+                    <template #reference>
+                      <el-button class="asset-tag-close" :icon="Close" circle text aria-label="删除场景素材" @click.stop />
+                    </template>
+                  </el-popconfirm>
                 </el-tag>
               </div>
             </div>
@@ -251,9 +299,11 @@
                     <div v-if="!shot.scenes.length" class="empty-note">暂无场景项</div>
                     <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line">
                       <el-select v-model="scene.name" placeholder="选择场景" filterable @change="syncSceneFromAsset(scene)">
-                        <el-option v-for="item in activeEpisode.scenes" :key="item.name" :label="item.name" :value="item.name" />
+                        <template #label="{ label }">
+                          {{ sceneSelectLabel(label) }}
+                        </template>
+                        <el-option v-for="item in activeEpisode.scenes" :key="item.name" :label="sceneAssetLabel(item)" :value="item.name" />
                       </el-select>
-                      <span class="scene-config-meta">{{ scene.time }} · {{ scene.space }}</span>
                       <el-popconfirm title="确认删除这个场景配置？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeSceneFromShot(shot, scene.id)">
                         <template #reference>
                           <el-button :icon="Close" circle text />
@@ -349,15 +399,42 @@
         </template>
       </el-dialog>
       <el-dialog v-model="detectionDialogVisible" title="人物识别冲突" width="520px" class="detection-dialog" @closed="cancelActiveDetection">
-        <div v-if="detectionConflict" class="detect-diff dialog-detect-diff">
-          <p>当前已有：{{ namesText(detectionConflict.currentNames) }}</p>
-          <p>本次识别：{{ namesText(detectionConflict.replaceNames) }}</p>
-          <p>合并后：{{ namesText(detectionConflict.mergeNames) }}</p>
-          <p v-if="detectionConflict.voiceSuggestions.length">音色建议：{{ namesText(detectionConflict.voiceSuggestions) }}</p>
+        <div v-if="detectionConflict" class="detection-compare">
+          <div class="detection-compare-row">
+            <span>当前已有</span>
+            <div>
+              <el-tag v-for="name in detectionConflict.currentNames" :key="`current-${name}`" effect="plain" type="info">{{ name }}</el-tag>
+              <span v-if="!detectionConflict.currentNames.length" class="empty-note">无</span>
+            </div>
+          </div>
+          <div class="detection-compare-row">
+            <span>本次识别</span>
+            <div>
+              <el-tag v-for="name in detectionConflict.replaceNames" :key="`replace-${name}`" :type="detectionConflict.voiceSuggestions.includes(name) ? 'warning' : 'primary'" effect="light">
+                {{ name }}{{ detectionConflict.voiceSuggestions.includes(name) ? ' · 音色' : '' }}
+              </el-tag>
+            </div>
+          </div>
+          <div v-if="detectionMergeChanged()" class="detection-compare-row">
+            <span>合并后</span>
+            <div>
+              <el-tag v-for="name in detectionConflict.mergeNames" :key="`merge-${name}`" :type="detectionConflict.voiceSuggestions.includes(name) ? 'warning' : detectionConflict.currentNames.includes(name) ? 'info' : 'success'" effect="light">
+                {{ name }}{{ detectionConflict.voiceSuggestions.includes(name) ? ' · 音色' : '' }}
+              </el-tag>
+            </div>
+          </div>
+          <div v-if="detectionReplaceChanged()" class="detection-compare-row">
+            <span>替换后</span>
+            <div>
+              <el-tag v-for="name in detectionConflict.replaceNames" :key="`final-${name}`" :type="detectionConflict.voiceSuggestions.includes(name) ? 'warning' : 'primary'" effect="light">
+                {{ name }}{{ detectionConflict.voiceSuggestions.includes(name) ? ' · 音色' : '' }}
+              </el-tag>
+            </div>
+          </div>
         </div>
         <template #footer>
-          <el-button @click="cancelActiveDetection">取消</el-button>
-          <el-button type="primary" @click="mergeActiveDetection">合并</el-button>
+          <el-button :disabled="!detectionMergeChanged()" @click="mergeActiveDetection">合并</el-button>
+          <el-button type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换</el-button>
         </template>
       </el-dialog>
       <el-dialog v-model="reviewDialogVisible" title="提示词评分" width="520px" class="review-dialog" @closed="activeReviewShotId = null">
@@ -388,11 +465,10 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="reviewDialogVisible = false">取消</el-button>
           <el-button type="primary" @click="saveReviewDialog">保存</el-button>
         </template>
       </el-dialog>
-      <el-dialog v-model="reviewSummaryVisible" title="本集数据" width="820px" class="review-summary-dialog">
+      <el-dialog v-model="reviewSummaryVisible" :title="reviewSummaryTitle" width="820px" class="review-summary-dialog">
         <div class="review-summary-stats">
           <div>
             <strong>{{ reviewSummary.total }}</strong>
@@ -579,7 +655,6 @@
           </template>
         </el-form>
         <template #footer>
-          <el-button @click="materialDialogVisible = false">取消</el-button>
           <el-button type="primary" @click="confirmMaterialDialog">添加</el-button>
         </template>
       </el-dialog>
@@ -612,11 +687,27 @@ import {
   mergeDetectedCharacters,
   recommendedSeconds,
 } from './prompt'
-import type { Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, SectionKey, Shot } from './types'
+import type { CharacterConfig, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, SectionKey, Shot } from './types'
 import { useAppState } from './useAppState'
 
 type MaterialKind = 'characters' | 'scenes'
 type ImportMode = 'replace' | 'merge'
+type WeeklyReportPickerCell = {
+  dayjs?: {
+    format: (pattern: string) => string
+  }
+}
+type WeeklyReportEntry = {
+  date: string
+  dateLabel: string
+  groupId: string | null
+  groupTitle: string
+  episodeNumber: string
+}
+type WeeklyReportRange = {
+  start: string
+  end: string
+}
 
 const { state, activeEpisode } = useAppState()
 const materialDialogVisible = ref(false)
@@ -654,6 +745,7 @@ const reviewDraft = ref<PromptReview>(createPromptReview())
 const episodeScriptDraft = ref('')
 const productionPointUsageDraft = ref('0')
 const productionPointCostDraft = ref('0.0000')
+const weeklyReportWeek = ref<Date | string | null>(null)
 const reviewRateTexts = ['拉完了', 'NPC', '人上人', '顶级', '夯']
 
 const savedText = computed(() => {
@@ -670,9 +762,19 @@ const savedText = computed(() => {
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
 const sortedEpisodeGroups = computed(() => state.episodeGroups.slice().sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
 const sortedUngroupedEpisodes = computed(() => sortEpisodesForDisplay(state.episodes.filter((episode) => !episode.groupId)))
+const productionDateSet = computed(() => new Set(state.episodes.map((episode) => normalizeDateString(episode.productionData.productionDate)).filter((date): date is string => Boolean(date))))
 const detectionConflictShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === detectionConflictShotId.value) ?? null)
 const detectionConflict = computed(() => detectionConflictShot.value?.pendingDetection ?? null)
 const activeReviewShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === activeReviewShotId.value) ?? null)
+const reviewSummaryTitle = computed(() => {
+  const episode = activeEpisode.value
+
+  if (!episode) {
+    return '《未分组》本集数据'
+  }
+
+  return `《${getEpisodeGroupTitle(episode.groupId ?? null)}》${episode.title}数据`
+})
 const reviewSummaryRows = computed(() => activeEpisode.value?.shots.map((shot, index) => ({
   shot,
   index: `#${index + 1}`,
@@ -848,6 +950,225 @@ function episodesForGroup(groupId: string) {
   return sortEpisodesForDisplay(state.episodes.filter((episode) => episode.groupId === groupId))
 }
 
+function normalizeDateString(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null
+  }
+
+  const date = parseDateString(value)
+  return date && formatDateString(date) === value ? value : null
+}
+
+function parseDateString(value: string) {
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+
+  return Number.isFinite(date.getTime()) ? date : null
+}
+
+function formatDateString(date: Date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+function formatMonthDay(value: string) {
+  const [, month, day] = value.split('-')
+  return `${month}${day}`
+}
+
+function pad2(value: number) {
+  return String(value).padStart(2, '0')
+}
+
+function getMonday(value: Date) {
+  const date = new Date(value.getFullYear(), value.getMonth(), value.getDate())
+  const day = date.getDay()
+  const offset = day === 0 ? -6 : 1 - day
+  date.setDate(date.getDate() + offset)
+  return date
+}
+
+function addDays(value: Date, days: number) {
+  const date = new Date(value.getFullYear(), value.getMonth(), value.getDate())
+  date.setDate(date.getDate() + days)
+  return date
+}
+
+function getIsoWeekMonday(year: number, week: number) {
+  const januaryFourth = new Date(year, 0, 4)
+  const weekOneMonday = getMonday(januaryFourth)
+  return addDays(weekOneMonday, (week - 1) * 7)
+}
+
+function normalizeWeekValue(value: Date | string | null) {
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime()) ? value : null
+  }
+
+  if (typeof value === 'string') {
+    const date = parseDateString(value)
+
+    if (date) {
+      return date
+    }
+
+    const weekMatch = value.match(/^(\d{4})\s*w\s*(\d{1,2})$/i)
+
+    if (weekMatch) {
+      const year = Number(weekMatch[1])
+      const week = Number(weekMatch[2])
+      return Number.isFinite(year) && Number.isFinite(week) && week >= 1 && week <= 53 ? getIsoWeekMonday(year, week) : null
+    }
+  }
+
+  return null
+}
+
+function createWeeklyReportRange(selectedDate: Date): WeeklyReportRange {
+  const start = getMonday(selectedDate)
+  const end = addDays(start, 6)
+
+  return {
+    start: formatDateString(start),
+    end: formatDateString(end),
+  }
+}
+
+function getWeeklyReportRanges(value: Date | string | null) {
+  const selectedDate = normalizeWeekValue(value)
+
+  if (!selectedDate) {
+    return []
+  }
+
+  const ranges = [createWeeklyReportRange(selectedDate)]
+
+  if (selectedDate.getDay() === 0) {
+    const nextWeekRange = createWeeklyReportRange(addDays(selectedDate, 1))
+
+    if (nextWeekRange.start !== ranges[0].start) {
+      ranges.push(nextWeekRange)
+    }
+  }
+
+  return ranges
+}
+
+function hasProductionOnPickerCell(cell: WeeklyReportPickerCell | undefined) {
+  const date = cell?.dayjs?.format('YYYY-MM-DD')
+  return typeof date === 'string' && productionDateSet.value.has(date)
+}
+
+function parseEpisodeNumber(title: string) {
+  const match = title.match(/\d+/)
+  const value = match ? Number(match[0]) : 0
+  return Number.isFinite(value) && value > 0 ? value : 0
+}
+
+function getEpisodeNumber(title: string) {
+  return pad2(parseEpisodeNumber(title))
+}
+
+function getEpisodeGroupTitle(groupId: string | null) {
+  if (!groupId) {
+    return '未分组'
+  }
+
+  return state.episodeGroups.find((group) => group.id === groupId)?.title ?? '未分组'
+}
+
+function getEpisodeGroupTotal(groupId: string | null) {
+  const groupEpisodes = state.episodes.filter((episode) => (episode.groupId ?? null) === groupId)
+  const maxEpisodeNumber = Math.max(0, ...groupEpisodes.map((episode) => parseEpisodeNumber(episode.title)))
+  return Math.max(groupEpisodes.length, maxEpisodeNumber)
+}
+
+function sceneAssetLabel(scene: SceneAsset) {
+  return `${scene.name} · ${scene.time} · ${scene.space}`
+}
+
+function sceneSelectLabel(label: string) {
+  const scene = activeEpisode.value?.scenes.find((item) => item.name === label)
+  return scene ? sceneAssetLabel(scene) : label
+}
+
+function collectWeeklyReportEntries(range: WeeklyReportRange) {
+  return state.episodes
+    .map((episode): WeeklyReportEntry | null => {
+      const date = normalizeDateString(episode.productionData.productionDate)
+
+      if (!date || date < range.start || date > range.end) {
+        return null
+      }
+
+      const groupId = episode.groupId ?? null
+      return {
+        date,
+        dateLabel: formatMonthDay(date),
+        groupId,
+        groupTitle: getEpisodeGroupTitle(groupId),
+        episodeNumber: getEpisodeNumber(episode.title),
+      }
+    })
+    .filter((entry): entry is WeeklyReportEntry => Boolean(entry))
+    .sort((a, b) => {
+      const dateDiff = a.date.localeCompare(b.date)
+
+      if (dateDiff !== 0) {
+        return dateDiff
+      }
+
+      const groupDiff = a.groupTitle.localeCompare(b.groupTitle, 'zh-CN', { numeric: true })
+      return groupDiff !== 0 ? groupDiff : a.episodeNumber.localeCompare(b.episodeNumber, 'zh-CN', { numeric: true })
+    })
+}
+
+function buildWeeklyReportEntries(value: Date | string | null) {
+  const ranges = getWeeklyReportRanges(value)
+
+  for (const range of ranges) {
+    const entries = collectWeeklyReportEntries(range)
+
+    if (entries.length) {
+      return entries
+    }
+  }
+
+  return []
+}
+
+function buildWeeklyReport(value: Date | string | null) {
+  const entries = buildWeeklyReportEntries(value)
+
+  if (!entries.length) {
+    return ''
+  }
+
+  const lines = [`${entries[0].dateLabel} - ${entries[entries.length - 1].dateLabel}`]
+  const entriesByDate = new Map<string, WeeklyReportEntry[]>()
+
+  entries.forEach((entry) => {
+    entriesByDate.set(entry.date, [...(entriesByDate.get(entry.date) ?? []), entry])
+  })
+
+  Array.from(entriesByDate.entries()).forEach(([date, dateEntries]) => {
+    const groups = new Map<string, WeeklyReportEntry[]>()
+    dateEntries.forEach((entry) => {
+      groups.set(entry.groupId ?? 'ungrouped', [...(groups.get(entry.groupId ?? 'ungrouped') ?? []), entry])
+    })
+
+    const segments = Array.from(groups.values()).map((groupEntries) => {
+      const firstEntry = groupEntries[0]
+      const total = getEpisodeGroupTotal(firstEntry.groupId)
+      const suffix = groupEntries.length > 1 ? `/${pad2(total)}` : ''
+      return `制作《${firstEntry.groupTitle}》${firstEntry.episodeNumber}${suffix}集`
+    })
+
+    lines.push(`${formatMonthDay(date)} ${segments.join('、')}`)
+  })
+
+  return lines.join('\n')
+}
+
 function finishEpisodeRename() {
   editingEpisodeId.value = null
   editingEpisodeOriginalTitle.value = ''
@@ -978,6 +1299,12 @@ function handleEpisodeCommand(command: string | { action: 'move'; groupId: strin
   if (command === 'edit') {
     editingEpisodeOriginalTitle.value = episode.title
     editingEpisodeId.value = episode.id
+    return
+  }
+
+  if (command === 'summary') {
+    state.activeEpisodeId = episode.id
+    openReviewSummary()
     return
   }
 
@@ -1261,8 +1588,15 @@ function removeMaterial(kind: MaterialKind, value: string) {
 }
 
 function addSceneToShot(shot: Shot) {
-  const firstScene = activeEpisode.value?.scenes[0]
-  shot.scenes.push(createSceneConfig(firstScene?.name ?? '', firstScene?.time ?? '白天', firstScene?.space ?? '室内'))
+  const episodeScenes = activeEpisode.value?.scenes ?? []
+
+  if (episodeScenes.length === 1) {
+    const [scene] = episodeScenes
+    shot.scenes.push(createSceneConfig(scene.name, scene.time, scene.space))
+    return
+  }
+
+  shot.scenes.push(createSceneConfig())
 }
 
 function syncSceneFromAsset(scene: SceneConfig) {
@@ -1281,14 +1615,14 @@ function removeSceneFromShot(shot: Shot, id: string) {
 }
 
 function addCharacterToShot(shot: Shot) {
-  const available = activeEpisode.value?.characters.find((name) => !shot.characters.some((character) => character.name === name))
+  const available = activeEpisode.value?.characters.filter((name) => !shot.characters.some((character) => character.name === name)) ?? []
 
-  if (!available) {
+  if (!available.length) {
     ElMessage.info('没有可添加的人物，或人物已全部加入')
     return
   }
 
-  shot.characters.push(createCharacterConfig(available))
+  shot.characters.push(createCharacterConfig(available.length === 1 ? available[0] : ''))
 }
 
 function removeCharacterFromShot(shot: Shot, id: string) {
@@ -1410,6 +1744,34 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
   return false
 }
 
+function characterConfigSignature(characters: CharacterConfig[]) {
+  return characters
+    .map((character) => `${character.name.trim()}::${character.includeVoice ? '1' : '0'}`)
+    .join('\n')
+}
+
+function detectionMergeChanged() {
+  const shot = detectionConflictShot.value
+  const pending = shot?.pendingDetection
+
+  if (!shot || !pending) {
+    return false
+  }
+
+  return characterConfigSignature(shot.characters) !== characterConfigSignature(mergeDetectedCharacters(shot.characters, pending.detected, true))
+}
+
+function detectionReplaceChanged() {
+  const shot = detectionConflictShot.value
+  const pending = shot?.pendingDetection
+
+  if (!shot || !pending) {
+    return false
+  }
+
+  return characterConfigSignature(shot.characters) !== characterConfigSignature(buildDetectedCharacters(pending.detected))
+}
+
 function mergeActiveDetection() {
   const shot = detectionConflictShot.value
 
@@ -1418,8 +1780,31 @@ function mergeActiveDetection() {
     return
   }
 
+  if (!detectionMergeChanged()) {
+    return
+  }
+
   shot.characters = mergeDetectedCharacters(shot.characters, shot.pendingDetection.detected, true)
   ElMessage.success('已合并人物配置')
+  shot.pendingDetection = null
+  detectionConflictShotId.value = null
+  detectionDialogVisible.value = false
+}
+
+function replaceActiveDetection() {
+  const shot = detectionConflictShot.value
+
+  if (!shot?.pendingDetection) {
+    detectionDialogVisible.value = false
+    return
+  }
+
+  if (!detectionReplaceChanged()) {
+    return
+  }
+
+  shot.characters = buildDetectedCharacters(shot.pendingDetection.detected)
+  ElMessage.success('已替换人物配置')
   shot.pendingDetection = null
   detectionConflictShotId.value = null
   detectionDialogVisible.value = false
@@ -1589,6 +1974,24 @@ async function copyPrompt(shot: Shot) {
 
   if (copied) {
     ElMessage.success('已复制当前提示词')
+    return
+  }
+
+  ElMessage.error('复制失败，请手动选择文本复制')
+}
+
+async function copyWeeklyReport(value: Date | string | null = weeklyReportWeek.value) {
+  const report = buildWeeklyReport(value ?? weeklyReportWeek.value)
+
+  if (!report) {
+    ElMessage.info('选中周内暂无制作记录')
+    return
+  }
+
+  const copied = await copyText(report)
+
+  if (copied) {
+    ElMessage.success('已复制周报')
     return
   }
 

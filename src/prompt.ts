@@ -22,11 +22,16 @@ export function formatSeconds(seconds: number) {
 }
 
 export function detectCharacters(text: string, names: string[]): DetectedCharacter[] {
-  return names
+  const normalizedNames = names
     .map((name) => name.trim())
     .filter(Boolean)
     .filter((name, index, list) => list.indexOf(name) === index)
+
+  const searchableText = removeDialogueContent(text, normalizedNames)
+
+  return normalizedNames
     .filter((name) => text.includes(name))
+    .filter((name) => searchableText.includes(name))
     .map((name) => ({
       name,
       includeVoice: hasDialoguePattern(text, name),
@@ -74,7 +79,7 @@ export function composePrompt(globalConfig: GlobalConfig, shot: Shot) {
     .map((section, index) => {
       const number = chineseNumbers[index] ?? String(index + 1)
       const title = section.title.trim() || '未命名章节'
-      return `${number}、${title}\n\n${sectionContent[section.key]}`
+      return `${number}、${title}\n${sectionContent[section.key]}`
     })
     .join('\n\n')
 }
@@ -115,8 +120,28 @@ function composeSceneRoleSection(globalConfig: GlobalConfig, shot: Shot) {
   return lines.join('\n')
 }
 
+function removeDialogueContent(text: string, names: string[]) {
+  if (!names.length) {
+    return text
+  }
+
+  return text
+    .split(/\r?\n/)
+    .map((line) => {
+      const speaker = names.find((name) => hasDialoguePrefix(line, name))
+      return speaker ? speaker : line
+    })
+    .join('\n')
+}
+
 function hasDialoguePattern(text: string, name: string) {
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const dialoguePattern = new RegExp(`${escapedName}(?:[（(][^）)]*[）)])?[:：]`)
   return dialoguePattern.test(text)
+}
+
+function hasDialoguePrefix(line: string, name: string) {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const dialoguePattern = new RegExp(`^\\s*${escapedName}(?:[（(][^）)]*[）)])?[:：]`)
+  return dialoguePattern.test(line)
 }
