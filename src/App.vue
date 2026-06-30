@@ -90,6 +90,7 @@
                       </div>
                       <template #dropdown>
                         <el-dropdown-menu>
+                          <el-dropdown-item command="summary" :icon="DataLine">整组数据</el-dropdown-item>
                           <el-dropdown-item command="edit" :icon="EditPen">重命名</el-dropdown-item>
                           <el-dropdown-item command="toggleStar" :icon="group.starred ? Star : StarFilled">{{ group.starred ? '取消星标' : '星标' }}</el-dropdown-item>
                           <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
@@ -172,7 +173,7 @@
               </div>
               <div class="stage-actions">
                 <el-button-group class="stage-action-group">
-                  <el-button :icon="DataAnalysis" plain @click="openReviewSummary">本集数据</el-button>
+                  <el-button :icon="DataAnalysis" plain @click="openReviewSummary()">本集数据</el-button>
                   <el-dropdown class="shot-create-actions" split-button type="primary" @click="openEpisodeScriptDialog" @command="handleAddShotCommand">
                     导入分镜
                     <template #dropdown>
@@ -437,7 +438,7 @@
           <el-button type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换</el-button>
         </template>
       </el-dialog>
-      <el-dialog v-model="reviewDialogVisible" title="提示词评分" width="520px" class="review-dialog" @closed="activeReviewShotId = null">
+      <el-dialog v-model="reviewDialogVisible" title="提示词评分" width="520px" class="review-dialog" @closed="activeReviewShot = null">
         <el-form label-position="top">
           <el-form-item label="评分">
             <el-rate
@@ -468,7 +469,7 @@
           <el-button type="primary" @click="saveReviewDialog">保存</el-button>
         </template>
       </el-dialog>
-      <el-dialog v-model="reviewSummaryVisible" :title="reviewSummaryTitle" width="820px" class="review-summary-dialog">
+      <el-dialog v-model="reviewSummaryVisible" :title="reviewSummaryTitle" width="820px" class="review-summary-dialog" @closed="reviewSummaryEpisodeId = null">
         <div class="review-summary-stats">
           <div>
             <strong>{{ reviewSummary.total }}</strong>
@@ -498,7 +499,7 @@
             <span>无字幕率</span>
           </div>
         </div>
-        <div v-if="activeEpisode" class="episode-data-panel">
+        <div v-if="reviewSummaryEpisode" class="episode-data-panel">
           <section class="episode-data-card cost-card">
             <div class="episode-data-heading">本集成本</div>
             <div class="episode-data-field">
@@ -532,7 +533,7 @@
           <section class="episode-data-card date-card">
             <div class="episode-data-heading">制作日期</div>
             <div class="episode-data-field">
-              <el-date-picker v-model="activeEpisode.productionData.productionDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" />
+              <el-date-picker v-model="reviewSummaryEpisode.productionData.productionDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" />
             </div>
           </section>
         </div>
@@ -560,6 +561,67 @@
           <el-table-column label="操作" width="84" fixed="right" align="center" header-align="center">
             <template #default="{ row }">
               <el-button text type="primary" @click="openReviewDialog(row.shot)">编辑</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-dialog>
+      <el-dialog v-model="groupSummaryVisible" title="整组数据" width="820px" class="group-summary-dialog" @closed="activeGroupSummaryId = null">
+        <p class="group-summary-subtitle">{{ groupSummarySubtitle }}</p>
+        <div class="review-summary-stats group-summary-stats">
+          <div>
+            <strong>{{ groupSummaryStats.total }}</strong>
+            <span>总分镜</span>
+          </div>
+          <div class="summary-average-card">
+            <el-rate
+              class="summary-average-rate"
+              :class="{ muted: groupSummaryStats.averageValue <= 2 }"
+              :model-value="groupSummaryStats.averageValue"
+              disabled
+              allow-half
+              :max="5"
+            />
+            <span>平均分</span>
+          </div>
+          <div>
+            <strong>{{ groupSummaryStats.averageDrawRate }}</strong>
+            <span>平均抽卡率</span>
+          </div>
+        </div>
+        <div class="episode-data-panel group-data-panel">
+          <section class="episode-data-card cost-card group-cost-card">
+            <div class="episode-data-field total-cost-field">
+              <strong>{{ groupProductionSummary.totalCost }}</strong>
+              <span>整组费用</span>
+            </div>
+          </section>
+          <section class="episode-data-card date-card group-date-card">
+            <div class="episode-data-field">
+              <strong>{{ groupProductionSummary.dateRange }}</strong>
+              <span>制作日期</span>
+            </div>
+          </section>
+          <section class="episode-data-card date-card group-date-card">
+            <div class="episode-data-field production-days-field">
+              <strong>{{ groupProductionSummary.productionDays }}</strong>
+              <span>总制作天数</span>
+            </div>
+          </section>
+        </div>
+        <el-table :data="groupSummaryRows" max-height="430" empty-text="暂无单集" show-summary :summary-method="getGroupSummaryTableSummary">
+          <el-table-column prop="title" label="标题" min-width="130" show-overflow-tooltip />
+          <el-table-column prop="total" label="总分镜" width="86" />
+          <el-table-column prop="reviewedRate" label="已评分率" width="94" />
+          <el-table-column prop="averageText" label="平均分" width="90" />
+          <el-table-column prop="averageDrawRate" label="平均抽卡率" width="110" />
+          <el-table-column prop="noSubtitleRate" label="无字幕率" width="94" />
+          <el-table-column prop="pointUsageText" label="积分" width="92" />
+          <el-table-column prop="pointCost" label="成本" width="94" />
+          <el-table-column prop="totalCost" label="总费用" width="98" />
+          <el-table-column prop="productionDate" label="制作日期" width="116" />
+          <el-table-column label="操作" width="84" fixed="right" align="center" header-align="center">
+            <template #default="{ row }">
+              <el-button text type="primary" @click="openReviewSummary(row.episode)">打开</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -665,7 +727,7 @@
 import { computed, ref } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, Delete, Download, EditPen, FolderAdd, MostlyCloudy, Plus, Search, Setting, Star, StarFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, FolderAdd, MostlyCloudy, Plus, Search, Setting, Star, StarFilled } from '@element-plus/icons-vue'
 import {
   createCharacterConfig,
   createEpisode,
@@ -739,8 +801,11 @@ const scriptHighlightRefs = new Map<string, HTMLElement>()
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const reviewDialogVisible = ref(false)
 const reviewSummaryVisible = ref(false)
+const groupSummaryVisible = ref(false)
 const episodeScriptDialogVisible = ref(false)
-const activeReviewShotId = ref<string | null>(null)
+const activeReviewShot = ref<Shot | null>(null)
+const reviewSummaryEpisodeId = ref<string | null>(null)
+const activeGroupSummaryId = ref<string | null>(null)
 const reviewDraft = ref<PromptReview>(createPromptReview())
 const episodeScriptDraft = ref('')
 const productionPointUsageDraft = ref('0')
@@ -765,9 +830,11 @@ const sortedUngroupedEpisodes = computed(() => sortEpisodesForDisplay(state.epis
 const productionDateSet = computed(() => new Set(state.episodes.map((episode) => normalizeDateString(episode.productionData.productionDate)).filter((date): date is string => Boolean(date))))
 const detectionConflictShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === detectionConflictShotId.value) ?? null)
 const detectionConflict = computed(() => detectionConflictShot.value?.pendingDetection ?? null)
-const activeReviewShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === activeReviewShotId.value) ?? null)
+const reviewSummaryEpisode = computed(() => state.episodes.find((episode) => episode.id === reviewSummaryEpisodeId.value) ?? activeEpisode.value ?? null)
+const activeGroupSummary = computed(() => state.episodeGroups.find((group) => group.id === activeGroupSummaryId.value) ?? null)
+const groupSummaryEpisodes = computed(() => activeGroupSummaryId.value ? episodesForGroup(activeGroupSummaryId.value) : [])
 const reviewSummaryTitle = computed(() => {
-  const episode = activeEpisode.value
+  const episode = reviewSummaryEpisode.value
 
   if (!episode) {
     return '《未分组》本集数据'
@@ -775,7 +842,7 @@ const reviewSummaryTitle = computed(() => {
 
   return `《${getEpisodeGroupTitle(episode.groupId ?? null)}》${episode.title}数据`
 })
-const reviewSummaryRows = computed(() => activeEpisode.value?.shots.map((shot, index) => ({
+const reviewSummaryRows = computed(() => reviewSummaryEpisode.value?.shots.map((shot, index) => ({
   shot,
   index: `#${index + 1}`,
   reviewed: isShotReviewed(shot),
@@ -785,27 +852,95 @@ const reviewSummaryRows = computed(() => activeEpisode.value?.shots.map((shot, i
   noSubtitleCount: shot.review.noSubtitleCount,
   noteText: shot.review.note.trim() || '无',
 })) ?? [])
-const reviewSummary = computed(() => {
-  const rows = reviewSummaryRows.value
-  const ratedRows = rows.filter((row) => row.rating > 0)
-  const ratingTotal = ratedRows.reduce((total, row) => total + row.rating, 0)
-  const percent = (value: number) => `${rows.length ? Math.round((value / rows.length) * 100) : 0}%`
-  const drawTotal = rows.reduce((total, row) => total + row.drawCount, 0)
-  const noSubtitleTotal = rows.reduce((total, row) => total + row.noSubtitleCount, 0)
-
-  return {
-    total: rows.length,
-    reviewedRate: percent(rows.filter((row) => row.reviewed).length),
-    averageValue: ratedRows.length ? Number((ratingTotal / ratedRows.length).toFixed(1)) : 0,
-    drawTotal,
-    averageDrawRate: `${drawTotal ? Math.round((rows.length / drawTotal) * 100) : 0}%`,
-    noSubtitleRate: `${drawTotal ? Math.round((noSubtitleTotal / drawTotal) * 100) : 0}%`,
-  }
-})
+const reviewSummary = computed(() => summarizeShots(reviewSummaryEpisode.value?.shots ?? []))
 const episodeTotalCost = computed(() => {
-  const data = activeEpisode.value?.productionData ?? createEpisodeProductionData()
+  const data = reviewSummaryEpisode.value?.productionData ?? createEpisodeProductionData()
   return (data.pointUsage * data.pointCost).toFixed(4)
 })
+const groupSummarySubtitle = computed(() => {
+  const title = activeGroupSummary.value?.title ?? ''
+  const episodeNumbers = groupSummaryEpisodes.value.map(formatEpisodeSummaryNumber).join('/')
+  return `《${title}》${episodeNumbers || '无'}，共${groupSummaryEpisodes.value.length}集`
+})
+const groupSummaryStats = computed(() => summarizeShots(groupSummaryEpisodes.value.flatMap((episode) => episode.shots)))
+const groupProductionSummary = computed(() => summarizeProductionData(groupSummaryEpisodes.value))
+const groupSummaryRows = computed(() => groupSummaryEpisodes.value.map((episode) => {
+  const summary = summarizeShots(episode.shots)
+  const data = episode.productionData ?? createEpisodeProductionData()
+  const productionDate = normalizeDateString(data.productionDate)
+
+  return {
+    isSummary: false,
+    episode,
+    episodeNumber: formatEpisodeSummaryNumber(episode),
+    title: episode.title,
+    total: summary.total,
+    reviewedRate: summary.reviewedRate,
+    averageText: summary.averageValue ? `${summary.averageValue} 星` : '未评分',
+    averageDrawRate: summary.averageDrawRate,
+    noSubtitleRate: summary.noSubtitleRate,
+    pointUsageText: formatIntegerWithCommas(data.pointUsage),
+    pointCost: formatPointCost(data.pointCost),
+    totalCost: formatPointCost(data.pointUsage * data.pointCost),
+    productionDate: productionDate ?? '未设置',
+  }
+}))
+function getGroupSummaryTableSummary({ columns }: { columns: Array<{ property?: string }> }) {
+  const values: Record<string, string> = {
+    episodeNumber: '汇总',
+    title: `共 ${groupSummaryEpisodes.value.length} 集`,
+    total: String(groupSummaryStats.value.total),
+    reviewedRate: groupSummaryStats.value.reviewedRate,
+    averageText: groupSummaryStats.value.averageValue ? `${groupSummaryStats.value.averageValue} 星` : '未评分',
+    averageDrawRate: groupSummaryStats.value.averageDrawRate,
+    noSubtitleRate: groupSummaryStats.value.noSubtitleRate,
+    pointUsageText: groupProductionSummary.value.pointUsageText,
+    pointCost: groupProductionSummary.value.averagePointCost,
+    totalCost: groupProductionSummary.value.totalCost,
+    productionDate: groupProductionSummary.value.productionDays,
+  }
+
+  return columns.map((column) => column.property ? values[column.property] ?? '' : '')
+}
+
+function summarizeShots(shots: Shot[]) {
+  const ratedShots = shots.filter((shot) => shot.review.rating > 0)
+  const ratingTotal = ratedShots.reduce((total, shot) => total + shot.review.rating, 0)
+  const drawTotal = shots.reduce((total, shot) => total + shot.review.drawCount, 0)
+  const noSubtitleTotal = shots.reduce((total, shot) => total + shot.review.noSubtitleCount, 0)
+  const percent = (value: number) => `${shots.length ? Math.round((value / shots.length) * 100) : 0}%`
+
+  return {
+    total: shots.length,
+    reviewedRate: percent(shots.filter(isShotReviewed).length),
+    averageValue: ratedShots.length ? Number((ratingTotal / ratedShots.length).toFixed(1)) : 0,
+    drawTotal,
+    averageDrawRate: `${drawTotal ? Math.round((shots.length / drawTotal) * 100) : 0}%`,
+    noSubtitleRate: `${drawTotal ? Math.round((noSubtitleTotal / drawTotal) * 100) : 0}%`,
+  }
+}
+
+function summarizeProductionData(episodes: Episode[]) {
+  const pointUsage = episodes.reduce((total, episode) => total + episode.productionData.pointUsage, 0)
+  const pointCostTotal = episodes.reduce((total, episode) => total + episode.productionData.pointCost, 0)
+  const totalCost = episodes.reduce((total, episode) => total + episode.productionData.pointUsage * episode.productionData.pointCost, 0)
+  const dates = Array.from(new Set(episodes
+    .map((episode) => normalizeDateString(episode.productionData.productionDate))
+    .filter((date): date is string => Boolean(date))))
+    .sort()
+
+  return {
+    pointUsageText: formatIntegerWithCommas(pointUsage),
+    averagePointCost: formatPointCost(episodes.length ? pointCostTotal / episodes.length : 0),
+    totalCost: formatPointCost(totalCost),
+    dateRange: dates.length ? `${formatMonthDayWithSeparator(dates[0])} 至 ${formatMonthDayWithSeparator(dates[dates.length - 1])}` : '未设置',
+    productionDays: `${dates.length} 天`,
+  }
+}
+
+function formatPointCost(value: number) {
+  return Math.max(0, value).toFixed(4)
+}
 
 function parseProductionNumber(value: string | number) {
   const parsed = Number(String(value).replace(/[^\d.]/g, ''))
@@ -813,7 +948,7 @@ function parseProductionNumber(value: string | number) {
 }
 
 function updateProductionNumber(field: 'pointUsage' | 'pointCost', value: string | number) {
-  const data = activeEpisode.value?.productionData
+  const data = reviewSummaryEpisode.value?.productionData
 
   if (!data) {
     return
@@ -828,7 +963,7 @@ function updateProductionNumber(field: 'pointUsage' | 'pointCost', value: string
 }
 
 function normalizeActiveEpisodeProductionData() {
-  const data = activeEpisode.value?.productionData
+  const data = reviewSummaryEpisode.value?.productionData
 
   if (!data) {
     return
@@ -840,14 +975,24 @@ function normalizeActiveEpisodeProductionData() {
   productionPointCostDraft.value = data.pointCost.toFixed(4)
 }
 
-function hydrateProductionDrafts() {
-  const data = activeEpisode.value?.productionData ?? createEpisodeProductionData()
+function hydrateProductionDrafts(episode = reviewSummaryEpisode.value) {
+  const data = episode?.productionData ?? createEpisodeProductionData()
   productionPointUsageDraft.value = formatIntegerWithCommas(data.pointUsage)
   productionPointCostDraft.value = data.pointCost.toFixed(4)
 }
 
 function formatIntegerWithCommas(value: number) {
   return Math.max(0, Math.round(value)).toLocaleString('en-US')
+}
+
+function formatMonthDayWithSeparator(value: string) {
+  const [, month, day] = value.split('-')
+  return `${month}-${day}`
+}
+
+function formatEpisodeSummaryNumber(episode: Episode) {
+  const number = parseEpisodeNumber(episode.title)
+  return number ? pad2(number) : episode.title
 }
 
 function sectionTitle(key: SectionKey) {
@@ -1304,7 +1449,7 @@ function handleEpisodeCommand(command: string | { action: 'move'; groupId: strin
 
   if (command === 'summary') {
     state.activeEpisodeId = episode.id
-    openReviewSummary()
+    openReviewSummary(episode)
     return
   }
 
@@ -1320,6 +1465,11 @@ function handleEpisodeCommand(command: string | { action: 'move'; groupId: strin
 
 async function handleGroupCommand(command: string, groupId: string) {
   openGroupMenuId.value = null
+  if (command === 'summary') {
+    openGroupSummary(groupId)
+    return
+  }
+
   if (command === 'edit') {
     const group = state.episodeGroups.find((item) => item.id === groupId)
     editingGroupOriginalTitle.value = group?.title ?? ''
@@ -1873,7 +2023,7 @@ function syncNoSubtitleCount() {
 }
 
 function openReviewDialog(shot: Shot) {
-  activeReviewShotId.value = shot.id
+  activeReviewShot.value = shot
   reviewDraft.value = { ...normalizePromptReview(shot.review) }
   reviewDialogVisible.value = true
 }
@@ -1898,9 +2048,19 @@ function saveReviewDialog() {
   ElMessage.success('已保存评分')
 }
 
-function openReviewSummary() {
-  hydrateProductionDrafts()
+function openReviewSummary(episode = activeEpisode.value) {
+  reviewSummaryEpisodeId.value = episode?.id ?? null
+  hydrateProductionDrafts(episode)
   reviewSummaryVisible.value = true
+}
+
+function openGroupSummary(groupId: string) {
+  if (!state.episodeGroups.some((group) => group.id === groupId)) {
+    return
+  }
+
+  activeGroupSummaryId.value = groupId
+  groupSummaryVisible.value = true
 }
 
 function openEpisodeScriptDialog() {

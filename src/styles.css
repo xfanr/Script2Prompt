@@ -889,6 +889,62 @@ h3,
   grid-template-columns: minmax(0, 1fr);
 }
 
+.group-summary-subtitle {
+  margin: -4px 0 14px;
+  color: #50657f;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.group-data-panel {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.group-summary-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.group-summary-stats > div,
+.group-data-panel .episode-data-card {
+  min-height: 72px;
+  padding: 12px;
+  border: 1px solid #dbe5f2;
+  border-radius: 6px;
+  background: #f8fbff;
+}
+
+.group-data-panel .episode-data-card {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.group-data-panel .episode-data-field {
+  gap: 2px;
+  width: 100%;
+}
+
+.group-data-panel .episode-data-field,
+.group-data-panel .production-days-field {
+  align-items: flex-start;
+}
+
+.group-data-panel .episode-data-field > strong {
+  min-height: 0;
+  color: #17233f;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.group-data-panel .episode-data-field > span {
+  color: #6b7d96;
+  font-size: 12px;
+  font-weight: 400;
+}
+
 .episode-data-field {
   display: flex;
   min-width: 0;
@@ -916,6 +972,7 @@ h3,
   color: #17233f;
   font-size: 18px;
   font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .compact-cost-input {
@@ -947,7 +1004,11 @@ h3,
 }
 
 .review-summary-stats > div:not(.summary-average-card) {
-  padding-top: 18px;
+  padding-top: 12px;
+}
+
+.group-summary-stats > div:not(.summary-average-card) {
+  padding-top: 12px;
 }
 
 .review-summary-stats strong {
@@ -975,6 +1036,28 @@ h3,
 .review-summary-stats span {
   color: #6b7d96;
   font-size: 12px;
+}
+
+.group-summary-stats span {
+  font-weight: 400;
+}
+
+.group-summary-dialog .el-table {
+  --el-table-header-bg-color: #f8fbff;
+}
+
+.group-summary-dialog .el-table .cell {
+  white-space: nowrap;
+}
+
+.group-summary-dialog .el-table__footer-wrapper td {
+  color: #17233f;
+  font-weight: 900;
+  background: #fbfdff;
+}
+
+.group-summary-dialog .el-table__footer-wrapper .cell {
+  white-space: nowrap;
 }
 
 .global-config-dialog .section-config-list {
@@ -1180,6 +1263,15 @@ h3,
   .shot-grid {
     grid-template-columns: 1fr;
     height: auto;
+  }
+
+  .review-summary-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .episode-data-panel,
+  .group-data-panel {
+    grid-template-columns: 1fr;
   }
 }
 
