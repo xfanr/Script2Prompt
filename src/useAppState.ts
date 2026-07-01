@@ -1,5 +1,5 @@
 import { computed, reactive, watch } from 'vue'
-import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, STORAGE_KEY } from './defaults'
+import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, defaultBaseSettingSuffix, STORAGE_KEY } from './defaults'
 import type { AppState, EpisodeProductionData, PromptReview, SceneAsset, SceneConfig } from './types'
 
 function normalizeSceneAsset(scene: unknown): SceneAsset | null {
@@ -99,10 +99,11 @@ function loadState(): AppState {
       return createInitialState()
     }
 
+    parsed.globalConfig.baseSettingSuffix ??= defaultBaseSettingSuffix
     parsed.globalConfig.autoCollapseCompletedShots ??= true
-    parsed.globalConfig.recommendedDurationRange ??= { min: 4, max: 23 }
+    parsed.globalConfig.recommendedDurationRange ??= { min: 4, max: 21 }
     parsed.globalConfig.recommendedDurationRange.min ??= 4
-    parsed.globalConfig.recommendedDurationRange.max ??= 23
+    parsed.globalConfig.recommendedDurationRange.max ??= 21
     parsed.episodeGroups ??= []
     parsed.episodeGroups.forEach((group) => {
       group.starred ??= false

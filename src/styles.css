@@ -1116,6 +1116,26 @@ h3,
   white-space: nowrap;
 }
 
+.global-config-dialog.el-dialog,
+.global-config-dialog .el-dialog {
+  display: flex;
+  max-height: calc(100vh - 48px);
+  flex-direction: column;
+  margin-top: 24px !important;
+  margin-bottom: 24px !important;
+}
+
+.global-config-dialog .el-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.global-config-dialog .el-dialog__header,
+.global-config-dialog .el-dialog__footer {
+  flex: 0 0 auto;
+}
+
 .global-config-dialog .section-config-list {
   display: flex;
   flex-direction: column;
@@ -1124,9 +1144,17 @@ h3,
 
 .global-config-dialog .section-config {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 120px;
+  grid-template-columns: auto minmax(0, 320px) 120px;
   align-items: center;
   gap: 10px;
+}
+
+.global-config-title-input {
+  width: min(320px, 100%);
+}
+
+.global-config-textarea {
+  width: min(460px, 100%);
 }
 
 .slider-range-config {

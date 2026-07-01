@@ -10,6 +10,9 @@ export const defaultBaseSetting = `纪实高清电影。光线通透均匀，高
 export const defaultSceneRoleSuffix =
   '所有角色采用生活化写实表演，包含眨眼频次变化等微动作；杜绝死鱼眼、站桩式表演。'
 
+export const defaultBaseSettingSuffix =
+  '禁止生成角色同款分身或双胞胎效果。'
+
 export function createId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
@@ -22,9 +25,10 @@ export function cloneCharacters(characters: CharacterConfig[]) {
 export function createGlobalConfig(): GlobalConfig {
   return {
     baseSetting: defaultBaseSetting,
+    baseSettingSuffix: defaultBaseSettingSuffix,
     sceneRoleSuffix: defaultSceneRoleSuffix,
     autoCollapseCompletedShots: true,
-    recommendedDurationRange: { min: 4, max: 23 },
+    recommendedDurationRange: { min: 4, max: 21 },
     sections: [
       { key: 'base', title: '基础设定', order: 1, enabled: true },
       { key: 'sceneRole', title: '场景与角色设定', order: 2, enabled: true },

@@ -67,7 +67,7 @@ export function mergeDetectedCharacters(
 
 export function composePrompt(globalConfig: GlobalConfig, shot: Shot) {
   const sectionContent: Record<SectionKey, string> = {
-    base: globalConfig.baseSetting.trim(),
+    base: composeBaseSection(globalConfig, shot),
     sceneRole: composeSceneRoleSection(globalConfig, shot),
     shot: shot.text.trim(),
   }
@@ -82,6 +82,18 @@ export function composePrompt(globalConfig: GlobalConfig, shot: Shot) {
       return `${number}、${title}\n${sectionContent[section.key]}`
     })
     .join('\n\n')
+}
+
+function composeBaseSection(globalConfig: GlobalConfig, shot: Shot) {
+  let content = globalConfig.baseSetting.trim()
+
+  const characterCount = shot.characters.filter((character) => character.name.trim()).length
+
+  if (characterCount > 2 && globalConfig.baseSettingSuffix.trim()) {
+    content += globalConfig.baseSettingSuffix.trim()
+  }
+
+  return content
 }
 
 function composeSceneRoleSection(globalConfig: GlobalConfig, shot: Shot) {

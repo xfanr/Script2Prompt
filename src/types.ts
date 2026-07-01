@@ -17,6 +17,7 @@ export interface DurationRange {
 
 export interface GlobalConfig {
   baseSetting: string
+  baseSettingSuffix: string
   sceneRoleSuffix: string
   autoCollapseCompletedShots: boolean
   recommendedDurationRange: DurationRange

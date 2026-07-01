@@ -62,8 +62,8 @@
                         </div>
                         <template #dropdown>
                           <el-dropdown-menu>
-                            <el-dropdown-item command="summary" :icon="DataAnalysis">本集数据</el-dropdown-item>
-                            <el-dropdown-item command="edit" :icon="EditPen">重命名</el-dropdown-item>
+                            <el-dropdown-item command="summary" :icon="DataAnalysis">数据</el-dropdown-item>
+                            <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
                             <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
                             <el-dropdown-item v-for="(group, groupIndex) in sortedEpisodeGroups" :key="group.id" :divided="groupIndex === 0" :command="{ action: 'move', groupId: group.id }">移至 {{ group.title }}
                             </el-dropdown-item>
@@ -89,8 +89,8 @@
                       </div>
                       <template #dropdown>
                         <el-dropdown-menu>
-                          <el-dropdown-item command="summary" :icon="DataLine">整组数据</el-dropdown-item>
-                          <el-dropdown-item command="edit" :icon="EditPen">重命名</el-dropdown-item>
+                          <el-dropdown-item command="summary" :icon="DataLine">数据</el-dropdown-item>
+                          <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
                           <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
                         </el-dropdown-menu>
                       </template>
@@ -115,8 +115,8 @@
                         </div>
                         <template #dropdown>
                           <el-dropdown-menu>
-                            <el-dropdown-item command="summary" :icon="DataAnalysis">本集数据</el-dropdown-item>
-                            <el-dropdown-item command="edit" :icon="EditPen">重命名</el-dropdown-item>
+                            <el-dropdown-item command="summary" :icon="DataAnalysis">数据</el-dropdown-item>
+                            <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
                             <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
                             <el-dropdown-item divided :command="{ action: 'move', groupId: null }">移至未分组</el-dropdown-item>
                             <el-dropdown-item v-for="targetGroup in sortedEpisodeGroups" :key="targetGroup.id" :command="{ action: 'move', groupId: targetGroup.id }">移至 {{ targetGroup.title }}
@@ -166,11 +166,8 @@
             <div class="stage-topline">
               <div class="asset-heading">
                 <h3>本集基础素材</h3>
-                <el-button class="add-material-button" type="primary" text @click="openMaterialDialog">添加素材</el-button>
-              </div>
-              <div class="stage-actions">
                 <el-button-group class="stage-action-group">
-                  <el-button :icon="DataAnalysis" plain @click="openReviewSummary()">本集数据</el-button>
+                  <el-button plain @click="openMaterialDialog">添加素材</el-button>
                   <el-dropdown class="shot-create-actions" split-button type="primary" @click="openEpisodeScriptDialog" @command="handleAddShotCommand">
                     导入分镜
                     <template #dropdown>
@@ -225,6 +222,7 @@
               :key="shot.id"
               class="shot-row"
               :class="{ 'is-complete': shot.status === 'complete', 'is-collapsed-complete': isShotCollapsed(shot) }"
+              @dblclick="copyPromptFromShotBlank($event, shot)"
             >
 
               <div class="shot-meta">
@@ -350,8 +348,8 @@
                   <div class="cell-title preview-title">
                     <span>完整提示词预览</span>
                     <div class="preview-copy-actions">
-                      <el-button :icon="CopyDocument" text type="primary" @click="copyShotDetail(shot)">复制详情</el-button>
-                      <el-button :icon="CopyDocument" text type="primary" @click="copyPrompt(shot)">复制整段</el-button>
+                      <el-button :icon="CopyDocument" text type="primary" @click="copyShotDetail(shot)">详情</el-button>
+                      <el-button :icon="CopyDocument" text type="primary" @click="copyPrompt(shot)">完整</el-button>
                     </div>
                   </div>
                   <pre>{{ promptFor(shot) }}</pre>
@@ -369,16 +367,19 @@
             <div class="section-config-list">
               <div v-for="section in globalConfigDraft.sections" :key="section.key" class="section-config">
                 <el-switch v-model="section.enabled" />
-                <el-input v-model="section.title" />
+                <el-input v-model="section.title" class="global-config-title-input" />
                 <el-input-number v-model="section.order" :min="1" :max="9" />
               </div>
             </div>
           </el-form-item>
           <el-form-item :label="draftSectionTitle('base')">
-            <el-input v-model="globalConfigDraft.baseSetting" type="textarea" :rows="7" resize="vertical" />
+            <el-input v-model="globalConfigDraft.baseSetting" class="global-config-textarea" type="textarea" :rows="7" resize="vertical" />
+          </el-form-item>
+          <el-form-item :label="draftSectionTitle('base') + ' 后缀'">
+            <el-input v-model="globalConfigDraft.baseSettingSuffix" class="global-config-textarea" type="textarea" :rows="3" resize="vertical" />
           </el-form-item>
           <el-form-item :label="draftSectionTitle('sceneRole') + ' 后缀'">
-            <el-input v-model="globalConfigDraft.sceneRoleSuffix" type="textarea" :rows="4" resize="vertical" />
+            <el-input v-model="globalConfigDraft.sceneRoleSuffix" class="global-config-textarea" type="textarea" :rows="4" resize="vertical" />
           </el-form-item>
           <el-form-item label="分镜折叠">
             <el-switch v-model="globalConfigDraft.autoCollapseCompletedShots" />
@@ -386,7 +387,7 @@
           <el-form-item label="安全时长">
             <div class="duration-range-config slider-range-config">
               <span>{{ durationRangeDraft[0].toFixed(1) }}</span>
-              <el-slider v-model="durationRangeDraft" range :min="0" :max="30" :step="0.1" :format-tooltip="formatDurationTooltip" />
+              <el-slider v-model="durationRangeDraft" range :min="3" :max="25" :step="0.5" :format-tooltip="formatDurationTooltip" />
               <span>{{ durationRangeDraft[1].toFixed(1) }}</span>
             </div>
           </el-form-item>
@@ -680,7 +681,7 @@
             <el-input
               v-model="materialCharacterDraft"
               clearable
-              placeholder="可输入多个人物名称，用 、；，;, 或换行分割"
+              placeholder="可输入多个人物名称，用逗号、顿号、分号或换行分割"
               @keyup.enter="confirmMaterialDialog"
             />
           </el-form-item>
@@ -735,10 +736,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, type Component } from 'vue'
+import { computed, onMounted, onUnmounted, ref, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, FolderAdd, House, MapLocation, MoonNight, MostlyCloudy, Plus, Search, Setting, Star, StarFilled, Sunny } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, FolderAdd, House, MapLocation, Moon, MostlyCloudy, Plus, Search, Setting, Star, StarFilled, Sunny } from '@element-plus/icons-vue'
 import {
   createCharacterConfig,
   createEpisode,
@@ -820,7 +821,7 @@ const openEpisodeMenuId = ref<string | null>(null)
 const openGroupMenuId = ref<string | null>(null)
 const materialSceneTimeOptions: MaterialSegmentedOption<SceneTime>[] = [
   { label: '白天', value: '白天', icon: Sunny },
-  { label: '深夜', value: '深夜', icon: MoonNight },
+  { label: '深夜', value: '深夜', icon: Moon },
 ]
 const materialSceneSpaceOptions: MaterialSegmentedOption<SceneSpace>[] = [
   { label: '室内', value: '室内', icon: House },
@@ -2246,11 +2247,96 @@ function promptFor(shot: Shot) {
   return composePrompt(state.globalConfig, shot)
 }
 
+function isEditableShortcutTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  if (target.isContentEditable) {
+    return true
+  }
+
+  const tagName = target.tagName.toLowerCase()
+  return tagName === 'input' || tagName === 'textarea' || tagName === 'select'
+}
+
+function isShortcutBlocked() {
+  return materialDialogVisible.value
+    || globalDialogVisible.value
+    || detectionDialogVisible.value
+    || reviewDialogVisible.value
+    || reviewSummaryVisible.value
+    || groupSummaryVisible.value
+    || episodeScriptDialogVisible.value
+}
+
+function handleShotCopyShortcut(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || event.isComposing) {
+    return
+  }
+
+  if (!/^[1-9]$/.test(event.key) || isShortcutBlocked() || isEditableShortcutTarget(event.target)) {
+    return
+  }
+
+  const shot = activeEpisode.value?.shots[Number(event.key) - 1]
+
+  if (!shot) {
+    return
+  }
+
+  event.preventDefault()
+  void copyPrompt(shot)
+}
+
+function shotCopyLabel(shot: Shot) {
+  const index = activeEpisode.value?.shots.findIndex((item) => item.id === shot.id) ?? -1
+  return index >= 0 ? `#${index + 1}` : '当前'
+}
+
+function isBlankShotCopyTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  if (isEditableShortcutTarget(target)) {
+    return false
+  }
+
+  return !target.closest([
+    'button',
+    'a',
+    'pre',
+    '.el-button',
+    '.el-input',
+    '.el-textarea',
+    '.el-select',
+    '.el-checkbox',
+    '.el-tag',
+    '.cell-title',
+    '.config-line',
+    '.empty-note',
+    '.script-highlight-layer',
+    '.script-inline-stats',
+    '.shot-index',
+    '.shot-tools',
+  ].join(','))
+}
+
+function copyPromptFromShotBlank(event: MouseEvent, shot: Shot) {
+  if (!isBlankShotCopyTarget(event.target)) {
+    return
+  }
+
+  event.preventDefault()
+  void copyPrompt(shot)
+}
+
 async function copyPrompt(shot: Shot) {
   const copied = await copyText(promptFor(shot))
 
   if (copied) {
-    ElMessage.success('已复制当前提示词')
+    ElMessage.success(`已复制 ${shotCopyLabel(shot)} 提示词`)
     return
   }
 
@@ -2315,6 +2401,14 @@ async function copyText(text: string) {
     document.body.removeChild(textarea)
   }
 }
+
+onMounted(() => {
+  window.addEventListener('keydown', handleShotCopyShortcut)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleShotCopyShortcut)
+})
 
 function characterCount(text: string) {
   return countNonPunctuationCharacters(text)
