@@ -36,10 +36,10 @@
               <el-scrollbar class="episode-scrollbar">
                 <div class="episode-tree">
                   <section class="episode-group-block">
-                    <div class="episode-group-row default-group" :class="{ empty: isGroupEmpty('ungrouped') }" role="button" tabindex="0" @contextmenu.prevent.stop @click="toggleGroupIfNotEmpty('ungrouped')" @keyup.enter="toggleGroupIfNotEmpty('ungrouped')">
+                    <div class="episode-group-row default-group" :class="{ empty: isGroupEmpty('ungrouped') }" role="button" tabindex="0" @contextmenu.prevent.stop @click="selectGroupAndToggleIfNotEmpty('ungrouped')" @keyup.enter="selectGroupAndToggleIfNotEmpty('ungrouped')">
                       <span v-if="isGroupEmpty('ungrouped')" class="group-dot">•</span>
                       <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded('ungrouped') }"><ArrowRight /></el-icon>
-                      <span>未分组</span>
+                      <span class="group-title-text">未分组</span>
                       <em>{{ sortedUngroupedEpisodes.length }}</em>
                     </div>
                     <div v-if="!isGroupEmpty('ungrouped') && isGroupExpanded('ungrouped')" class="episode-children">
@@ -52,19 +52,18 @@
                         @visible-change="(visible) => handleEpisodeMenuVisibleChange(visible, episode.id)"
                         @command="(command) => handleEpisodeCommand(command, episode)"
                       >
-                        <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="state.activeEpisodeId = episode.id">
+                        <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
                           <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
                             <el-input v-model="episode.title" class="episode-title-input" placeholder="本集标题" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename" />
                             <el-button class="rename-confirm" :icon="Check" circle type="success" @click="finishEpisodeRename" />
                             <el-button class="rename-cancel" :icon="Close" circle type="danger" @click="cancelEpisodeRename(episode)" />
                           </div>
-                          <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="episode.starred" class="episode-star">⭐️</span></span>
+                          <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
                         </div>
                         <template #dropdown>
                           <el-dropdown-menu>
                             <el-dropdown-item command="summary" :icon="DataAnalysis">本集数据</el-dropdown-item>
                             <el-dropdown-item command="edit" :icon="EditPen">重命名</el-dropdown-item>
-                            <el-dropdown-item command="toggleStar" :icon="episode.starred ? Star : StarFilled">{{ episode.starred ? '取消星标' : '星标' }}</el-dropdown-item>
                             <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
                             <el-dropdown-item v-for="(group, groupIndex) in sortedEpisodeGroups" :key="group.id" :divided="groupIndex === 0" :command="{ action: 'move', groupId: group.id }">移至 {{ group.title }}
                             </el-dropdown-item>
@@ -76,7 +75,7 @@
 
                   <section v-for="group in sortedEpisodeGroups" :key="group.id" class="episode-group-block">
                     <el-dropdown :ref="(dropdown) => setGroupDropdownRef(group.id, dropdown)" trigger="contextmenu" :visible="openGroupMenuId === group.id" @visible-change="(visible) => handleGroupMenuVisibleChange(visible, group.id)" @command="(command) => handleGroupCommand(command, group.id)">
-                      <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @click="toggleGroupIfNotEmpty(group.id)" @keyup.enter="toggleGroupIfNotEmpty(group.id)">
+                      <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
                         <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
                         <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
                         <div v-if="editingGroupId === group.id" class="rename-inline" @click.stop @keydown.stop>
@@ -85,14 +84,13 @@
                           <el-button class="rename-cancel" :icon="Close" circle type="danger" @click="cancelGroupRename(group)" />
                         </div>
                         <span v-else class="group-title-text">{{ group.title }}</span>
-                        <span v-if="editingGroupId !== group.id && group.starred" class="episode-star group-star">⭐️</span>
+                        <span v-if="editingGroupId !== group.id && isGroupAutoStarred(group.id)" class="episode-star group-star">⭐️</span>
                         <span v-else-if="editingGroupId !== group.id" class="group-star-placeholder" aria-hidden="true"></span>
                       </div>
                       <template #dropdown>
                         <el-dropdown-menu>
                           <el-dropdown-item command="summary" :icon="DataLine">整组数据</el-dropdown-item>
                           <el-dropdown-item command="edit" :icon="EditPen">重命名</el-dropdown-item>
-                          <el-dropdown-item command="toggleStar" :icon="group.starred ? Star : StarFilled">{{ group.starred ? '取消星标' : '星标' }}</el-dropdown-item>
                           <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
                         </el-dropdown-menu>
                       </template>
@@ -107,19 +105,18 @@
                         @visible-change="(visible) => handleEpisodeMenuVisibleChange(visible, episode.id)"
                         @command="(command) => handleEpisodeCommand(command, episode)"
                       >
-                        <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="state.activeEpisodeId = episode.id">
+                        <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
                           <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
                             <el-input v-model="episode.title" class="episode-title-input" placeholder="本集标题" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename" />
                             <el-button class="rename-confirm" :icon="Check" circle type="success" @click="finishEpisodeRename" />
                             <el-button class="rename-cancel" :icon="Close" circle type="danger" @click="cancelEpisodeRename(episode)" />
                           </div>
-                          <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="episode.starred" class="episode-star">⭐️</span></span>
+                          <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
                         </div>
                         <template #dropdown>
                           <el-dropdown-menu>
                             <el-dropdown-item command="summary" :icon="DataAnalysis">本集数据</el-dropdown-item>
                             <el-dropdown-item command="edit" :icon="EditPen">重命名</el-dropdown-item>
-                            <el-dropdown-item command="toggleStar" :icon="episode.starred ? Star : StarFilled">{{ episode.starred ? '取消星标' : '星标' }}</el-dropdown-item>
                             <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
                             <el-dropdown-item divided :command="{ action: 'move', groupId: null }">移至未分组</el-dropdown-item>
                             <el-dropdown-item v-for="targetGroup in sortedEpisodeGroups" :key="targetGroup.id" :command="{ action: 'move', groupId: targetGroup.id }">移至 {{ targetGroup.title }}
@@ -198,7 +195,7 @@
                   type="primary"
                   :effect="isCharacterUsed(item) ? 'light' : 'plain'"
                 >
-                  <span>人物 · {{ item }}</span>
+                  <span>{{ item }}</span>
                   <el-popconfirm title="确认删除这个人物素材？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeMaterial('characters', item)">
                     <template #reference>
                       <el-button class="asset-tag-close" :icon="Close" circle text aria-label="删除人物素材" @click.stop />
@@ -212,7 +209,7 @@
                   type="success"
                   :effect="isSceneUsed(item.name) ? 'light' : 'plain'"
                 >
-                  <span>场景 · {{ item.name }} · {{ item.time }} · {{ item.space }}</span>
+                  <span>{{ item.name }} · {{ item.time }} · {{ item.space }}</span>
                   <el-popconfirm title="确认删除这个场景素材？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeMaterial('scenes', item.name)">
                     <template #reference>
                       <el-button class="asset-tag-close" :icon="Close" circle text aria-label="删除场景素材" @click.stop />
@@ -677,44 +674,58 @@
           </div>
         </template>
       </el-dialog>
-      <el-dialog v-model="materialDialogVisible" title="添加基础素材" width="420px">
-        <el-form label-position="top">
-          <el-form-item label="素材类型">
-            <el-radio-group v-model="materialKind">
-              <el-radio-button label="人物" value="characters" />
-              <el-radio-button label="场景" value="scenes" />
-            </el-radio-group>
-          </el-form-item>
-          <el-form-item label="素材名称">
+      <el-dialog v-model="materialDialogVisible" title="添加基础素材" width="680px" class="material-dialog">
+        <el-form class="material-form" label-position="top">
+          <el-form-item label="人物">
             <el-input
-              v-if="materialKind === 'characters'"
-              v-model="materialDraft"
-              type="textarea"
-              :rows="4"
-              placeholder="可输入多个名称，用 、；， 或换行分割"
-              @keyup.ctrl.enter="confirmMaterialDialog"
-            />
-            <el-input
-              v-else
-              v-model="materialDraft"
-              placeholder="输入单个场景名称"
+              v-model="materialCharacterDraft"
+              clearable
+              placeholder="可输入多个人物名称，用 、；，;, 或换行分割"
               @keyup.enter="confirmMaterialDialog"
             />
           </el-form-item>
-          <template v-if="materialKind === 'scenes'">
-            <el-form-item label="时间">
-              <el-radio-group v-model="materialSceneTime">
-                <el-radio-button label="白天" value="白天" />
-                <el-radio-button label="深夜" value="深夜" />
-              </el-radio-group>
-            </el-form-item>
-            <el-form-item label="空间">
-              <el-radio-group v-model="materialSceneSpace">
-                <el-radio-button label="室内" value="室内" />
-                <el-radio-button label="室外" value="室外" />
-              </el-radio-group>
-            </el-form-item>
-          </template>
+          <el-form-item label="场景">
+            <div class="material-scene-list">
+              <div v-for="(scene, index) in materialSceneDrafts" :key="index" class="material-scene-row">
+                <el-input
+                  v-model="scene.name"
+                  clearable
+                  :placeholder="`场景 ${index + 1}`"
+                  @keyup.enter="confirmMaterialDialog"
+                />
+                <el-segmented
+                  v-model="scene.time"
+                  :options="materialSceneTimeOptions"
+                  block
+                  aria-label="场景时间"
+                  class="material-scene-segmented"
+                >
+                  <template #default="{ item }">
+                    <el-tooltip :content="segmentedOptionLabel(item)" placement="top">
+                      <el-icon class="material-segment-icon" :aria-label="segmentedOptionLabel(item)" :title="segmentedOptionLabel(item)">
+                        <component :is="segmentedOptionIcon(item)" />
+                      </el-icon>
+                    </el-tooltip>
+                  </template>
+                </el-segmented>
+                <el-segmented
+                  v-model="scene.space"
+                  :options="materialSceneSpaceOptions"
+                  block
+                  aria-label="场景空间"
+                  class="material-scene-segmented"
+                >
+                  <template #default="{ item }">
+                    <el-tooltip :content="segmentedOptionLabel(item)" placement="top">
+                      <el-icon class="material-segment-icon" :aria-label="segmentedOptionLabel(item)" :title="segmentedOptionLabel(item)">
+                        <component :is="segmentedOptionIcon(item)" />
+                      </el-icon>
+                    </el-tooltip>
+                  </template>
+                </el-segmented>
+              </div>
+            </div>
+          </el-form-item>
         </el-form>
         <template #footer>
           <el-button type="primary" @click="confirmMaterialDialog">添加</el-button>
@@ -724,10 +735,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, FolderAdd, MostlyCloudy, Plus, Search, Setting, Star, StarFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, FolderAdd, House, MapLocation, MoonNight, MostlyCloudy, Plus, Search, Setting, Star, StarFilled, Sunny } from '@element-plus/icons-vue'
 import {
   createCharacterConfig,
   createEpisode,
@@ -753,6 +764,20 @@ import type { CharacterConfig, Episode, EpisodeGroup, EpisodeProductionData, Exp
 import { useAppState } from './useAppState'
 
 type MaterialKind = 'characters' | 'scenes'
+type MaterialSceneDraft = {
+  name: string
+  time: SceneTime
+  space: SceneSpace
+}
+type MaterialSegmentedOption<T extends string> = {
+  label: string
+  value: T
+  icon: Component
+}
+type MaterialAddResult = {
+  added: number
+  skipped: number
+}
 type ImportMode = 'replace' | 'merge'
 type WeeklyReportPickerCell = {
   dayjs?: {
@@ -782,11 +807,10 @@ const durationRangeDraft = ref<[number, number]>([
 const detectionDialogVisible = ref(false)
 const detectionConflictShotId = ref<string | null>(null)
 const sidebarCollapsed = ref(false)
-const materialDraft = ref('')
-const materialSceneTime = ref<SceneTime>('白天')
-const materialSceneSpace = ref<SceneSpace>('室内')
+const materialCharacterDraft = ref('')
+const materialSceneDrafts = ref<MaterialSceneDraft[]>(createMaterialSceneDrafts())
 const batchShotSegments = ref<string[]>([])
-const materialKind = ref<MaterialKind>('characters')
+const selectedEpisodeGroupId = ref<string | null>(activeEpisode.value?.groupId ?? null)
 const editingEpisodeId = ref<string | null>(null)
 const editingEpisodeOriginalTitle = ref('')
 const editingGroupId = ref<string | null>(null)
@@ -794,6 +818,14 @@ const editingGroupOriginalTitle = ref('')
 const expandedGroupIds = ref<string[]>(['ungrouped'])
 const openEpisodeMenuId = ref<string | null>(null)
 const openGroupMenuId = ref<string | null>(null)
+const materialSceneTimeOptions: MaterialSegmentedOption<SceneTime>[] = [
+  { label: '白天', value: '白天', icon: Sunny },
+  { label: '深夜', value: '深夜', icon: MoonNight },
+]
+const materialSceneSpaceOptions: MaterialSegmentedOption<SceneSpace>[] = [
+  { label: '室内', value: '室内', icon: House },
+  { label: '室外', value: '室外', icon: MapLocation },
+]
 const episodeDropdownRefs = new Map<string, { handleClose?: () => void }>()
 const groupDropdownRefs = new Map<string, { handleClose?: () => void }>()
 const scriptInputRefs = new Map<string, { textarea: HTMLTextAreaElement; handler: () => void }>()
@@ -1072,6 +1104,36 @@ function isGroupEmpty(id: string) {
   return groupEpisodeCount(id) === 0
 }
 
+function normalizeEpisodeGroupId(id: string | null) {
+  return id === 'ungrouped' ? null : id
+}
+
+function isExistingEpisodeGroupId(id: string | null) {
+  return id === null || state.episodeGroups.some((group) => group.id === id)
+}
+
+function getSelectedEpisodeGroupId() {
+  if (isExistingEpisodeGroupId(selectedEpisodeGroupId.value)) {
+    return selectedEpisodeGroupId.value
+  }
+
+  return activeEpisode.value?.groupId ?? null
+}
+
+function selectEpisode(episode: Episode) {
+  state.activeEpisodeId = episode.id
+  selectedEpisodeGroupId.value = episode.groupId ?? null
+}
+
+function selectGroup(id: string | null) {
+  selectedEpisodeGroupId.value = normalizeEpisodeGroupId(id)
+}
+
+function selectGroupAndToggleIfNotEmpty(id: string) {
+  selectGroup(id)
+  toggleGroupIfNotEmpty(id)
+}
+
 function toggleGroupIfNotEmpty(id: string) {
   if (!isGroupEmpty(id)) {
     toggleGroup(id)
@@ -1221,12 +1283,6 @@ function getEpisodeGroupTitle(groupId: string | null) {
   return state.episodeGroups.find((group) => group.id === groupId)?.title ?? '未分组'
 }
 
-function getEpisodeGroupTotal(groupId: string | null) {
-  const groupEpisodes = state.episodes.filter((episode) => (episode.groupId ?? null) === groupId)
-  const maxEpisodeNumber = Math.max(0, ...groupEpisodes.map((episode) => parseEpisodeNumber(episode.title)))
-  return Math.max(groupEpisodes.length, maxEpisodeNumber)
-}
-
 function sceneAssetLabel(scene: SceneAsset) {
   return `${scene.name} · ${scene.time} · ${scene.space}`
 }
@@ -1303,9 +1359,8 @@ function buildWeeklyReport(value: Date | string | null) {
 
     const segments = Array.from(groups.values()).map((groupEntries) => {
       const firstEntry = groupEntries[0]
-      const total = getEpisodeGroupTotal(firstEntry.groupId)
-      const suffix = groupEntries.length > 1 ? `/${pad2(total)}` : ''
-      return `制作《${firstEntry.groupTitle}》${firstEntry.episodeNumber}${suffix}集`
+      const episodeNumbers = Array.from(new Set(groupEntries.map((entry) => entry.episodeNumber))).join('/')
+      return `制作《${firstEntry.groupTitle}》${episodeNumbers}集`
     })
 
     lines.push(`${formatMonthDay(date)} ${segments.join('、')}`)
@@ -1337,6 +1392,8 @@ function cancelGroupRename(group: { title: string }) {
 function addEpisodeGroup() {
   const group = createEpisodeGroup()
   state.episodeGroups.push(group)
+  selectedEpisodeGroupId.value = group.id
+  expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, group.id]))
   editingGroupOriginalTitle.value = group.title
   editingGroupId.value = group.id
 }
@@ -1437,6 +1494,10 @@ function handleEpisodeCommand(command: string | { action: 'move'; groupId: strin
   if (typeof command !== 'string') {
     if (command.action === 'move') {
       episode.groupId = command.groupId
+      if (episode.id === state.activeEpisodeId) {
+        selectedEpisodeGroupId.value = command.groupId
+      }
+      expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, command.groupId ?? 'ungrouped']))
     }
     return
   }
@@ -1448,13 +1509,8 @@ function handleEpisodeCommand(command: string | { action: 'move'; groupId: strin
   }
 
   if (command === 'summary') {
-    state.activeEpisodeId = episode.id
+    selectEpisode(episode)
     openReviewSummary(episode)
-    return
-  }
-
-  if (command === 'toggleStar') {
-    episode.starred = !episode.starred
     return
   }
 
@@ -1474,15 +1530,6 @@ async function handleGroupCommand(command: string, groupId: string) {
     const group = state.episodeGroups.find((item) => item.id === groupId)
     editingGroupOriginalTitle.value = group?.title ?? ''
     editingGroupId.value = groupId
-    return
-  }
-
-  if (command === 'toggleStar') {
-    const group = state.episodeGroups.find((item) => item.id === groupId)
-
-    if (group) {
-      group.starred = !group.starred
-    }
     return
   }
 
@@ -1511,20 +1558,55 @@ async function handleGroupCommand(command: string, groupId: string) {
       episode.groupId = null
     }
   })
+  if (selectedEpisodeGroupId.value === groupId) {
+    selectedEpisodeGroupId.value = null
+  }
   state.episodeGroups = state.episodeGroups.filter((item) => item.id !== groupId)
   expandedGroupIds.value = expandedGroupIds.value.filter((id) => id !== groupId)
 }
 
 function openMaterialDialog() {
-  materialKind.value = 'characters'
-  materialDraft.value = ''
+  resetMaterialDrafts()
   materialDialogVisible.value = true
 }
 
 function confirmMaterialDialog() {
-  addMaterial(materialKind.value, materialDraft.value)
-  materialDraft.value = ''
+  addMaterialDrafts()
+  resetMaterialDrafts()
   materialDialogVisible.value = false
+}
+
+function createMaterialSceneDraft(): MaterialSceneDraft {
+  return {
+    name: '',
+    time: '白天',
+    space: '室内',
+  }
+}
+
+function createMaterialSceneDrafts() {
+  return Array.from({ length: 5 }, () => createMaterialSceneDraft())
+}
+
+function resetMaterialDrafts() {
+  materialCharacterDraft.value = ''
+  materialSceneDrafts.value = createMaterialSceneDrafts()
+}
+
+function segmentedOptionLabel(item: unknown) {
+  if (item && typeof item === 'object' && 'label' in item) {
+    return String((item as { label?: unknown }).label ?? '')
+  }
+
+  return ''
+}
+
+function segmentedOptionIcon(item: unknown) {
+  if (item && typeof item === 'object' && 'icon' in item) {
+    return (item as { icon: Component }).icon
+  }
+
+  return Sunny
 }
 
 function isCharacterUsed(name: string) {
@@ -1536,11 +1618,14 @@ function isSceneUsed(name: string) {
 }
 
 function addEpisode() {
-  const episode = createEpisode(state.episodes.length + 1)
-  episode.groupId = null
+  const targetGroupId = getSelectedEpisodeGroupId()
+  const targetTreeId = targetGroupId ?? 'ungrouped'
+  const episode = createEpisode(groupEpisodeCount(targetTreeId) + 1)
+  episode.groupId = targetGroupId
   state.episodes.push(episode)
   state.activeEpisodeId = episode.id
-  expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, 'ungrouped']))
+  selectedEpisodeGroupId.value = targetGroupId
+  expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, targetTreeId]))
   editingEpisodeOriginalTitle.value = episode.title
   editingEpisodeId.value = episode.id
 }
@@ -1572,7 +1657,7 @@ async function deleteEpisodeById(id: string) {
   state.episodes.splice(index, 1)
 
   if (state.activeEpisodeId === id) {
-    state.activeEpisodeId = state.episodes[Math.max(index - 1, 0)].id
+    selectEpisode(state.episodes[Math.max(index - 1, 0)])
   }
 }
 
@@ -1667,48 +1752,71 @@ function deleteShot(id: string) {
   activeEpisode.value.shots = activeEpisode.value.shots.filter((shot) => shot.id !== id)
 }
 
-function addMaterial(kind: MaterialKind, value: string) {
+function addMaterialDrafts() {
   const episode = activeEpisode.value
 
   if (!episode) {
     return
   }
 
-  if (kind === 'characters') {
-    const items = splitMaterialInput(value)
+  const characterResult = addCharacterMaterials(episode, materialCharacterDraft.value)
+  const sceneResult = addSceneMaterials(episode, materialSceneDrafts.value)
+  const added = characterResult.added + sceneResult.added
+  const skipped = characterResult.skipped + sceneResult.skipped
 
-    if (!items.length) {
-      return
-    }
+  if (added && skipped) {
+    ElMessage.success(`已添加 ${added} 项，跳过 ${skipped} 个重复项`)
+  } else if (added) {
+    ElMessage.success(`已添加 ${added} 项`)
+  } else if (skipped) {
+    ElMessage.info('输入的素材已存在')
+  }
+}
 
-    const added = items.filter((item) => !episode.characters.includes(item))
-    const skipped = items.length - added.length
+function addCharacterMaterials(episode: Episode, value: string): MaterialAddResult {
+  const items = splitMaterialInput(value)
 
-    episode.characters.push(...added)
-
-    if (added.length && skipped) {
-      ElMessage.success(`已添加 ${added.length} 项，跳过 ${skipped} 个重复项`)
-    } else if (added.length) {
-      ElMessage.success(`已添加 ${added.length} 项`)
-    } else {
-      ElMessage.info('输入的素材已存在')
-    }
-    return
+  if (!items.length) {
+    return { added: 0, skipped: 0 }
   }
 
-  const name = value.trim()
+  const added = items.filter((item) => !episode.characters.includes(item))
 
-  if (!name) {
-    return
+  episode.characters.push(...added)
+
+  return {
+    added: added.length,
+    skipped: items.length - added.length,
   }
+}
 
-  if (episode.scenes.some((scene) => scene.name === name)) {
-    ElMessage.info('输入的场景已存在')
-    return
+function addSceneMaterials(episode: Episode, drafts: MaterialSceneDraft[]): MaterialAddResult {
+  const existingNames = new Set(episode.scenes.map((scene) => scene.name))
+  const draftNames = new Set<string>()
+  let skipped = 0
+
+  const added = drafts
+    .map((draft) => ({ ...draft, name: draft.name.trim() }))
+    .filter((draft) => {
+      if (!draft.name) {
+        return false
+      }
+
+      if (existingNames.has(draft.name) || draftNames.has(draft.name)) {
+        skipped += 1
+        return false
+      }
+
+      draftNames.add(draft.name)
+      return true
+    })
+
+  episode.scenes.push(...added.map((scene) => createSceneAsset(scene.name, scene.time, scene.space)))
+
+  return {
+    added: added.length,
+    skipped,
   }
-
-  episode.scenes.push(createSceneAsset(name, materialSceneTime.value, materialSceneSpace.value))
-  ElMessage.success('已添加 1 项')
 }
 
 function splitMaterialInput(value: string) {
@@ -2014,6 +2122,15 @@ function isShotReviewed(shot: Shot) {
   return shot.review.rating > 0 || shot.review.drawCount !== 1 || shot.review.noSubtitleCount !== 0 || Boolean(shot.review.note.trim())
 }
 
+function isEpisodeAutoStarred(episode: Episode) {
+  return episode.shots.length > 0 && episode.shots.every(isShotReviewed)
+}
+
+function isGroupAutoStarred(groupId: string) {
+  const episodes = episodesForGroup(groupId)
+  return episodes.length > 0 && episodes.every(isEpisodeAutoStarred)
+}
+
 function isReviewDefault(review: PromptReview) {
   return review.rating === 0 && review.drawCount === 1 && review.noSubtitleCount === 0 && !review.note.trim()
 }
@@ -2240,8 +2357,14 @@ function exportAllEpisodes() {
   downloadJson(`${archiveFilename()}.json`, {
     version: state.version,
     exportedAt: new Date().toISOString(),
-    episodeGroups: JSON.parse(JSON.stringify(state.episodeGroups)) as EpisodeGroup[],
-    episodes: JSON.parse(JSON.stringify(state.episodes)) as Episode[],
+    episodeGroups: state.episodeGroups.map((group) => ({
+      ...JSON.parse(JSON.stringify(group)),
+      starred: isGroupAutoStarred(group.id),
+    })) as EpisodeGroup[],
+    episodes: state.episodes.map((episode) => ({
+      ...JSON.parse(JSON.stringify(episode)),
+      starred: isEpisodeAutoStarred(episode),
+    })) as Episode[],
     globalConfigSnapshot: JSON.parse(JSON.stringify(state.globalConfig)),
   })
 }
@@ -2308,6 +2431,7 @@ async function importEpisode(event: Event) {
     state.episodeGroups = []
     state.episodes = []
     state.activeEpisodeId = ''
+    selectedEpisodeGroupId.value = null
     expandedGroupIds.value = ['ungrouped']
   }
 
@@ -2352,7 +2476,7 @@ async function importEpisode(event: Event) {
 
     episodesToImport.forEach((episode) => {
       state.episodes.push(episode)
-      state.activeEpisodeId = episode.id
+      selectEpisode(episode)
       importedCount += 1
     })
   })
@@ -2360,7 +2484,7 @@ async function importEpisode(event: Event) {
   if (!state.episodes.length) {
     const episode = createEpisode(1)
     state.episodes = [episode]
-    state.activeEpisodeId = episode.id
+    selectEpisode(episode)
   }
 
   if (importedCount) {
@@ -2420,7 +2544,6 @@ function normalizeSceneAssets(scenes: unknown): SceneAsset[] {
 function episodeComparableSignature(episode: Episode) {
   return JSON.stringify({
     title: episode.title,
-    starred: Boolean(episode.starred),
     characters: episode.characters,
     scenes: episode.scenes,
     props: episode.props,

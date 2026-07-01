@@ -280,6 +280,8 @@ h3,
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
+  font-size: 14px;
+  line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -500,6 +502,60 @@ h3,
   align-items: center;
   gap: 4px;
   border-radius: 999px;
+}
+
+.material-dialog .el-dialog__body {
+  padding-top: 8px;
+}
+
+.material-form .el-form-item:last-child {
+  margin-bottom: 0;
+}
+
+.material-scene-list {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.material-scene-row {
+  display: grid;
+  grid-template-columns: minmax(0, 65%) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.material-scene-row .el-input,
+.material-scene-segmented {
+  min-width: 0;
+}
+
+.material-scene-segmented {
+  width: 100%;
+}
+
+.material-scene-segmented .el-segmented__item {
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.material-segment-icon {
+  display: inline-flex;
+  width: 100%;
+  justify-content: center;
+  font-size: 16px;
+}
+
+@media (max-width: 720px) {
+  .material-dialog.el-dialog,
+  .material-dialog .el-dialog {
+    width: calc(100vw - 24px) !important;
+  }
+
+  .material-scene-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .asset-tag-close.el-button {
