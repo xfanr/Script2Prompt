@@ -779,7 +779,45 @@ h3,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
+}
+
+.script-title-left {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.script-title-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.script-title-actions .el-checkbox {
+  margin-right: 0;
+}
+
+.script-title-actions .el-checkbox__label {
+  padding-left: 4px;
+}
+
+.script-title-stats {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  color: #67c23a;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.script-title-stats span {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #f0f9eb;
+  line-height: 18px;
 }
 
 .preview-title {
@@ -812,8 +850,69 @@ h3,
 .script-input-wrap {
   position: relative;
   display: flex;
+  flex-direction: column;
+  gap: 0;
   min-height: 0;
   flex: 1 1 auto;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.script-input-wrap:focus-within {
+  border-color: var(--el-color-primary);
+}
+
+.script-textarea-stack {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.script-context-line {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  padding: 5px 10px;
+  font-size: 15px;
+  font-weight: inherit;
+  line-height: 1.45;
+  color: inherit;
+}
+
+.script-context-line.is-next {
+  justify-content: flex-end;
+}
+
+.script-context-preview {
+  flex: 0 0 auto;
+  color: var(--el-color-primary) !important;
+  cursor: help;
+  font-size: 15px;
+}
+
+.script-context-preview svg {
+  color: inherit !important;
+  fill: currentColor;
+}
+
+.script-context-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgba(255, 213, 79, 0.5);
+}
+
+.script-context-tooltip.el-popper {
+  max-width: 260px;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .script-input-wrap .el-textarea,
@@ -825,7 +924,9 @@ h3,
   position: relative;
   z-index: 2;
   resize: none;
-  background: transparent;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
   color: rgba(31, 42, 68, 0.92);
   caret-color: #1f2a44;
   font-size: 15px;

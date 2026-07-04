@@ -133,6 +133,8 @@ function loadState(): AppState {
       episode.scriptText = typeof episode.scriptText === 'string' ? episode.scriptText : ''
       episode.shots?.forEach((shot) => {
         shot.remark = typeof shot.remark === 'string' ? shot.remark : ''
+        shot.connectPrevious = Boolean(shot.connectPrevious)
+        shot.connectNext = Boolean(shot.connectNext)
         shot.scenes = normalizeShotScenes(shot.scenes, episode.scenes)
         shot.characters ??= []
         shot.characters.forEach((character) => {

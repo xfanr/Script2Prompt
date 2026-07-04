@@ -82,6 +82,8 @@ export interface Shot {
   id: string
   text: string
   remark: string
+  connectPrevious: boolean
+  connectNext: boolean
   scenes: SceneConfig[]
   usePositionReference: boolean
   characters: CharacterConfig[]

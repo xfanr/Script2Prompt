@@ -298,22 +298,46 @@
               <div v-if="!isShotCollapsed(shot)" class="shot-grid">
                 <section class="shot-cell script-cell">
                   <div class="cell-title script-title">
-                    <span>{{ sectionTitle('shot') }}</span>
-                    <el-button :icon="Search" text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
+                    <div class="script-title-left">
+                      <span>{{ sectionTitle('shot') }}</span>
+                      <div class="script-title-actions">
+                        <el-checkbox :model-value="shot.connectPrevious && !isConnectPreviousDisabled(index)" :disabled="isConnectPreviousDisabled(index)" @update:model-value="shot.connectPrevious = Boolean($event)">承上</el-checkbox>
+                        <el-checkbox :model-value="shot.connectNext && !isConnectNextDisabled(index)" :disabled="isConnectNextDisabled(index)" @update:model-value="shot.connectNext = Boolean($event)">启下</el-checkbox>
+                        <el-button :icon="Search" text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
+                      </div>
+                    </div>
+                    <div class="script-title-stats">
+                      <span>{{ characterCount(effectiveShotText(shot)) }}/140 字</span>
+                      <span>推荐 {{ durationText(effectiveShotText(shot)) }}</span>
+                    </div>
                   </div>
-                  <div class="script-input-wrap" :class="{ warn: durationState(shot.text).warn }">
-                    <div :ref="(element) => setScriptHighlightRef(shot.id, element)" class="script-highlight-layer" v-html="highlightedShotText(shot)"></div>
-                    <el-input
-                      :ref="(input) => setScriptInputRef(shot.id, input)"
-                      v-model="shot.text"
-                      type="textarea"
-                      :rows="9"
-                      resize="vertical"
-                      placeholder="输入或粘贴 40-120 字分段剧本。系统会匹配本集人物，并识别对白格式。"
-                    />
-                    <div class="script-inline-stats">
-                      <span>{{ characterCount(shot.text) }}/140 字</span>
-                      <span>推荐 {{ durationText(shot.text) }}</span>
+                  <div class="script-input-wrap" :class="{ warn: durationState(effectiveShotText(shot)).warn }">
+                    <div v-if="connectedPreviousText(shot, index)" class="script-context-line is-previous" aria-readonly="true">
+                      <el-tooltip :content="connectedPreviousText(shot, index)" placement="top" popper-class="script-context-tooltip">
+                        <el-icon class="script-context-preview" color="#409eff" aria-label="查看完整衔接上文">
+                          <InfoFilled />
+                        </el-icon>
+                      </el-tooltip>
+                      <span class="script-context-text">{{ connectedPreviousText(shot, index) }}</span>
+                    </div>
+                    <div class="script-textarea-stack">
+                      <div :ref="(element) => setScriptHighlightRef(shot.id, element)" class="script-highlight-layer" v-html="highlightedShotText(shot)"></div>
+                      <el-input
+                        :ref="(input) => setScriptInputRef(shot.id, input)"
+                        v-model="shot.text"
+                        type="textarea"
+                        :rows="9"
+                        resize="vertical"
+                        placeholder="输入或粘贴 40-120 字分段剧本。系统会匹配本集人物，并识别对白格式。"
+                      />
+                    </div>
+                    <div v-if="connectedNextText(shot, index)" class="script-context-line is-next" aria-readonly="true">
+                      <span class="script-context-text">{{ connectedNextText(shot, index) }}</span>
+                      <el-tooltip :content="connectedNextText(shot, index)" placement="bottom" popper-class="script-context-tooltip">
+                        <el-icon class="script-context-preview" color="#409eff" aria-label="查看完整衔接下文">
+                          <InfoFilled />
+                        </el-icon>
+                      </el-tooltip>
                     </div>
                   </div>
                 </section>
@@ -783,7 +807,7 @@
 import { computed, onMounted, onUnmounted, ref, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, FolderAdd, House, MapLocation, Moon, MostlyCloudy, Plus, Search, Setting, Star, StarFilled, Sunny, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, FolderAdd, House, InfoFilled, MapLocation, Moon, MostlyCloudy, Plus, Search, Setting, Star, StarFilled, Sunny, WarningFilled } from '@element-plus/icons-vue'
 import {
   createCharacterConfig,
   createEpisode,
@@ -1780,6 +1804,8 @@ function hasModifiedShots(episode: Episode) {
   return episode.shots.some((shot) => (
     Boolean(shot.text.trim())
     || Boolean(shot.remark.trim())
+    || shot.connectPrevious
+    || shot.connectNext
     || hasConfiguredScenes(shot)
     || shot.characters.length > 0
     || shot.usePositionReference
@@ -1963,6 +1989,7 @@ function hasConfiguredScenes(shot: Shot) {
 function promptPreviewWarnings(shot: Shot) {
   const warnings: string[] = []
   const configuredCharacters = shot.characters.filter((character) => character.name.trim())
+  const text = effectiveShotText(shot)
 
   if (!configuredCharacters.length) {
     warnings.push('未配置人物')
@@ -1980,11 +2007,11 @@ function promptPreviewWarnings(shot: Shot) {
     warnings.push('多角色建议勾选位置参考')
   }
 
-  const seconds = recommendedSeconds(shot.text)
+  const seconds = recommendedSeconds(text)
   const min = Math.min(state.globalConfig.recommendedDurationRange.min, state.globalConfig.recommendedDurationRange.max)
   const max = Math.max(state.globalConfig.recommendedDurationRange.min, state.globalConfig.recommendedDurationRange.max)
 
-  if (shot.text.trim() && (seconds < min || seconds > max)) {
+  if (text && (seconds < min || seconds > max)) {
     warnings.push(`推荐时长 ${formatSeconds(seconds)}，超出安全范围 ${formatSeconds(min)}-${formatSeconds(max)}`)
   }
 
@@ -2065,6 +2092,55 @@ function setShotStatus(shot: Shot, done: boolean) {
   shot.status = done ? 'complete' : 'incomplete'
 }
 
+function nonEmptyLines(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function shotIndex(shot: Shot) {
+  return activeEpisode.value?.shots.findIndex((item) => item.id === shot.id) ?? -1
+}
+
+function previousShotTail(index: number) {
+  const previous = activeEpisode.value?.shots[index - 1]
+  const lines = previous ? nonEmptyLines(previous.text) : []
+  return lines.at(-1) ?? ''
+}
+
+function nextShotHead(index: number) {
+  const next = activeEpisode.value?.shots[index + 1]
+  return next ? nonEmptyLines(next.text)[0] ?? '' : ''
+}
+
+function isConnectPreviousDisabled(index: number) {
+  return !previousShotTail(index)
+}
+
+function isConnectNextDisabled(index: number) {
+  return !nextShotHead(index)
+}
+
+function connectedPreviousText(shot: Shot, index: number) {
+  return shot.connectPrevious ? previousShotTail(index) : ''
+}
+
+function connectedNextText(shot: Shot, index: number) {
+  return shot.connectNext ? nextShotHead(index) : ''
+}
+
+function effectiveShotText(shot: Shot) {
+  const index = shotIndex(shot)
+  const lines = [
+    shot.connectPrevious && index > -1 ? previousShotTail(index) : '',
+    shot.text.trim(),
+    shot.connectNext && index > -1 ? nextShotHead(index) : '',
+  ].filter(Boolean)
+
+  return lines.join('\n').trim()
+}
+
 function hasShotRemark(shot: Shot) {
   return Boolean(shot.remark.trim())
 }
@@ -2101,7 +2177,7 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
     return false
   }
 
-  const detected = detectCharacters(shot.text, episode.characters)
+  const detected = detectCharacters(effectiveShotText(shot), episode.characters)
   shot.autoSyncNotice = null
 
   if (!detected.length) {
@@ -2398,7 +2474,7 @@ function importEpisodeScriptShots() {
 }
 
 function promptFor(shot: Shot) {
-  return composePrompt(state.globalConfig, shot)
+  return composePrompt(state.globalConfig, { ...shot, text: effectiveShotText(shot) })
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
@@ -2525,7 +2601,7 @@ async function copyWeeklyReport(value: Date | string | null = weeklyReportWeek.v
 }
 
 async function copyShotDetail(shot: Shot) {
-  const copied = await copyText(shot.text)
+  const copied = await copyText(effectiveShotText(shot))
 
   if (copied) {
     ElMessage.success('已复制分镜详情')
@@ -2809,6 +2885,8 @@ function episodeComparableSignature(episode: Episode) {
     shots: episode.shots.map((shot) => ({
       text: shot.text,
       remark: shot.remark,
+      connectPrevious: shot.connectPrevious,
+      connectNext: shot.connectNext,
       scenes: shot.scenes.map((scene) => ({ name: scene.name, time: scene.time, space: scene.space })),
       usePositionReference: shot.usePositionReference,
       characters: shot.characters.map((character) => ({
@@ -2907,6 +2985,8 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       ...shot,
       id: createId('shot'),
       remark: typeof shot.remark === 'string' ? shot.remark : '',
+      connectPrevious: Boolean(shot.connectPrevious),
+      connectNext: Boolean(shot.connectNext),
       pendingDetection: null,
       autoSyncNotice: null,
       undoCharacters: null,
