@@ -1,5 +1,5 @@
 import { computed, reactive, watch } from 'vue'
-import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, defaultBaseSettingSuffix, STORAGE_KEY } from './defaults'
+import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, createSceneConfig, defaultBaseSettingSuffix, STORAGE_KEY } from './defaults'
 import type { AppState, EpisodeProductionData, PromptReview, SceneAsset, SceneConfig } from './types'
 
 function normalizeSceneAsset(scene: unknown): SceneAsset | null {
@@ -44,6 +44,18 @@ function normalizeShotScene(scene: SceneConfig, assets: SceneAsset[]): SceneConf
     time: scene.time ?? asset?.time ?? '白天',
     space: scene.space ?? asset?.space ?? '室内',
   }
+}
+
+function normalizeShotScenes(scenes: unknown, assets: SceneAsset[]): SceneConfig[] {
+  if (!Array.isArray(scenes)) {
+    return [createSceneConfig()]
+  }
+
+  const normalized = scenes
+    .filter((scene): scene is SceneConfig => Boolean(scene) && typeof scene === 'object')
+    .map((scene) => normalizeShotScene(scene, assets))
+
+  return normalized.length ? normalized : [createSceneConfig()]
 }
 
 function normalizePromptReview(review: unknown): PromptReview {
@@ -120,7 +132,7 @@ function loadState(): AppState {
       episode.productionData = normalizeEpisodeProductionData(episode.productionData)
       episode.scriptText = typeof episode.scriptText === 'string' ? episode.scriptText : ''
       episode.shots?.forEach((shot) => {
-        shot.scenes = Array.isArray(shot.scenes) ? shot.scenes.map((scene) => normalizeShotScene(scene, episode.scenes)) : []
+        shot.scenes = normalizeShotScenes(shot.scenes, episode.scenes)
         shot.characters ??= []
         shot.characters.forEach((character) => {
           character.statusText ??= ''

@@ -692,6 +692,26 @@ h3,
   gap: 8px;
 }
 
+.preview-title-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.prompt-preview-status {
+  flex: 0 0 auto;
+  font-size: 17px;
+}
+
+.prompt-preview-status.warning {
+  color: var(--el-color-warning);
+}
+
+.prompt-preview-status.success {
+  color: var(--el-color-success);
+}
+
 .script-input-wrap {
   position: relative;
   display: flex;

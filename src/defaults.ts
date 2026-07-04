@@ -85,7 +85,7 @@ export function createShot(): Shot {
   return {
     id: createId('shot'),
     text: '',
-    scenes: [],
+    scenes: [createSceneConfig()],
     usePositionReference: false,
     characters: [],
     status: 'incomplete',

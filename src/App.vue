@@ -346,7 +346,19 @@
 
                 <section class="shot-cell preview-cell">
                   <div class="cell-title preview-title">
-                    <span>完整提示词预览</span>
+                    <span class="preview-title-label">
+                      完整提示词预览
+                      <el-tooltip :content="promptPreviewStatus(shot).htmlMessage" placement="top" raw-content>
+                        <el-icon
+                          class="prompt-preview-status"
+                          :class="promptPreviewStatus(shot).type"
+                          :aria-label="promptPreviewStatus(shot).message"
+                        >
+                          <WarningFilled v-if="promptPreviewStatus(shot).type === 'warning'" />
+                          <CircleCheckFilled v-else />
+                        </el-icon>
+                      </el-tooltip>
+                    </span>
                     <div class="preview-copy-actions">
                       <el-button :icon="CopyDocument" text type="primary" @click="copyShotDetail(shot)">详情</el-button>
                       <el-button :icon="CopyDocument" text type="primary" @click="copyPrompt(shot)">完整</el-button>
@@ -739,7 +751,7 @@
 import { computed, onMounted, onUnmounted, ref, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, FolderAdd, House, MapLocation, Moon, MostlyCloudy, Plus, Search, Setting, Star, StarFilled, Sunny } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, FolderAdd, House, MapLocation, Moon, MostlyCloudy, Plus, Search, Setting, Star, StarFilled, Sunny, WarningFilled } from '@element-plus/icons-vue'
 import {
   createCharacterConfig,
   createEpisode,
@@ -759,6 +771,7 @@ import {
   detectCharacters,
   formatSeconds,
   mergeDetectedCharacters,
+  normalizeCharacterNameForMatch,
   recommendedSeconds,
 } from './prompt'
 import type { CharacterConfig, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, SectionKey, Shot } from './types'
@@ -1732,7 +1745,7 @@ function isShotCollapsed(shot: Shot) {
 function hasModifiedShots(episode: Episode) {
   return episode.shots.some((shot) => (
     Boolean(shot.text.trim())
-    || shot.scenes.length > 0
+    || hasConfiguredScenes(shot)
     || shot.characters.length > 0
     || shot.usePositionReference
     || shot.status !== 'incomplete'
@@ -1848,9 +1861,17 @@ function removeMaterial(kind: MaterialKind, value: string) {
 
 function addSceneToShot(shot: Shot) {
   const episodeScenes = activeEpisode.value?.scenes ?? []
+  const blankScene = shot.scenes.find((scene) => !scene.name.trim())
 
   if (episodeScenes.length === 1) {
     const [scene] = episodeScenes
+    if (blankScene) {
+      blankScene.name = scene.name
+      blankScene.time = scene.time
+      blankScene.space = scene.space
+      return
+    }
+
     shot.scenes.push(createSceneConfig(scene.name, scene.time, scene.space))
     return
   }
@@ -1871,6 +1892,10 @@ function syncSceneFromAsset(scene: SceneConfig) {
 
 function removeSceneFromShot(shot: Shot, id: string) {
   shot.scenes = shot.scenes.filter((scene) => scene.id !== id)
+
+  if (!shot.scenes.length) {
+    shot.scenes.push(createSceneConfig())
+  }
 }
 
 function addCharacterToShot(shot: Shot) {
@@ -1896,24 +1921,90 @@ function isVoiceOverflow(shot: Shot) {
   return shot.characters.filter((character) => character.includeVoice).length > 3
 }
 
+function hasConfiguredScenes(shot: Shot) {
+  return shot.scenes.some((scene) => scene.name.trim())
+}
+
+function promptPreviewWarnings(shot: Shot) {
+  const warnings: string[] = []
+  const configuredCharacters = shot.characters.filter((character) => character.name.trim())
+
+  if (!configuredCharacters.length) {
+    warnings.push('未配置人物')
+  }
+
+  if (!hasConfiguredScenes(shot)) {
+    warnings.push('未配置场景')
+  }
+
+  if (isVoiceOverflow(shot)) {
+    warnings.push('音色超过 3 个')
+  }
+
+  if (configuredCharacters.length > 3 && !shot.usePositionReference) {
+    warnings.push('多角色建议勾选位置参考')
+  }
+
+  const seconds = recommendedSeconds(shot.text)
+  const min = Math.min(state.globalConfig.recommendedDurationRange.min, state.globalConfig.recommendedDurationRange.max)
+  const max = Math.max(state.globalConfig.recommendedDurationRange.min, state.globalConfig.recommendedDurationRange.max)
+
+  if (shot.text.trim() && (seconds < min || seconds > max)) {
+    warnings.push(`推荐时长 ${formatSeconds(seconds)}，超出安全范围 ${formatSeconds(min)}-${formatSeconds(max)}`)
+  }
+
+  return warnings
+}
+
+function formatPromptPreviewWarnings(warnings: string[]) {
+  return warnings.map((warning, index) => `${index + 1}.${warning}`)
+}
+
+function promptPreviewStatus(shot: Shot): { type: 'success' | 'warning'; message: string; htmlMessage: string } {
+  const warnings = promptPreviewWarnings(shot)
+
+  if (warnings.length) {
+    const numberedWarnings = formatPromptPreviewWarnings(warnings)
+
+    return {
+      type: 'warning',
+      message: numberedWarnings.join('\n'),
+      htmlMessage: numberedWarnings.map(escapeHtml).join('<br>'),
+    }
+  }
+
+  return {
+    type: 'success',
+    message: '提示词检查通过',
+    htmlMessage: '提示词检查通过',
+  }
+}
+
 function highlightedShotText(shot: Shot) {
   const text = shot.text || ' '
   const characters = shot.characters
-    .map((character) => ({ name: character.name.trim(), includeVoice: character.includeVoice }))
-    .filter((character, index, list) => character.name && list.findIndex((item) => item.name === character.name) === index)
-    .sort((a, b) => b.name.length - a.name.length)
+    .map((character) => {
+      const name = character.name.trim()
+      return {
+        name,
+        matchName: normalizeCharacterNameForMatch(name),
+        includeVoice: character.includeVoice,
+      }
+    })
+    .filter((character, index, list) => character.name && character.matchName && list.findIndex((item) => item.matchName === character.matchName) === index)
+    .sort((a, b) => b.matchName.length - a.matchName.length)
 
   if (!characters.length) {
     return escapeHtml(text)
   }
 
-  const pattern = new RegExp(characters.map((character) => escapeRegExp(character.name)).join('|'), 'g')
+  const pattern = new RegExp(characters.map((character) => escapeRegExp(character.matchName)).join('|'), 'g')
   const rawParts: string[] = []
   let cursor = 0
 
   text.replace(pattern, (match, offset: number) => {
     rawParts.push(escapeHtml(text.slice(cursor, offset)))
-    const character = characters.find((item) => item.name === match)
+    const character = characters.find((item) => item.matchName === match)
     const className = character?.includeVoice ? 'matched-character with-voice' : 'matched-character without-voice'
     rawParts.push('<mark class="' + className + '">' + escapeHtml(match) + '</mark>')
     cursor = offset + match.length
@@ -2336,7 +2427,15 @@ async function copyPrompt(shot: Shot) {
   const copied = await copyText(promptFor(shot))
 
   if (copied) {
-    ElMessage.success(`已复制 ${shotCopyLabel(shot)} 提示词`)
+    const status = promptPreviewStatus(shot)
+    const message = `已复制 ${shotCopyLabel(shot)} 提示词`
+
+    if (status.type === 'warning') {
+      ElMessage.warning(message)
+    } else {
+      ElMessage.success(message)
+    }
+
     return
   }
 
@@ -2679,6 +2778,18 @@ function normalizeImportedShotScene(scene: unknown, assets: SceneAsset[]): Scene
   )
 }
 
+function normalizeImportedShotScenes(scenes: unknown, assets: SceneAsset[]): SceneConfig[] {
+  if (!Array.isArray(scenes)) {
+    return [createSceneConfig()]
+  }
+
+  const normalized = scenes
+    .map((scene) => normalizeImportedShotScene(scene, assets))
+    .filter((scene): scene is SceneConfig => Boolean(scene))
+
+  return normalized.length ? normalized : [createSceneConfig()]
+}
+
 function normalizeImportedEpisodeGroups(groups: unknown): Array<{ sourceId: string; group: EpisodeGroup }> {
   if (!Array.isArray(groups)) {
     return []
@@ -2734,9 +2845,7 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       autoSyncNotice: null,
       undoCharacters: null,
       review: normalizePromptReview(shot.review),
-      scenes: Array.isArray(shot.scenes)
-        ? shot.scenes.map((scene) => normalizeImportedShotScene(scene, scenes)).filter((scene): scene is SceneConfig => Boolean(scene))
-        : [],
+      scenes: normalizeImportedShotScenes(shot.scenes, scenes),
       characters: Array.isArray(shot.characters)
         ? shot.characters.map((character) => ({ ...character, id: createId('character') }))
         : [],

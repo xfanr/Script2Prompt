@@ -9,6 +9,11 @@ import type {
 
 const chineseNumbers = ['一', '二', '三', '四', '五', '六', '七', '八', '九']
 
+type CharacterMatchCandidate = {
+  name: string
+  matchName: string
+}
+
 export function countNonPunctuationCharacters(text: string) {
   return Array.from(text.replace(/[\p{P}\p{S}\s]/gu, '')).length
 }
@@ -21,21 +26,42 @@ export function formatSeconds(seconds: number) {
   return `${seconds.toFixed(1).replace(/\.0$/, '')} 秒`
 }
 
+export function normalizeCharacterNameForMatch(name: string) {
+  return name.replace(/[（(][^（）()]*[）)]/g, '').trim()
+}
+
 export function detectCharacters(text: string, names: string[]): DetectedCharacter[] {
-  const normalizedNames = names
-    .map((name) => name.trim())
-    .filter(Boolean)
-    .filter((name, index, list) => list.indexOf(name) === index)
+  const candidates = buildCharacterMatchCandidates(names)
+  const searchableText = removeDialogueContent(text, candidates.map((candidate) => candidate.matchName))
 
-  const searchableText = removeDialogueContent(text, normalizedNames)
-
-  return normalizedNames
-    .filter((name) => text.includes(name))
-    .filter((name) => searchableText.includes(name))
-    .map((name) => ({
-      name,
-      includeVoice: hasDialoguePattern(text, name),
+  return candidates
+    .filter((candidate) => text.includes(candidate.matchName))
+    .filter((candidate) => searchableText.includes(candidate.matchName))
+    .map((candidate) => ({
+      name: candidate.name,
+      includeVoice: hasDialoguePattern(text, candidate.matchName),
     }))
+}
+
+function buildCharacterMatchCandidates(names: string[]): CharacterMatchCandidate[] {
+  const seen = new Set<string>()
+
+  return names
+    .map((name) => {
+      const trimmed = name.trim()
+      return {
+        name: trimmed,
+        matchName: normalizeCharacterNameForMatch(trimmed),
+      }
+    })
+    .filter((candidate) => {
+      if (!candidate.name || !candidate.matchName || seen.has(candidate.matchName)) {
+        return false
+      }
+
+      seen.add(candidate.matchName)
+      return true
+    })
 }
 
 export function buildDetectedCharacters(detected: DetectedCharacter[]): CharacterConfig[] {
@@ -102,7 +128,7 @@ function composeSceneRoleSection(globalConfig: GlobalConfig, shot: Shot) {
   shot.scenes
     .filter((scene) => scene.name.trim())
     .forEach((scene) => {
-      lines.push(`分镜场景设定在${scene.time}，${scene.space}，${scene.name.trim()}@。`)
+      lines.push(`分镜场景设定在${scene.time}，${scene.space}，${scene.name.trim()}。`)
     })
 
   if (shot.usePositionReference) {
