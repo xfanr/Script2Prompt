@@ -226,11 +226,43 @@
             >
 
               <div class="shot-meta">
-                <div>
+                <div class="shot-index-area" :class="{ 'has-remark': hasShotRemark(shot) }">
                   <span class="shot-index">#{{ index + 1 }}</span>
-                  <el-tag :type="shot.status === 'complete' ? 'success' : 'info'" effect="dark">
-                    {{ shot.status === 'complete' ? '已完成' : '未完成' }}
-                  </el-tag>
+                  <template v-if="editingShotRemarkId === shot.id">
+                    <el-input
+                      v-model="shotRemarkDraft"
+                      class="shot-remark-input"
+                      size="small"
+                      maxlength="80"
+                      placeholder="输入备注"
+                      @click.stop
+                      @keydown.enter.prevent="saveShotRemark(shot)"
+                      @keydown.esc.prevent="cancelShotRemarkEdit"
+                    />
+                    <el-button class="shot-remark-button is-visible" :icon="Check" circle text type="primary" aria-label="保存分镜备注" @click.stop="saveShotRemark(shot)" />
+                    <el-button class="shot-remark-button is-visible" :icon="Close" circle text aria-label="取消编辑分镜备注" @click.stop="cancelShotRemarkEdit" />
+                  </template>
+                  <template v-else>
+                    <span v-if="hasShotRemark(shot)" class="shot-remark-text" :title="shot.remark">{{ shot.remark }}</span>
+                    <el-button
+                      class="shot-remark-button"
+                      :icon="EditPen"
+                      circle
+                      text
+                      :type="hasShotRemark(shot) ? 'primary' : undefined"
+                      :aria-label="hasShotRemark(shot) ? '修改分镜备注' : '添加分镜备注'"
+                      @click.stop="startShotRemarkEdit(shot)"
+                    />
+                    <el-button
+                      v-if="hasShotRemark(shot)"
+                      class="shot-remark-button shot-remark-delete"
+                      :icon="Close"
+                      circle
+                      text
+                      aria-label="删除分镜备注"
+                      @click.stop="deleteShotRemark(shot)"
+                    />
+                  </template>
                 </div>
                 <div class="shot-tools">
                   <el-button-group>
@@ -852,6 +884,8 @@ const episodeScriptDialogVisible = ref(false)
 const activeReviewShot = ref<Shot | null>(null)
 const reviewSummaryEpisodeId = ref<string | null>(null)
 const activeGroupSummaryId = ref<string | null>(null)
+const editingShotRemarkId = ref<string | null>(null)
+const shotRemarkDraft = ref('')
 const reviewDraft = ref<PromptReview>(createPromptReview())
 const episodeScriptDraft = ref('')
 const productionPointUsageDraft = ref('0')
@@ -1745,6 +1779,7 @@ function isShotCollapsed(shot: Shot) {
 function hasModifiedShots(episode: Episode) {
   return episode.shots.some((shot) => (
     Boolean(shot.text.trim())
+    || Boolean(shot.remark.trim())
     || hasConfiguredScenes(shot)
     || shot.characters.length > 0
     || shot.usePositionReference
@@ -2028,6 +2063,34 @@ function escapeHtml(value: string) {
 }
 function setShotStatus(shot: Shot, done: boolean) {
   shot.status = done ? 'complete' : 'incomplete'
+}
+
+function hasShotRemark(shot: Shot) {
+  return Boolean(shot.remark.trim())
+}
+
+function startShotRemarkEdit(shot: Shot) {
+  editingShotRemarkId.value = shot.id
+  shotRemarkDraft.value = shot.remark
+}
+
+function saveShotRemark(shot: Shot) {
+  const remark = shotRemarkDraft.value.trim()
+  shot.remark = remark
+  editingShotRemarkId.value = null
+  shotRemarkDraft.value = ''
+  ElMessage.success(remark ? '已保存分镜备注' : '已删除分镜备注')
+}
+
+function cancelShotRemarkEdit() {
+  editingShotRemarkId.value = null
+  shotRemarkDraft.value = ''
+}
+
+function deleteShotRemark(shot: Shot) {
+  shot.remark = ''
+  cancelShotRemarkEdit()
+  ElMessage.success('已删除分镜备注')
 }
 
 function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConflict?: boolean } = {}) {
@@ -2410,6 +2473,7 @@ function isBlankShotCopyTarget(target: EventTarget | null) {
     '.script-highlight-layer',
     '.script-inline-stats',
     '.shot-index',
+    '.shot-index-area',
     '.shot-tools',
   ].join(','))
 }
@@ -2744,6 +2808,7 @@ function episodeComparableSignature(episode: Episode) {
     scriptText: episode.scriptText,
     shots: episode.shots.map((shot) => ({
       text: shot.text,
+      remark: shot.remark,
       scenes: shot.scenes.map((scene) => ({ name: scene.name, time: scene.time, space: scene.space })),
       usePositionReference: shot.usePositionReference,
       characters: shot.characters.map((character) => ({
@@ -2841,6 +2906,7 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       ...createShot(),
       ...shot,
       id: createId('shot'),
+      remark: typeof shot.remark === 'string' ? shot.remark : '',
       pendingDetection: null,
       autoSyncNotice: null,
       undoCharacters: null,

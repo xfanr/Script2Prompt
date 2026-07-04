@@ -81,6 +81,7 @@ export interface EpisodeProductionData {
 export interface Shot {
   id: string
   text: string
+  remark: string
   scenes: SceneConfig[]
   usePositionReference: boolean
   characters: CharacterConfig[]

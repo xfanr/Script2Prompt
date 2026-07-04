@@ -616,10 +616,107 @@ h3,
 }
 
 .shot-index {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
   margin-right: 8px;
   color: #409eff;
   font-size: 18px;
   font-weight: 900;
+  line-height: 24px;
+}
+
+.shot-index-area {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 68px;
+  max-width: min(460px, 52vw);
+  height: 32px;
+}
+
+.shot-remark-text {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  min-width: 0;
+  max-width: 320px;
+  overflow: hidden;
+  color: #606266;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shot-remark-input.el-input {
+  width: clamp(120px, 19vw, 160px);
+}
+
+.shot-remark-input .el-input__wrapper {
+  min-height: 28px;
+  box-shadow: 0 0 0 1px #dcdfe6 inset;
+}
+
+.shot-remark-button.el-button {
+  --el-button-size: 22px;
+  display: inline-flex;
+  flex: 0 0 22px;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  margin-left: 0;
+  padding: 0;
+  border-radius: 50%;
+  opacity: 0;
+  color: #909399;
+  transition: opacity 0.12s ease, color 0.12s ease, background-color 0.12s ease;
+}
+
+.shot-index-area .shot-remark-button.el-button.is-circle {
+  width: 22px !important;
+  min-width: 22px !important;
+  max-width: 22px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  max-height: 22px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  line-height: 22px;
+}
+
+.shot-index-area .shot-remark-button.el-button .el-icon {
+  margin: 0;
+}
+
+.shot-index-area .el-button + .el-button {
+  margin-left: 0;
+}
+
+.shot-index-area:hover .shot-remark-button.el-button,
+.shot-index-area:focus-within .shot-remark-button.el-button,
+.shot-remark-button.el-button.is-visible {
+  opacity: 1;
+}
+
+.shot-remark-button.el-button:hover,
+.shot-remark-button.el-button:focus {
+  color: #409eff;
+  background: #ecf5ff;
+}
+
+.shot-index-area .shot-remark-delete.el-button {
+  color: #909399;
+  background: transparent;
+}
+
+.shot-index-area .shot-remark-delete.el-button:hover,
+.shot-index-area .shot-remark-delete.el-button:focus {
+  color: #f56c6c;
+  background: #fef0f0;
 }
 
 .shot-tools {

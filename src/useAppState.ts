@@ -132,6 +132,7 @@ function loadState(): AppState {
       episode.productionData = normalizeEpisodeProductionData(episode.productionData)
       episode.scriptText = typeof episode.scriptText === 'string' ? episode.scriptText : ''
       episode.shots?.forEach((shot) => {
+        shot.remark = typeof shot.remark === 'string' ? shot.remark : ''
         shot.scenes = normalizeShotScenes(shot.scenes, episode.scenes)
         shot.characters ??= []
         shot.characters.forEach((character) => {
