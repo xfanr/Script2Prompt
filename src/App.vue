@@ -2099,6 +2099,16 @@ function nonEmptyLines(text: string) {
     .filter(Boolean)
 }
 
+function firstSentenceText(line: string) {
+  const match = line.match(/[。！？.!?]/)
+
+  if (!match || match.index === undefined) {
+    return line
+  }
+
+  return line.slice(0, match.index + match[0].length).trim()
+}
+
 function shotIndex(shot: Shot) {
   return activeEpisode.value?.shots.findIndex((item) => item.id === shot.id) ?? -1
 }
@@ -2106,12 +2116,12 @@ function shotIndex(shot: Shot) {
 function previousShotTail(index: number) {
   const previous = activeEpisode.value?.shots[index - 1]
   const lines = previous ? nonEmptyLines(previous.text) : []
-  return lines.at(-1) ?? ''
+  return firstSentenceText(lines.at(-1) ?? '')
 }
 
 function nextShotHead(index: number) {
   const next = activeEpisode.value?.shots[index + 1]
-  return next ? nonEmptyLines(next.text)[0] ?? '' : ''
+  return firstSentenceText(next ? nonEmptyLines(next.text)[0] ?? '' : '')
 }
 
 function isConnectPreviousDisabled(index: number) {
@@ -2422,6 +2432,7 @@ function organizeEpisodeScriptDraft() {
     .replace(/\r\n/g, '\n')
     .replace(/[ \t]*---[ \t]*/g, '\n---\n')
     .replace(/[△▲][ \t]*/g, '')
+    .replace(/\.{3,}/g, '…')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n[ \t]+/g, '\n')
     .replace(/\n{2,}/g, '\n')
