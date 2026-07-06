@@ -501,7 +501,16 @@ h3,
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  height: 32px;
   border-radius: 999px;
+  line-height: 1;
+}
+
+.asset-tags .el-tag .el-tag__content,
+.asset-tags .el-tag span {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .material-dialog .el-dialog__body {
@@ -521,7 +530,7 @@ h3,
 
 .material-scene-row {
   display: grid;
-  grid-template-columns: minmax(0, 65%) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 35%) 68px 68px;
   align-items: center;
   gap: 8px;
 }
@@ -532,19 +541,52 @@ h3,
 }
 
 .material-scene-segmented {
+  --material-segment-size: 32px;
+  --material-segment-gap: 4px;
+  width: calc(var(--material-segment-size) * 2 + var(--material-segment-gap));
+  --el-border-color: transparent;
+  --el-border-color-light: transparent;
+  --el-border-color-lighter: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.material-scene-segmented .el-segmented__group {
   width: 100%;
+  justify-content: center;
+  gap: var(--material-segment-gap);
 }
 
 .material-scene-segmented .el-segmented__item {
-  min-width: 0;
-  padding: 0 8px;
+  width: var(--material-segment-size);
+  height: var(--material-segment-size);
+  min-width: var(--material-segment-size);
+  flex: 0 0 var(--material-segment-size);
+  align-items: center;
+  justify-content: center;
+  border-color: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.material-scene-segmented .el-segmented__item-label {
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .material-segment-icon {
   display: inline-flex;
   width: 100%;
+  height: 100%;
+  align-items: center;
   justify-content: center;
   font-size: 16px;
+  line-height: 1;
 }
 
 @media (max-width: 720px) {
@@ -559,12 +601,17 @@ h3,
 }
 
 .asset-tag-close.el-button {
+  display: inline-flex;
   width: 16px;
   height: 16px;
   min-width: 16px;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
   margin-left: 2px;
   padding: 0;
   color: inherit;
+  line-height: 1;
 }
 
 .asset-tag-close.el-button.is-circle {

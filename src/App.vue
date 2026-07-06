@@ -28,9 +28,9 @@
                 <span>剧本管理</span>
                 <el-button-group class="episode-actions">
                   <el-button :icon="Plus" title="添加单集" aria-label="添加单集" @click="addEpisode" />
-                  <el-button :icon="FolderAdd" title="新建分组" aria-label="新建分组" @click="addEpisodeGroup" />
-                  <el-button :icon="Download" title="导入数据" aria-label="导入数据" @click="triggerImport" />
-                  <el-button :icon="MostlyCloudy" title="导出数据" aria-label="导出数据" @click="exportAllEpisodes" />
+                  <el-button :icon="Files" title="新建分组" aria-label="新建分组" @click="addEpisodeGroup" />
+                  <el-button :icon="Upload" title="导入备份" aria-label="导入备份" @click="triggerImport" />
+                  <el-button :icon="Download" title="保存备份" aria-label="保存备份" @click="exportAllEpisodes" />
                 </el-button-group>
               </div>
               <el-scrollbar class="episode-scrollbar">
@@ -770,11 +770,9 @@
                   class="material-scene-segmented"
                 >
                   <template #default="{ item }">
-                    <el-tooltip :content="segmentedOptionLabel(item)" placement="top">
-                      <el-icon class="material-segment-icon" :aria-label="segmentedOptionLabel(item)" :title="segmentedOptionLabel(item)">
-                        <component :is="segmentedOptionIcon(item)" />
-                      </el-icon>
-                    </el-tooltip>
+                    <el-icon class="material-segment-icon" :aria-label="segmentedOptionLabel(item)">
+                      <component :is="segmentedOptionIcon(item)" />
+                    </el-icon>
                   </template>
                 </el-segmented>
                 <el-segmented
@@ -785,11 +783,9 @@
                   class="material-scene-segmented"
                 >
                   <template #default="{ item }">
-                    <el-tooltip :content="segmentedOptionLabel(item)" placement="top">
-                      <el-icon class="material-segment-icon" :aria-label="segmentedOptionLabel(item)" :title="segmentedOptionLabel(item)">
-                        <component :is="segmentedOptionIcon(item)" />
-                      </el-icon>
-                    </el-tooltip>
+                    <el-icon class="material-segment-icon" :aria-label="segmentedOptionLabel(item)">
+                      <component :is="segmentedOptionIcon(item)" />
+                    </el-icon>
                   </template>
                 </el-segmented>
               </div>
@@ -807,7 +803,7 @@
 import { computed, onMounted, onUnmounted, ref, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, FolderAdd, House, InfoFilled, MapLocation, Moon, MostlyCloudy, Plus, Search, Setting, Star, StarFilled, Sunny, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, Files, House, InfoFilled, MapLocation, Moon, Plus, Search, Setting, Star, StarFilled, Sunny, Upload, WarningFilled } from '@element-plus/icons-vue'
 import {
   createCharacterConfig,
   createEpisode,
@@ -838,6 +834,22 @@ type MaterialSceneDraft = {
   name: string
   time: SceneTime
   space: SceneSpace
+}
+type SaveFilePickerWritable = {
+  write: (data: Blob) => Promise<void>
+  close: () => Promise<void>
+}
+type SaveFilePickerHandle = {
+  createWritable: () => Promise<SaveFilePickerWritable>
+}
+type SaveFilePickerWindow = Window & {
+  showSaveFilePicker?: (options: {
+    suggestedName?: string
+    types?: Array<{
+      description: string
+      accept: Record<string, string[]>
+    }>
+  }) => Promise<SaveFilePickerHandle>
 }
 type MaterialSegmentedOption<T extends string> = {
   label: string
@@ -2109,6 +2121,16 @@ function firstSentenceText(line: string) {
   return line.slice(0, match.index + match[0].length).trim()
 }
 
+function lastSentenceText(line: string) {
+  const trimmed = line.trim()
+  const speakerPrefix = trimmed.match(/^([^：:\r\n]+[：:])/)?.[1] ?? ''
+  const content = speakerPrefix ? trimmed.slice(speakerPrefix.length).trim() : trimmed
+  const sentences = content.match(/[^\u3002\uff01\uff1f!?]+[\u3002\uff01\uff1f!?]?/g)
+  const sentence = sentences?.at(-1)?.trim() ?? content
+
+  return speakerPrefix && sentence ? `${speakerPrefix}${sentence}` : sentence
+}
+
 function shotIndex(shot: Shot) {
   return activeEpisode.value?.shots.findIndex((item) => item.id === shot.id) ?? -1
 }
@@ -2116,7 +2138,7 @@ function shotIndex(shot: Shot) {
 function previousShotTail(index: number) {
   const previous = activeEpisode.value?.shots[index - 1]
   const lines = previous ? nonEmptyLines(previous.text) : []
-  return firstSentenceText(lines.at(-1) ?? '')
+  return lastSentenceText(lines.at(-1) ?? '')
 }
 
 function nextShotHead(index: number) {
@@ -2697,8 +2719,18 @@ function triggerImport() {
 }
 
 
-function exportAllEpisodes() {
-  downloadJson(`${archiveFilename()}.json`, {
+async function exportAllEpisodes() {
+  const filename = `${archiveFilename()}.json`
+
+  try {
+    await saveJson(filename, exportPayload())
+  } catch {
+    ElMessage.error('导出失败')
+  }
+}
+
+function exportPayload(): ExportPayload {
+  return {
     version: state.version,
     exportedAt: new Date().toISOString(),
     episodeGroups: state.episodeGroups.map((group) => ({
@@ -2710,7 +2742,7 @@ function exportAllEpisodes() {
       starred: isEpisodeAutoStarred(episode),
     })) as Episode[],
     globalConfigSnapshot: JSON.parse(JSON.stringify(state.globalConfig)),
-  })
+  }
 }
 
 function archiveFilename() {
@@ -2725,8 +2757,38 @@ function archiveFilename() {
   return `S2P ${year}年${month}月${day}日 ${hour}时${minute}分`
 }
 
-function downloadJson(filename: string, payload: unknown) {
+async function saveJson(filename: string, payload: unknown) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+  const pickerWindow = window as SaveFilePickerWindow
+
+  if (pickerWindow.showSaveFilePicker) {
+    try {
+      const handle = await pickerWindow.showSaveFilePicker({
+        suggestedName: filename,
+        types: [
+          {
+            description: 'JSON',
+            accept: { 'application/json': ['.json'] },
+          },
+        ],
+      })
+      const writable = await handle.createWritable()
+      await writable.write(blob)
+      await writable.close()
+      return
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return
+      }
+
+      throw error
+    }
+  }
+
+  downloadJson(filename, blob)
+}
+
+function downloadJson(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
