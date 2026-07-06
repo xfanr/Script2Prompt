@@ -73,6 +73,71 @@
                     </div>
                   </section>
 
+                  <section class="episode-group-block archive-group-block">
+                    <div class="episode-group-row archive-group-row" :class="{ empty: isGroupEmpty(archivedTreeId) }" role="button" tabindex="0" @contextmenu.prevent.stop @click="toggleArchivedGroupsIfNotEmpty" @keyup.enter="toggleArchivedGroupsIfNotEmpty">
+                      <span v-if="isGroupEmpty(archivedTreeId)" class="group-dot">•</span>
+                      <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(archivedTreeId) }"><ArrowRight /></el-icon>
+                      <span class="group-title-text">已归档</span>
+                      <em>{{ sortedArchivedEpisodeGroups.length }}</em>
+                    </div>
+                    <div v-if="!isGroupEmpty(archivedTreeId) && isGroupExpanded(archivedTreeId)" class="episode-children archived-group-children">
+                      <section v-for="group in sortedArchivedEpisodeGroups" :key="group.id" class="episode-group-block archived-nested-group">
+                        <el-dropdown :ref="(dropdown) => setGroupDropdownRef(group.id, dropdown)" trigger="contextmenu" :visible="openGroupMenuId === group.id" @visible-change="(visible) => handleGroupMenuVisibleChange(visible, group.id)" @command="(command) => handleGroupCommand(command, group.id)">
+                          <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
+                            <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
+                            <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
+                            <div v-if="editingGroupId === group.id" class="rename-inline" @click.stop @keydown.stop>
+                              <el-input v-model="group.title" class="episode-title-input" placeholder="分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
+                              <el-button class="rename-confirm" :icon="Check" circle type="success" @click="finishGroupRename" />
+                              <el-button class="rename-cancel" :icon="Close" circle type="danger" @click="cancelGroupRename(group)" />
+                            </div>
+                            <span v-else class="group-title-text">{{ group.title }}</span>
+                            <span v-if="editingGroupId !== group.id && isGroupAutoStarred(group.id)" class="episode-star group-star">⭐️</span>
+                            <span v-else-if="editingGroupId !== group.id" class="group-star-placeholder" aria-hidden="true"></span>
+                          </div>
+                          <template #dropdown>
+                            <el-dropdown-menu>
+                              <el-dropdown-item command="summary" :icon="DataLine">数据</el-dropdown-item>
+                              <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
+                              <el-dropdown-item command="archive" :icon="Files">取消归档</el-dropdown-item>
+                              <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
+                            </el-dropdown-menu>
+                          </template>
+                        </el-dropdown>
+                        <div v-if="!isGroupEmpty(group.id) && isGroupExpanded(group.id)" class="episode-children">
+                          <el-dropdown
+                            :ref="(dropdown) => setEpisodeDropdownRef(episode.id, dropdown)"
+                            v-for="episode in episodesForGroup(group.id)"
+                            :key="episode.id"
+                            trigger="contextmenu"
+                            :visible="openEpisodeMenuId === episode.id"
+                            @visible-change="(visible) => handleEpisodeMenuVisibleChange(visible, episode.id)"
+                            @command="(command) => handleEpisodeCommand(command, episode)"
+                          >
+                            <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
+                              <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
+                                <el-input v-model="episode.title" class="episode-title-input" placeholder="本集标题" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename" />
+                                <el-button class="rename-confirm" :icon="Check" circle type="success" @click="finishEpisodeRename" />
+                                <el-button class="rename-cancel" :icon="Close" circle type="danger" @click="cancelEpisodeRename(episode)" />
+                              </div>
+                              <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
+                            </div>
+                            <template #dropdown>
+                              <el-dropdown-menu>
+                                <el-dropdown-item command="summary" :icon="DataAnalysis">数据</el-dropdown-item>
+                                <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
+                                <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
+                                <el-dropdown-item divided :command="{ action: 'move', groupId: null }">移至未分组</el-dropdown-item>
+                                <el-dropdown-item v-for="targetGroup in sortedEpisodeGroups" :key="targetGroup.id" :command="{ action: 'move', groupId: targetGroup.id }">移至 {{ targetGroup.title }}
+                                </el-dropdown-item>
+                              </el-dropdown-menu>
+                            </template>
+                          </el-dropdown>
+                        </div>
+                      </section>
+                    </div>
+                  </section>
+
                   <section v-for="group in sortedEpisodeGroups" :key="group.id" class="episode-group-block">
                     <el-dropdown :ref="(dropdown) => setGroupDropdownRef(group.id, dropdown)" trigger="contextmenu" :visible="openGroupMenuId === group.id" @visible-change="(visible) => handleGroupMenuVisibleChange(visible, group.id)" @command="(command) => handleGroupCommand(command, group.id)">
                       <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
@@ -91,6 +156,7 @@
                         <el-dropdown-menu>
                           <el-dropdown-item command="summary" :icon="DataLine">数据</el-dropdown-item>
                           <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
+                          <el-dropdown-item command="archive" :icon="Files">归档</el-dropdown-item>
                           <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
                         </el-dropdown-menu>
                       </template>
@@ -927,6 +993,7 @@ const episodeScriptDraft = ref('')
 const productionPointUsageDraft = ref('0')
 const productionPointCostDraft = ref('0.0000')
 const weeklyReportWeek = ref<Date | string | null>(null)
+const archivedTreeId = 'archived'
 const reviewRateTexts = ['拉完了', 'NPC', '人上人', '顶级', '夯']
 
 const savedText = computed(() => {
@@ -941,7 +1008,8 @@ const savedText = computed(() => {
 })
 
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
-const sortedEpisodeGroups = computed(() => state.episodeGroups.slice().sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
+const sortedEpisodeGroups = computed(() => state.episodeGroups.filter((group) => !group.archived).sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
+const sortedArchivedEpisodeGroups = computed(() => state.episodeGroups.filter((group) => group.archived).sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
 const sortedUngroupedEpisodes = computed(() => sortEpisodesForDisplay(state.episodes.filter((episode) => !episode.groupId)))
 const productionDateSet = computed(() => new Set(state.episodes.map((episode) => normalizeDateString(episode.productionData.productionDate)).filter((date): date is string => Boolean(date))))
 const detectionConflictShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === detectionConflictShotId.value) ?? null)
@@ -1181,6 +1249,10 @@ function toggleGroup(id: string) {
 }
 
 function groupEpisodeCount(id: string) {
+  if (id === archivedTreeId) {
+    return sortedArchivedEpisodeGroups.value.length
+  }
+
   return id === 'ungrouped' ? sortedUngroupedEpisodes.value.length : episodesForGroup(id).length
 }
 
@@ -1196,12 +1268,17 @@ function isExistingEpisodeGroupId(id: string | null) {
   return id === null || state.episodeGroups.some((group) => group.id === id)
 }
 
+function isArchivedEpisodeGroupId(id: string | null) {
+  return Boolean(id && state.episodeGroups.some((group) => group.id === id && group.archived))
+}
+
 function getSelectedEpisodeGroupId() {
-  if (isExistingEpisodeGroupId(selectedEpisodeGroupId.value)) {
+  if (isExistingEpisodeGroupId(selectedEpisodeGroupId.value) && !isArchivedEpisodeGroupId(selectedEpisodeGroupId.value)) {
     return selectedEpisodeGroupId.value
   }
 
-  return activeEpisode.value?.groupId ?? null
+  const activeGroupId = activeEpisode.value?.groupId ?? null
+  return isArchivedEpisodeGroupId(activeGroupId) ? null : activeGroupId
 }
 
 function selectEpisode(episode: Episode) {
@@ -1216,6 +1293,10 @@ function selectGroup(id: string | null) {
 function selectGroupAndToggleIfNotEmpty(id: string) {
   selectGroup(id)
   toggleGroupIfNotEmpty(id)
+}
+
+function toggleArchivedGroupsIfNotEmpty() {
+  toggleGroupIfNotEmpty(archivedTreeId)
 }
 
 function toggleGroupIfNotEmpty(id: string) {
@@ -1577,6 +1658,10 @@ function handleEpisodeCommand(command: string | { action: 'move'; groupId: strin
   openEpisodeMenuId.value = null
   if (typeof command !== 'string') {
     if (command.action === 'move') {
+      if (isArchivedEpisodeGroupId(command.groupId)) {
+        return
+      }
+
       episode.groupId = command.groupId
       if (episode.id === state.activeEpisodeId) {
         selectedEpisodeGroupId.value = command.groupId
@@ -1614,6 +1699,23 @@ async function handleGroupCommand(command: string, groupId: string) {
     const group = state.episodeGroups.find((item) => item.id === groupId)
     editingGroupOriginalTitle.value = group?.title ?? ''
     editingGroupId.value = groupId
+    return
+  }
+
+  if (command === 'archive') {
+    const group = state.episodeGroups.find((item) => item.id === groupId)
+
+    if (!group) {
+      return
+    }
+
+    group.archived = !group.archived
+    expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, group.archived ? archivedTreeId : group.id]))
+
+    if (group.archived && selectedEpisodeGroupId.value === groupId) {
+      selectedEpisodeGroupId.value = null
+    }
+
     return
   }
 
@@ -2865,7 +2967,7 @@ async function importEpisode(event: Event) {
     importedGroups
       .filter(({ group }) => usedGroupIds.has(group.id))
       .forEach(({ group }) => {
-        const sameTitleGroup = importMode === 'merge' ? state.episodeGroups.find((item) => item.title === group.title) : null
+        const sameTitleGroup = importMode === 'merge' ? state.episodeGroups.find((item) => item.title === group.title && item.archived === group.archived) : null
 
         if (sameTitleGroup) {
           episodesToImport.forEach((episode) => {
@@ -2877,7 +2979,7 @@ async function importEpisode(event: Event) {
         }
 
         state.episodeGroups.push(group)
-        expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, group.id]))
+        expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, group.archived ? archivedTreeId : group.id]))
       })
 
     episodesToImport.forEach((episode) => {
@@ -3031,6 +3133,7 @@ function normalizeImportedEpisodeGroups(groups: unknown): Array<{ sourceId: stri
           id: createId('group'),
           title,
           starred: Boolean(value.starred),
+          archived: Boolean(value.archived),
         },
       }
     })

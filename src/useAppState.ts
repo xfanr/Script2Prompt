@@ -119,6 +119,7 @@ function loadState(): AppState {
     parsed.episodeGroups ??= []
     parsed.episodeGroups.forEach((group) => {
       group.starred ??= false
+      group.archived ??= false
     })
 
     const groupIds = new Set(parsed.episodeGroups.map((group) => group.id))

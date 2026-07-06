@@ -104,6 +104,7 @@ export function createEpisodeGroup(): EpisodeGroup {
     id: createId('group'),
     title: '新分组',
     starred: false,
+    archived: false,
   }
 }
 

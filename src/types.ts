@@ -98,6 +98,7 @@ export interface EpisodeGroup {
   id: string
   title: string
   starred: boolean
+  archived: boolean
 }
 
 export interface Episode {
