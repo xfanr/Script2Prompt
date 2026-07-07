@@ -43,6 +43,7 @@ function normalizeShotScene(scene: SceneConfig, assets: SceneAsset[]): SceneConf
     name: scene.name ?? '',
     time: scene.time ?? asset?.time ?? '白天',
     space: scene.space ?? asset?.space ?? '室内',
+    statusText: typeof scene.statusText === 'string' ? scene.statusText : '',
   }
 }
 

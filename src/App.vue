@@ -251,34 +251,49 @@
             </div>
             <div class="asset-editor">
               <div class="asset-tags">
-                <el-tag
+                <el-dropdown
                   v-for="item in activeEpisode.characters"
                   :key="`character-${item}`"
-                  size="large"
-                  type="primary"
-                  :effect="isCharacterUsed(item) ? 'light' : 'plain'"
+                  trigger="click"
+                  @command="(command) => handleMaterialCommand(command, 'characters', item)"
                 >
-                  <span>{{ item }}</span>
-                  <el-popconfirm title="确认删除这个人物素材？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeMaterial('characters', item)">
-                    <template #reference>
-                      <el-button class="asset-tag-close" :icon="Close" circle text aria-label="删除人物素材" @click.stop />
-                    </template>
-                  </el-popconfirm>
-                </el-tag>
-                <el-tag
+                  <el-tag
+                    class="asset-action-tag"
+                    size="large"
+                    type="primary"
+                    :effect="isCharacterUsed(item) ? 'light' : 'plain'"
+                  >
+                    <span>{{ item }}</span>
+                  </el-tag>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="edit" :icon="EditPen">修改</el-dropdown-item>
+                      <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+                <el-dropdown
                   v-for="item in activeEpisode.scenes"
                   :key="`scene-${item.name}`"
-                  size="large"
-                  type="success"
-                  :effect="isSceneUsed(item.name) ? 'light' : 'plain'"
+                  trigger="click"
+                  @command="(command) => handleMaterialCommand(command, 'scenes', item.name)"
                 >
-                  <span>{{ item.name }} · {{ item.time }} · {{ item.space }}</span>
-                  <el-popconfirm title="确认删除这个场景素材？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeMaterial('scenes', item.name)">
-                    <template #reference>
-                      <el-button class="asset-tag-close" :icon="Close" circle text aria-label="删除场景素材" @click.stop />
-                    </template>
-                  </el-popconfirm>
-                </el-tag>
+                  <el-tag
+                    class="asset-action-tag"
+                    size="large"
+                    type="success"
+                    :effect="isSceneUsed(item.name) ? 'light' : 'plain'"
+                  >
+                    <span>{{ sceneAssetLabel(item) }}</span>
+                  </el-tag>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="edit" :icon="EditPen">修改</el-dropdown-item>
+                      <el-dropdown-item command="apply-all" :icon="Refresh">全设</el-dropdown-item>
+                      <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
               </div>
             </div>
           </section>
@@ -422,6 +437,19 @@
                         </template>
                         <el-option v-for="item in activeEpisode.scenes" :key="item.name" :label="sceneAssetLabel(item)" :value="item.name" />
                       </el-select>
+                      <el-input
+                        v-model="scene.statusText"
+                        class="scene-status-input"
+                        placeholder="状态内容"
+                      >
+                        <template #append>
+                          <el-popconfirm title="确认同步到所有同名场景状态？" confirm-button-text="同步" cancel-button-text="取消" @confirm="syncSceneStatus(scene)">
+                            <template #reference>
+                              <el-button :icon="Refresh" :disabled="!scene.name.trim()" />
+                            </template>
+                          </el-popconfirm>
+                        </template>
+                      </el-input>
                       <el-popconfirm title="确认删除这个场景配置？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeSceneFromShot(shot, scene.id)">
                         <template #reference>
                           <el-button :icon="Close" circle text />
@@ -455,7 +483,15 @@
                         v-model="character.statusText"
                         class="character-status-input"
                         placeholder="状态内容"
-                      />
+                      >
+                        <template #append>
+                          <el-popconfirm title="确认同步到所有同名人物状态？" confirm-button-text="同步" cancel-button-text="取消" @confirm="syncCharacterStatus(character)">
+                            <template #reference>
+                              <el-button :icon="Refresh" :disabled="!character.name.trim()" />
+                            </template>
+                          </el-popconfirm>
+                        </template>
+                      </el-input>
                       <el-popconfirm title="确认删除这个人物配置？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeCharacterFromShot(shot, character.id)">
                           <template #reference>
                             <el-button :icon="Close" circle text />
@@ -665,7 +701,10 @@
           <section class="episode-data-card date-card">
             <div class="episode-data-heading">制作日期</div>
             <div class="episode-data-field">
-              <el-date-picker v-model="reviewSummaryEpisode.productionData.productionDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" />
+              <div class="production-date-row">
+                <el-date-picker v-model="reviewSummaryEpisode.productionData.productionDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" />
+                <el-button type="primary" text @click="setProductionDateToday">今天</el-button>
+              </div>
             </div>
           </section>
         </div>
@@ -809,25 +848,20 @@
           </div>
         </template>
       </el-dialog>
-      <el-dialog v-model="materialDialogVisible" title="添加基础素材" width="680px" class="material-dialog">
+      <el-dialog v-model="materialDialogVisible" :title="materialDialogTitle" width="680px" class="material-dialog" @closed="handleMaterialDialogClosed">
         <el-form class="material-form" label-position="top">
-          <el-form-item label="人物">
+          <el-form-item v-if="shouldShowMaterialCharacters" label="人物">
             <el-input
               v-model="materialCharacterDraft"
+              class="material-character-input"
               clearable
-              placeholder="可输入多个人物名称，用逗号、顿号、分号或换行分割"
+              :placeholder="materialCharacterPlaceholder"
               @keyup.enter="confirmMaterialDialog"
             />
           </el-form-item>
-          <el-form-item label="场景">
+          <el-form-item v-if="shouldShowMaterialScenes" label="场景">
             <div class="material-scene-list">
               <div v-for="(scene, index) in materialSceneDrafts" :key="index" class="material-scene-row">
-                <el-input
-                  v-model="scene.name"
-                  clearable
-                  :placeholder="`场景 ${index + 1}`"
-                  @keyup.enter="confirmMaterialDialog"
-                />
                 <el-segmented
                   v-model="scene.time"
                   :options="materialSceneTimeOptions"
@@ -854,12 +888,18 @@
                     </el-icon>
                   </template>
                 </el-segmented>
+                <el-input
+                  v-model="scene.name"
+                  clearable
+                  :placeholder="`场景 ${index + 1}`"
+                  @keyup.enter="confirmMaterialDialog"
+                />
               </div>
             </div>
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button type="primary" @click="confirmMaterialDialog">添加</el-button>
+          <el-button type="primary" @click="confirmMaterialDialog">{{ materialDialogConfirmText }}</el-button>
         </template>
       </el-dialog>
   </el-config-provider>
@@ -869,7 +909,7 @@
 import { computed, onMounted, onUnmounted, ref, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, Files, House, InfoFilled, MapLocation, Moon, Plus, Search, Setting, Star, StarFilled, Sunny, Upload, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, Files, House, InfoFilled, MapLocation, Moon, Plus, Refresh, Search, Setting, Star, StarFilled, Sunny, Upload, WarningFilled } from '@element-plus/icons-vue'
 import {
   createCharacterConfig,
   createEpisode,
@@ -926,6 +966,12 @@ type MaterialAddResult = {
   added: number
   skipped: number
 }
+type MaterialDialogMode = 'add' | 'edit'
+type MaterialCommand = 'edit' | 'delete' | 'apply-all'
+type EditingMaterial = {
+  kind: MaterialKind
+  value: string
+}
 type ImportMode = 'replace' | 'merge'
 type WeeklyReportPickerCell = {
   dayjs?: {
@@ -955,6 +1001,8 @@ const durationRangeDraft = ref<[number, number]>([
 const detectionDialogVisible = ref(false)
 const detectionConflictShotId = ref<string | null>(null)
 const sidebarCollapsed = ref(false)
+const materialDialogMode = ref<MaterialDialogMode>('add')
+const editingMaterial = ref<EditingMaterial | null>(null)
 const materialCharacterDraft = ref('')
 const materialSceneDrafts = ref<MaterialSceneDraft[]>(createMaterialSceneDrafts())
 const batchShotSegments = ref<string[]>([])
@@ -1041,6 +1089,17 @@ const episodeTotalCost = computed(() => {
   const data = reviewSummaryEpisode.value?.productionData ?? createEpisodeProductionData()
   return (data.pointUsage * data.pointCost).toFixed(4)
 })
+const materialDialogTitle = computed(() => {
+  if (materialDialogMode.value === 'add') {
+    return '添加基础素材'
+  }
+
+  return editingMaterial.value?.kind === 'characters' ? '修改人物素材' : '修改场景素材'
+})
+const materialDialogConfirmText = computed(() => materialDialogMode.value === 'add' ? '添加' : '保存')
+const materialCharacterPlaceholder = computed(() => materialDialogMode.value === 'add' ? '可输入多个人物名称，用逗号、顿号、分号或换行分割' : '请输入人物名称')
+const shouldShowMaterialCharacters = computed(() => materialDialogMode.value === 'add' || editingMaterial.value?.kind === 'characters')
+const shouldShowMaterialScenes = computed(() => materialDialogMode.value === 'add' || editingMaterial.value?.kind === 'scenes')
 const groupSummarySubtitle = computed(() => {
   const title = activeGroupSummary.value?.title ?? ''
   const episodeNumbers = groupSummaryEpisodes.value.map(formatEpisodeSummaryNumber).join('/')
@@ -1163,6 +1222,16 @@ function hydrateProductionDrafts(episode = reviewSummaryEpisode.value) {
   const data = episode?.productionData ?? createEpisodeProductionData()
   productionPointUsageDraft.value = formatIntegerWithCommas(data.pointUsage)
   productionPointCostDraft.value = data.pointCost.toFixed(4)
+}
+
+function setProductionDateToday() {
+  const data = reviewSummaryEpisode.value?.productionData
+
+  if (!data) {
+    return
+  }
+
+  data.productionDate = formatDateString(new Date())
 }
 
 function formatIntegerWithCommas(value: number) {
@@ -1449,7 +1518,7 @@ function getEpisodeGroupTitle(groupId: string | null) {
 }
 
 function sceneAssetLabel(scene: SceneAsset) {
-  return `${scene.name} · ${scene.time} · ${scene.space}`
+  return `${scene.time} · ${scene.space} · ${scene.name}`
 }
 
 function sceneSelectLabel(label: string) {
@@ -1709,6 +1778,22 @@ async function handleGroupCommand(command: string, groupId: string) {
       return
     }
 
+    if (!group.archived) {
+      const warning = archiveGroupWarningMessage(groupId)
+
+      if (warning) {
+        try {
+          await ElMessageBox.confirm(warning, '确认归档', {
+            type: 'warning',
+            confirmButtonText: '继续归档',
+            cancelButtonText: '取消',
+          })
+        } catch {
+          return
+        }
+      }
+    }
+
     group.archived = !group.archived
     expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, group.archived ? archivedTreeId : group.id]))
 
@@ -1751,15 +1836,46 @@ async function handleGroupCommand(command: string, groupId: string) {
   expandedGroupIds.value = expandedGroupIds.value.filter((id) => id !== groupId)
 }
 
+function archiveGroupWarningMessage(groupId: string) {
+  const episodes = episodesForGroup(groupId)
+  const unreviewedEpisodes = episodes.filter((episode) => episode.shots.some((shot) => !isShotReviewed(shot)))
+  const missingDateEpisodes = episodes.filter((episode) => !normalizeDateString(episode.productionData.productionDate))
+  const lines = [
+    unreviewedEpisodes.length ? `存在未评分分镜的集数：${archiveEpisodeList(unreviewedEpisodes)}` : '',
+    missingDateEpisodes.length ? `未填写制作日期的集数：${archiveEpisodeList(missingDateEpisodes)}` : '',
+  ].filter(Boolean)
+
+  return lines.length ? `${lines.join('\n')}\n\n确认仍要归档这个分组吗？` : ''
+}
+
+function archiveEpisodeList(episodes: Episode[]) {
+  return episodes.map((episode) => episode.title).join('、')
+}
+
 function openMaterialDialog() {
+  materialDialogMode.value = 'add'
+  editingMaterial.value = null
   resetMaterialDrafts()
   materialDialogVisible.value = true
 }
 
 function confirmMaterialDialog() {
+  if (materialDialogMode.value === 'edit') {
+    if (commitMaterialEdit()) {
+      materialDialogVisible.value = false
+    }
+    return
+  }
+
   addMaterialDrafts()
   resetMaterialDrafts()
   materialDialogVisible.value = false
+}
+
+function handleMaterialDialogClosed() {
+  materialDialogMode.value = 'add'
+  editingMaterial.value = null
+  resetMaterialDrafts()
 }
 
 function createMaterialSceneDraft(): MaterialSceneDraft {
@@ -1801,6 +1917,210 @@ function isCharacterUsed(name: string) {
 
 function isSceneUsed(name: string) {
   return activeEpisode.value?.shots.some((shot) => shot.scenes.some((scene) => scene.name === name)) ?? false
+}
+
+function handleMaterialCommand(command: string | number | object, kind: MaterialKind, value: string) {
+  const action = command as MaterialCommand
+
+  if (action === 'edit') {
+    openMaterialEditDialog(kind, value)
+    return
+  }
+
+  if (action === 'delete') {
+    void confirmRemoveMaterial(kind, value)
+    return
+  }
+
+  if (action === 'apply-all' && kind === 'scenes') {
+    applySceneToAllShots(value)
+  }
+}
+
+function openMaterialEditDialog(kind: MaterialKind, value: string) {
+  const episode = activeEpisode.value
+
+  if (!episode) {
+    return
+  }
+
+  if (kind === 'characters') {
+    materialDialogMode.value = 'edit'
+    editingMaterial.value = { kind, value }
+    resetMaterialDrafts()
+    materialCharacterDraft.value = value
+  } else {
+    const scene = episode.scenes.find((item) => item.name === value)
+
+    if (!scene) {
+      return
+    }
+
+    materialDialogMode.value = 'edit'
+    editingMaterial.value = { kind, value }
+    resetMaterialDrafts()
+    materialSceneDrafts.value = [{ name: scene.name, time: scene.time, space: scene.space }]
+  }
+
+  materialDialogVisible.value = true
+}
+
+function commitMaterialEdit() {
+  const editing = editingMaterial.value
+  const episode = activeEpisode.value
+
+  if (!editing || !episode) {
+    return false
+  }
+
+  if (editing.kind === 'characters') {
+    const nextName = materialCharacterDraft.value.trim()
+
+    if (!nextName) {
+      ElMessage.warning('请填写人物名称')
+      return false
+    }
+
+    if (nextName !== editing.value && episode.characters.includes(nextName)) {
+      ElMessage.warning('人物素材已存在')
+      return false
+    }
+
+    renameCharacterMaterial(editing.value, nextName)
+    return true
+  }
+
+  const draft = materialSceneDrafts.value[0]
+  const nextName = draft?.name.trim() ?? ''
+
+  if (!draft || !nextName) {
+    ElMessage.warning('请填写场景名称')
+    return false
+  }
+
+  if (nextName !== editing.value && episode.scenes.some((scene) => scene.name === nextName)) {
+    ElMessage.warning('场景素材已存在')
+    return false
+  }
+
+  renameSceneMaterial(editing.value, {
+    name: nextName,
+    time: draft.time,
+    space: draft.space,
+  })
+  return true
+}
+
+function renameCharacterMaterial(oldName: string, nextName: string) {
+  const episode = activeEpisode.value
+
+  if (!episode) {
+    return
+  }
+
+  episode.characters = episode.characters.map((name) => name === oldName ? nextName : name)
+  episode.shots.forEach((shot) => {
+    shot.characters.forEach((character) => {
+      if (character.name === oldName) {
+        character.name = nextName
+      }
+    })
+  })
+}
+
+function renameSceneMaterial(oldName: string, nextScene: MaterialSceneDraft) {
+  const episode = activeEpisode.value
+  const sceneAsset = episode?.scenes.find((scene) => scene.name === oldName)
+
+  if (!episode || !sceneAsset) {
+    return
+  }
+
+  sceneAsset.name = nextScene.name
+  sceneAsset.time = nextScene.time
+  sceneAsset.space = nextScene.space
+  episode.shots.forEach((shot) => {
+    shot.scenes.forEach((scene) => {
+      if (scene.name === oldName) {
+        scene.name = nextScene.name
+        scene.time = nextScene.time
+        scene.space = nextScene.space
+      }
+    })
+  })
+}
+
+async function confirmRemoveMaterial(kind: MaterialKind, value: string) {
+  try {
+    await ElMessageBox.confirm(
+      kind === 'characters' ? '确认删除这个人物素材？' : '确认删除这个场景素材？',
+      '删除基础素材',
+      {
+        type: 'warning',
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+      },
+    )
+  } catch {
+    return
+  }
+
+  removeMaterial(kind, value)
+}
+
+function applySceneToAllShots(value: string) {
+  const episode = activeEpisode.value
+  const sceneAsset = episode?.scenes.find((scene) => scene.name === value)
+
+  if (!episode || !sceneAsset) {
+    return
+  }
+
+  episode.shots.forEach((shot) => {
+    const preservedStatus = shot.scenes.find((scene) => scene.name === value)?.statusText ?? shot.scenes[0]?.statusText ?? ''
+    shot.scenes = [createSceneConfig(sceneAsset.name, sceneAsset.time, sceneAsset.space, preservedStatus)]
+  })
+  ElMessage.success('已应用到本集全部分镜')
+}
+
+function syncSceneStatus(source: SceneConfig) {
+  const episode = activeEpisode.value
+  const name = source.name.trim()
+
+  if (!episode || !name) {
+    return
+  }
+
+  let count = 0
+  episode.shots.forEach((shot) => {
+    shot.scenes.forEach((scene) => {
+      if (scene.name === name) {
+        scene.statusText = source.statusText ?? ''
+        count += 1
+      }
+    })
+  })
+  ElMessage.success(`已同步 ${count} 个场景状态`)
+}
+
+function syncCharacterStatus(source: CharacterConfig) {
+  const episode = activeEpisode.value
+  const name = source.name.trim()
+
+  if (!episode || !name) {
+    return
+  }
+
+  let count = 0
+  episode.shots.forEach((shot) => {
+    shot.characters.forEach((character) => {
+      if (character.name === name) {
+        character.statusText = source.statusText ?? ''
+        count += 1
+      }
+    })
+  })
+  ElMessage.success(`已同步 ${count} 个人物状态`)
 }
 
 function addEpisode() {
@@ -2097,7 +2417,7 @@ function isVoiceOverflow(shot: Shot) {
 }
 
 function hasConfiguredScenes(shot: Shot) {
-  return shot.scenes.some((scene) => scene.name.trim())
+  return shot.scenes.some((scene) => scene.name.trim() || scene.statusText?.trim())
 }
 
 function promptPreviewWarnings(shot: Shot) {
@@ -2825,7 +3145,13 @@ async function exportAllEpisodes() {
   const filename = `${archiveFilename()}.json`
 
   try {
-    await saveJson(filename, exportPayload())
+    const result = await saveJson(filename, exportPayload())
+
+    if (result === 'saved') {
+      ElMessage.success('已保存备份')
+    } else if (result === 'downloaded') {
+      ElMessage.warning('当前浏览器或站点不支持选择保存位置，已改为默认下载')
+    }
   } catch {
     ElMessage.error('导出失败')
   }
@@ -2859,11 +3185,11 @@ function archiveFilename() {
   return `S2P ${year}年${month}月${day}日 ${hour}时${minute}分`
 }
 
-async function saveJson(filename: string, payload: unknown) {
+async function saveJson(filename: string, payload: unknown): Promise<'saved' | 'downloaded' | 'cancelled'> {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
   const pickerWindow = window as SaveFilePickerWindow
 
-  if (pickerWindow.showSaveFilePicker) {
+  if (window.isSecureContext && pickerWindow.showSaveFilePicker) {
     try {
       const handle = await pickerWindow.showSaveFilePicker({
         suggestedName: filename,
@@ -2877,17 +3203,16 @@ async function saveJson(filename: string, payload: unknown) {
       const writable = await handle.createWritable()
       await writable.write(blob)
       await writable.close()
-      return
+      return 'saved'
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        return
+        return 'cancelled'
       }
-
-      throw error
     }
   }
 
   downloadJson(filename, blob)
+  return 'downloaded'
 }
 
 function downloadJson(filename: string, blob: Blob) {
@@ -3062,7 +3387,12 @@ function episodeComparableSignature(episode: Episode) {
       remark: shot.remark,
       connectPrevious: shot.connectPrevious,
       connectNext: shot.connectNext,
-      scenes: shot.scenes.map((scene) => ({ name: scene.name, time: scene.time, space: scene.space })),
+      scenes: shot.scenes.map((scene) => ({
+        name: scene.name,
+        time: scene.time,
+        space: scene.space,
+        statusText: scene.statusText ?? '',
+      })),
       usePositionReference: shot.usePositionReference,
       characters: shot.characters.map((character) => ({
         name: character.name,
@@ -3082,6 +3412,7 @@ function normalizeImportedShotScene(scene: unknown, assets: SceneAsset[]): Scene
 
   const value = scene as Partial<SceneConfig>
   const name = typeof value.name === 'string' ? value.name.trim() : ''
+  const statusText = typeof value.statusText === 'string' ? value.statusText : ''
 
   if (!name) {
     return null
@@ -3093,6 +3424,7 @@ function normalizeImportedShotScene(scene: unknown, assets: SceneAsset[]): Scene
     name,
     value.time ?? asset?.time ?? '白天',
     value.space ?? asset?.space ?? '室内',
+    statusText,
   )
 }
 

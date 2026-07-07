@@ -497,12 +497,17 @@ h3,
   height: 0;
 }
 
+.asset-tags .el-dropdown {
+  display: inline-flex;
+}
+
 .asset-tags .el-tag {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   height: 32px;
   border-radius: 999px;
+  cursor: pointer;
   line-height: 1;
 }
 
@@ -521,6 +526,11 @@ h3,
   margin-bottom: 0;
 }
 
+.material-form .material-character-input.el-input {
+  width: 60%;
+  max-width: 60%;
+}
+
 .material-scene-list {
   display: flex;
   width: 100%;
@@ -530,7 +540,7 @@ h3,
 
 .material-scene-row {
   display: grid;
-  grid-template-columns: minmax(0, 35%) 68px 68px;
+  grid-template-columns: 68px 68px minmax(0, 35%);
   align-items: center;
   gap: 8px;
 }
@@ -598,24 +608,11 @@ h3,
   .material-scene-row {
     grid-template-columns: 1fr;
   }
-}
 
-.asset-tag-close.el-button {
-  display: inline-flex;
-  width: 16px;
-  height: 16px;
-  min-width: 16px;
-  flex: 0 0 16px;
-  align-items: center;
-  justify-content: center;
-  margin-left: 2px;
-  padding: 0;
-  color: inherit;
-  line-height: 1;
-}
-
-.asset-tag-close.el-button.is-circle {
-  width: 16px;
+  .material-form .material-character-input.el-input {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 .shot-list {
@@ -1096,7 +1093,7 @@ h3,
 
 .scene-line {
   display: grid;
-  grid-template-columns: minmax(0, 60%) 28px;
+  grid-template-columns: 226px minmax(0, 1fr) 32px;
   align-items: center;
   gap: 8px;
 }
@@ -1109,7 +1106,7 @@ h3,
 
 .character-line {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 28px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 32px;
   align-items: center;
   gap: 8px;
 }
@@ -1119,7 +1116,8 @@ h3,
   width: 100%;
 }
 
-.character-status-input {
+.character-status-input,
+.scene-status-input {
   min-width: 0;
 }
 
@@ -1306,6 +1304,21 @@ h3,
 
 .total-cost-field {
   min-width: 110px;
+}
+
+.production-date-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.episode-data-field .production-date-row .el-date-editor {
+  width: 166px;
+  flex: 0 0 166px;
+}
+
+.production-date-row .el-button {
+  flex: 0 0 auto;
 }
 
 .episode-data-field .el-date-editor {
@@ -1676,11 +1689,11 @@ h3,
 }
 
 .scene-line {
-  grid-template-columns: minmax(0, 60%) 28px;
+  grid-template-columns: 226px minmax(0, 1fr) 32px;
 }
 
 .character-line {
-  grid-template-columns: 144px auto minmax(0, 1fr) 28px;
+  grid-template-columns: 144px auto minmax(0, 1fr) 32px;
 }
 
 .character-line .el-select {
@@ -1688,7 +1701,7 @@ h3,
 }
 
 .scene-line .el-select {
-  width: 100%;
+  width: 226px;
 }
 
 .is-voice-overflow.is-bordered,

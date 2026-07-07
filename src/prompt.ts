@@ -128,7 +128,13 @@ function composeSceneRoleSection(globalConfig: GlobalConfig, shot: Shot) {
   shot.scenes
     .filter((scene) => scene.name.trim())
     .forEach((scene) => {
-      lines.push(`分镜场景设定在${scene.time}，${scene.space}，${scene.name.trim()}。`)
+      const parts = [scene.time, scene.space, scene.name.trim()]
+
+      if (scene.statusText?.trim()) {
+        parts.push(scene.statusText.trim())
+      }
+
+      lines.push(`分镜场景设定在${parts.join('，')}。`)
     })
 
   if (shot.usePositionReference) {

@@ -45,12 +45,13 @@ export function createSceneAsset(name = '', time: SceneTime = '白天', space: S
   }
 }
 
-export function createSceneConfig(name = '', time: SceneTime = '白天', space: SceneSpace = '室内'): SceneConfig {
+export function createSceneConfig(name = '', time: SceneTime = '白天', space: SceneSpace = '室内', statusText = ''): SceneConfig {
   return {
     id: createId('scene'),
     name,
     time,
     space,
+    statusText,
   }
 }
 

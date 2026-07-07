@@ -29,6 +29,7 @@ export interface SceneConfig {
   name: string
   time: SceneTime
   space: SceneSpace
+  statusText?: string
 }
 
 export interface SceneAsset {
