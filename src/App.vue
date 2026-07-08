@@ -1474,24 +1474,29 @@ function createWeeklyReportRange(selectedDate: Date): WeeklyReportRange {
   }
 }
 
+function createWeeklyReportRangeFromStart(start: Date): WeeklyReportRange {
+  return {
+    start: formatDateString(start),
+    end: formatDateString(addDays(start, 6)),
+  }
+}
+
 function getWeeklyReportRanges(value: Date | string | null) {
+  if (typeof value === 'string') {
+    const date = parseDateString(value)
+
+    if (date) {
+      return [createWeeklyReportRangeFromStart(date)]
+    }
+  }
+
   const selectedDate = normalizeWeekValue(value)
 
   if (!selectedDate) {
     return []
   }
 
-  const ranges = [createWeeklyReportRange(selectedDate)]
-
-  if (selectedDate.getDay() === 0) {
-    const nextWeekRange = createWeeklyReportRange(addDays(selectedDate, 1))
-
-    if (nextWeekRange.start !== ranges[0].start) {
-      ranges.push(nextWeekRange)
-    }
-  }
-
-  return ranges
+  return [createWeeklyReportRange(selectedDate)]
 }
 
 function hasProductionOnPickerCell(cell: WeeklyReportPickerCell | undefined) {
@@ -2874,11 +2879,12 @@ function openEpisodeScriptDialog() {
 function organizeEpisodeScriptDraft() {
   episodeScriptDraft.value = episodeScriptDraft.value
     .replace(/\r\n/g, '\n')
-    .replace(/[ \t]*---[ \t]*/g, '\n---\n')
-    .replace(/[△▲][ \t]*/g, '')
+    .replace(/[ \t　]*---[ \t　]*/g, '\n---\n')
+    .replace(/[△▲][ \t　]*/g, '')
+    .replace(/[\t　]+/g, '')
     .replace(/\.{3,}/g, '…')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n[ \t]+/g, '\n')
+    .replace(/[ \t　]+\n/g, '\n')
+    .replace(/\n[ \t　]+/g, '\n')
     .replace(/\n{2,}/g, '\n')
     .trim()
   autoRecognizeEpisodeScriptShots()
