@@ -11,15 +11,24 @@
               <strong>短剧提示词工作台</strong>
               <span>Script2Prompt</span>
             </div>
-            <el-button
-              v-if="!sidebarCollapsed"
-              class="global-config-icon"
-              :icon="Setting"
-              circle
-              title="全局配置"
-              aria-label="全局配置"
-              @click="openGlobalDialog"
-            />
+            <div v-if="!sidebarCollapsed" class="sidebar-tools">
+              <div class="theme-switch" role="group" aria-label="主题切换">
+                <button class="theme-switch-option" :class="{ active: !isDarkMode }" type="button" title="浅色模式" aria-label="浅色模式" @click="setDarkMode(false)">
+                  <el-icon><Sunny /></el-icon>
+                </button>
+                <button class="theme-switch-option" :class="{ active: isDarkMode }" type="button" title="深色模式" aria-label="深色模式" @click="setDarkMode(true)">
+                  <el-icon><Moon /></el-icon>
+                </button>
+              </div>
+              <el-button
+                class="global-config-icon"
+                :icon="Setting"
+                circle
+                title="全局配置"
+                aria-label="全局配置"
+                @click="openGlobalDialog"
+              />
+            </div>
           </section>
 
           <template v-if="!sidebarCollapsed">
@@ -395,7 +404,7 @@
                   <div class="script-input-wrap" :class="{ warn: durationState(effectiveShotText(shot)).warn }">
                     <div v-if="connectedPreviousText(shot, index)" class="script-context-line is-previous" aria-readonly="true">
                       <el-tooltip :content="connectedPreviousText(shot, index)" placement="top" popper-class="script-context-tooltip">
-                        <el-icon class="script-context-preview" color="#409eff" aria-label="查看完整衔接上文">
+                        <el-icon class="script-context-preview" aria-label="查看完整衔接上文">
                           <InfoFilled />
                         </el-icon>
                       </el-tooltip>
@@ -415,7 +424,7 @@
                     <div v-if="connectedNextText(shot, index)" class="script-context-line is-next" aria-readonly="true">
                       <span class="script-context-text">{{ connectedNextText(shot, index) }}</span>
                       <el-tooltip :content="connectedNextText(shot, index)" placement="bottom" popper-class="script-context-tooltip">
-                        <el-icon class="script-context-preview" color="#409eff" aria-label="查看完整衔接下文">
+                        <el-icon class="script-context-preview" aria-label="查看完整衔接下文">
                           <InfoFilled />
                         </el-icon>
                       </el-tooltip>
@@ -1001,6 +1010,7 @@ const durationRangeDraft = ref<[number, number]>([
 const detectionDialogVisible = ref(false)
 const detectionConflictShotId = ref<string | null>(null)
 const sidebarCollapsed = ref(false)
+const isDarkMode = ref(document.documentElement.classList.contains('dark'))
 const materialDialogMode = ref<MaterialDialogMode>('add')
 const editingMaterial = ref<EditingMaterial | null>(null)
 const materialCharacterDraft = ref('')
@@ -1293,6 +1303,11 @@ function saveGlobalDialog() {
 
 function cancelGlobalDialog() {
   globalDialogVisible.value = false
+}
+
+function setDarkMode(value: boolean) {
+  isDarkMode.value = value
+  document.documentElement.classList.toggle('dark', value)
 }
 
 function resetGlobalDialog() {
