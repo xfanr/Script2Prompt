@@ -229,10 +229,6 @@
               </el-date-picker>
             </div>
 
-            <div class="sidebar-footer">
-              <span>共 {{ state.episodes.length }} 集，{{ state.episodeGroups.length }} 分组</span>
-              <span>{{ savedText }}</span>
-            </div>
           </template>
         </aside>
 
@@ -266,12 +262,8 @@
                   trigger="click"
                   @command="(command) => handleMaterialCommand(command, 'characters', item)"
                 >
-                  <el-tag
-                    class="asset-action-tag"
-                    size="large"
-                    type="primary"
-                    :effect="isCharacterUsed(item) ? 'light' : 'plain'"
-                  >
+                  <el-tag class="asset-action-tag" size="large" type="primary" effect="light">
+                    <span v-if="isCharacterUsed(item)" class="asset-match-dot asset-match-dot-primary" aria-hidden="true"></span>
                     <span>{{ item }}</span>
                   </el-tag>
                   <template #dropdown>
@@ -287,13 +279,9 @@
                   trigger="click"
                   @command="(command) => handleMaterialCommand(command, 'scenes', item.name)"
                 >
-                  <el-tag
-                    class="asset-action-tag"
-                    size="large"
-                    type="success"
-                    :effect="isSceneUsed(item.name) ? 'light' : 'plain'"
-                  >
-                    <span>{{ sceneAssetLabel(item) }}</span>
+                  <el-tag class="asset-action-tag" size="large" type="info" effect="light">
+                    <span v-if="isSceneUsed(item.name)" class="asset-match-dot asset-match-dot-info" aria-hidden="true"></span>
+                    <span>{{ item.time }}，{{ item.space }}，{{ item.name }}</span>
                   </el-tag>
                   <template #dropdown>
                     <el-dropdown-menu>
@@ -355,33 +343,33 @@
                   </template>
                 </div>
                 <div class="shot-tools">
-                  <el-button-group>
-                    <el-button
-                      class="shot-status-button"
-                      :icon="shot.status === 'complete' ? CircleCheckFilled : CircleCheck"
-                      :type="shot.status === 'complete' ? 'success' : undefined"
-                      plain
-                      :title="shot.status === 'complete' ? '完成' : '待办'"
-                      :aria-label="shot.status === 'complete' ? '完成' : '待办'"
-                      @click="setShotStatus(shot, shot.status !== 'complete')"
-                    >
-                      {{ shot.status === 'complete' ? '完成' : '待办' }}
-                    </el-button>
-                    <el-button
-                      class="shot-review-button"
-                      :icon="isShotReviewed(shot) ? StarFilled : Star"
-                      :type="isShotReviewed(shot) ? 'warning' : undefined"
-                      plain
-                      @click="openReviewDialog(shot)"
-                    >
-                      {{ isShotReviewed(shot) ? '已评' : '待评' }}
-                    </el-button>
-                    <el-popconfirm title="确认删除这条分镜？" confirm-button-text="删除" cancel-button-text="取消" @confirm="deleteShot(shot.id)">
-                      <template #reference>
-                        <el-button :icon="Delete" type="danger" plain>删除</el-button>
-                      </template>
-                    </el-popconfirm>
-                  </el-button-group>
+                  <el-button
+                    class="shot-status-button"
+                    :icon="Check"
+                    type="success"
+                    :plain="shot.status !== 'complete'"
+                    size="small"
+                    circle
+                    :title="shot.status === 'complete' ? '完成' : '待办'"
+                    :aria-label="shot.status === 'complete' ? '完成' : '待办'"
+                    @click="setShotStatus(shot, shot.status !== 'complete')"
+                  />
+                  <el-button
+                    class="shot-review-button"
+                    :icon="isShotReviewed(shot) ? StarFilled : Star"
+                    type="warning"
+                    :plain="!isShotReviewed(shot)"
+                    size="small"
+                    circle
+                    :title="isShotReviewed(shot) ? '已评' : '待评'"
+                    :aria-label="isShotReviewed(shot) ? '已评' : '待评'"
+                    @click="openReviewDialog(shot)"
+                  />
+                  <el-popconfirm title="确认删除这条分镜？" confirm-button-text="删除" cancel-button-text="取消" @confirm="deleteShot(shot.id)">
+                    <template #reference>
+                      <el-button :icon="Delete" type="danger" size="small" circle title="删除" aria-label="删除" />
+                    </template>
+                  </el-popconfirm>
                 </div>
               </div>
 
@@ -918,7 +906,7 @@
 import { computed, onMounted, onUnmounted, ref, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheck, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, Files, House, InfoFilled, MapLocation, Moon, Plus, Refresh, Search, Setting, Star, StarFilled, Sunny, Upload, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, Files, House, InfoFilled, MapLocation, Moon, Plus, Refresh, Search, Setting, Star, StarFilled, Sunny, Upload, WarningFilled } from '@element-plus/icons-vue'
 import {
   createCharacterConfig,
   createEpisode,
@@ -1053,17 +1041,6 @@ const productionPointCostDraft = ref('0.0000')
 const weeklyReportWeek = ref<Date | string | null>(null)
 const archivedTreeId = 'archived'
 const reviewRateTexts = ['拉完了', 'NPC', '人上人', '顶级', '夯']
-
-const savedText = computed(() => {
-  if (!state.lastSavedAt) {
-    return '准备自动保存'
-  }
-
-  return `已保存于 ${new Date(state.lastSavedAt).toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })}`
-})
 
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
 const sortedEpisodeGroups = computed(() => state.episodeGroups.filter((group) => !group.archived).sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
