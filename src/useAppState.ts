@@ -1,7 +1,9 @@
 import { computed, reactive, watch } from 'vue'
 import { normalizeDialogueReplacementRules } from './dialogue'
 import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, createSceneConfig, defaultBaseSettingSuffix, STORAGE_KEY } from './defaults'
-import type { AppState, EpisodeProductionData, PromptReview, SceneAsset, SceneConfig } from './types'
+import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
+
+const shotViewModes: ShotViewMode[] = ['expanded', 'collapse-completed', 'hide-completed']
 
 function normalizeSceneAsset(scene: unknown): SceneAsset | null {
   if (typeof scene === 'string') {
@@ -113,8 +115,12 @@ function loadState(): AppState {
       return createInitialState()
     }
 
+    const legacyGlobalConfig = parsed.globalConfig as GlobalConfig & { autoCollapseCompletedShots?: boolean }
+    parsed.shotViewMode = shotViewModes.includes(parsed.shotViewMode)
+      ? parsed.shotViewMode
+      : legacyGlobalConfig.autoCollapseCompletedShots === false ? 'expanded' : 'collapse-completed'
+    delete legacyGlobalConfig.autoCollapseCompletedShots
     parsed.globalConfig.baseSettingSuffix ??= defaultBaseSettingSuffix
-    parsed.globalConfig.autoCollapseCompletedShots ??= true
     parsed.globalConfig.recommendedDurationRange ??= { min: 4, max: 21 }
     parsed.globalConfig.recommendedDurationRange.min ??= 4
     parsed.globalConfig.recommendedDurationRange.max ??= 21

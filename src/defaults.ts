@@ -27,7 +27,6 @@ export function createGlobalConfig(): GlobalConfig {
     baseSetting: defaultBaseSetting,
     baseSettingSuffix: defaultBaseSettingSuffix,
     sceneRoleSuffix: defaultSceneRoleSuffix,
-    autoCollapseCompletedShots: true,
     recommendedDurationRange: { min: 4, max: 21 },
     dialogueReplacementRules: [],
     sections: [
@@ -138,6 +137,7 @@ export function createInitialState(): AppState {
 
   return {
     version: APP_VERSION,
+    shotViewMode: 'collapse-completed',
     globalConfig: createGlobalConfig(),
     episodeGroups: [],
     episodes: [episode],

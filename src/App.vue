@@ -233,71 +233,87 @@
         </aside>
 
         <main v-if="activeEpisode" class="main-stage">
-          <section class="stage-header">
-            <div class="stage-topline">
-              <div class="asset-heading">
-                <h3>本集基础素材</h3>
-                <el-button-group class="stage-action-group">
-                  <el-button plain @click="openMaterialDialog">添加素材</el-button>
-                  <el-dropdown class="shot-create-actions" split-button type="primary" @click="openEpisodeScriptDialog" @command="handleAddShotCommand">
-                    导入分镜
+          <el-page-header class="stage-header" :icon="EmptyPageHeaderIcon">
+            <template #title>
+              <span class="stage-page-title">
+                <span>《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》</span>
+                <span>{{ activeEpisode.title }}</span>
+              </span>
+            </template>
+            <template #content>
+              <div class="stage-page-actions">
+                <el-dropdown class="shot-create-actions" split-button size="default" type="primary" @click="openEpisodeScriptDialog" @command="handleAddShotCommand">
+                  导入分镜
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="start">添至开头</el-dropdown-item>
+                      <el-dropdown-item command="end">添至末尾</el-dropdown-item>
+                      <el-dropdown-item v-for="(_, shotIndex) in activeEpisode.shots" :key="shotIndex" :command="{ action: 'after', index: shotIndex }">
+                        添至 #{{ shotIndex + 1 }} 后
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+                <el-button size="default" plain type="primary" @click="openReviewSummary(activeEpisode)">本集数据</el-button>
+                <el-button text type="primary" :bg="areAllShotsUsingPositionReference" @click="toggleAllPositionReferences">全部多人</el-button>
+                <el-button text type="primary" :bg="areAllShotsComplete" @click="completeAllShots">全部完成</el-button>
+              </div>
+            </template>
+            <template #extra>
+              <el-segmented v-model="state.shotViewMode" :options="shotViewModeOptions" size="small" class="shot-view-segmented" aria-label="分镜展开模式">
+                <template #default="{ item }">
+                  <el-icon :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
+                    <component :is="segmentedOptionIcon(item)" />
+                  </el-icon>
+                </template>
+              </el-segmented>
+            </template>
+            <div class="asset-editor">
+              <div class="asset-tags">
+                <el-button class="add-material-button" link type="primary" @click="openMaterialDialog">添加素材</el-button>
+                <div class="asset-materials-scroll">
+                  <el-dropdown
+                    v-for="item in activeEpisode.characters"
+                    :key="`character-${item}`"
+                    trigger="click"
+                    @command="(command) => handleMaterialCommand(command, 'characters', item)"
+                  >
+                    <el-button class="asset-link-button" link :type="isCharacterUsed(item) ? 'success' : 'info'">
+                      <span class="asset-link-text">{{ item }}</span>
+                    </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
-                        <el-dropdown-item command="start">添至开头</el-dropdown-item>
-                        <el-dropdown-item command="end">添至末尾</el-dropdown-item>
-                        <el-dropdown-item v-for="(_, shotIndex) in activeEpisode.shots" :key="shotIndex" :command="{ action: 'after', index: shotIndex }">
-                          添至 #{{ shotIndex + 1 }} 后
-                        </el-dropdown-item>
+                        <el-dropdown-item command="edit" :icon="EditPen">修改</el-dropdown-item>
+                        <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
-                </el-button-group>
+                  <el-dropdown
+                    v-for="item in activeEpisode.scenes"
+                    :key="`scene-${item.name}`"
+                    trigger="click"
+                    @command="(command) => handleMaterialCommand(command, 'scenes', item.name)"
+                  >
+                    <el-button class="asset-link-button" link :type="isSceneUsed(item.name) ? 'success' : 'info'">
+                      <span class="asset-link-text">{{ item.time }}，{{ item.space }}，{{ item.name }}</span>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="edit" :icon="EditPen">修改</el-dropdown-item>
+                        <el-dropdown-item command="apply-all" :icon="Refresh">全设</el-dropdown-item>
+                        <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
               </div>
             </div>
-            <div class="asset-editor">
-              <div class="asset-tags">
-                <el-dropdown
-                  v-for="item in activeEpisode.characters"
-                  :key="`character-${item}`"
-                  trigger="click"
-                  @command="(command) => handleMaterialCommand(command, 'characters', item)"
-                >
-                  <el-tag class="asset-action-tag" size="large" type="primary" effect="light">
-                    <span v-if="isCharacterUsed(item)" class="asset-match-dot asset-match-dot-primary" aria-hidden="true"></span>
-                    <span>{{ item }}</span>
-                  </el-tag>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="edit" :icon="EditPen">修改</el-dropdown-item>
-                      <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-                <el-dropdown
-                  v-for="item in activeEpisode.scenes"
-                  :key="`scene-${item.name}`"
-                  trigger="click"
-                  @command="(command) => handleMaterialCommand(command, 'scenes', item.name)"
-                >
-                  <el-tag class="asset-action-tag" size="large" type="info" effect="light">
-                    <span v-if="isSceneUsed(item.name)" class="asset-match-dot asset-match-dot-info" aria-hidden="true"></span>
-                    <span>{{ item.time }}，{{ item.space }}，{{ item.name }}</span>
-                  </el-tag>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="edit" :icon="EditPen">修改</el-dropdown-item>
-                      <el-dropdown-item command="apply-all" :icon="Refresh">全设</el-dropdown-item>
-                      <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </div>
-            </div>
-          </section>
+          </el-page-header>
           <section class="shot-list">
             <article
               v-for="(shot, index) in activeEpisode.shots"
               :key="shot.id"
+              v-show="!isShotHidden(shot)"
               class="shot-row"
               :class="{ 'is-complete': shot.status === 'complete', 'is-collapsed-complete': isShotCollapsed(shot) }"
               @dblclick="copyPromptFromShotBlank($event, shot)"
@@ -461,7 +477,7 @@
                     <div class="config-heading character-heading">
                       <div class="character-heading-title">
                         <span>人物配置</span>
-                        <el-checkbox v-model="shot.usePositionReference">多角色位置参考</el-checkbox>
+                        <el-checkbox v-model="shot.usePositionReference">位置参考</el-checkbox>
                       </div>
                       <el-button :icon="Plus" text type="primary" @click="addCharacterToShot(shot)">添加人物</el-button>
                     </div>
@@ -530,8 +546,8 @@
       </div>
     </div>
 
-      <el-dialog v-model="globalDialogVisible" title="全局配置" width="760px" class="global-config-dialog" @close="cancelGlobalDialog">
-        <el-form label-position="top">
+      <el-dialog v-model="globalDialogVisible" title="全局配置" width="820px" :show-close="false" class="global-config-dialog" @close="cancelGlobalDialog">
+        <el-form class="global-config-form" label-position="top">
           <el-form-item label="章节设置">
             <div class="section-config-list">
               <div v-for="section in globalConfigDraft.sections" :key="section.key" class="section-config">
@@ -549,9 +565,6 @@
           </el-form-item>
           <el-form-item :label="draftSectionTitle('sceneRole') + ' 后缀'">
             <el-input v-model="globalConfigDraft.sceneRoleSuffix" class="global-config-textarea" type="textarea" :rows="4" resize="vertical" />
-          </el-form-item>
-          <el-form-item label="分镜折叠">
-            <el-switch v-model="globalConfigDraft.autoCollapseCompletedShots" />
           </el-form-item>
           <el-form-item label="安全时长">
             <div class="duration-range-config slider-range-config">
@@ -582,7 +595,7 @@
           <el-button type="primary" @click="saveGlobalDialog">保存</el-button>
         </template>
       </el-dialog>
-      <el-dialog v-model="detectionDialogVisible" title="人物识别冲突" width="520px" class="detection-dialog" @closed="cancelActiveDetection">
+      <el-dialog v-model="detectionDialogVisible" title="人物识别冲突" width="820px" :show-close="false" class="detection-dialog" @closed="cancelActiveDetection">
         <div v-if="detectionConflict" class="detection-compare">
           <div class="detection-compare-row">
             <span>当前已有</span>
@@ -621,7 +634,7 @@
           <el-button type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换</el-button>
         </template>
       </el-dialog>
-      <el-dialog v-model="reviewDialogVisible" title="提示词评分" width="520px" class="review-dialog" @closed="activeReviewShot = null">
+      <el-dialog v-model="reviewDialogVisible" title="提示词评分" width="820px" :show-close="false" class="review-dialog" @closed="activeReviewShot = null">
         <el-form label-position="top">
           <el-form-item label="评分">
             <el-rate
@@ -652,7 +665,7 @@
           <el-button type="primary" @click="saveReviewDialog">保存</el-button>
         </template>
       </el-dialog>
-      <el-dialog v-model="reviewSummaryVisible" :title="reviewSummaryTitle" width="820px" class="review-summary-dialog" @closed="reviewSummaryEpisodeId = null">
+      <el-dialog v-model="reviewSummaryVisible" :title="reviewSummaryTitle" width="820px" :show-close="false" class="review-summary-dialog" @closed="reviewSummaryEpisodeId = null">
         <div v-if="reviewSummaryEpisode" class="episode-summary-cards">
           <section class="episode-summary-card">
             <el-statistic title="平均分" :value="reviewSummary.averageValue" :precision="1" />
@@ -747,7 +760,7 @@
           </el-table-column>
         </el-table>
       </el-dialog>
-      <el-dialog v-model="groupSummaryVisible" title="整组数据" width="820px" class="group-summary-dialog" @closed="activeGroupSummaryId = null">
+      <el-dialog v-model="groupSummaryVisible" title="整组数据" width="820px" :show-close="false" class="group-summary-dialog" @closed="activeGroupSummaryId = null">
         <p class="group-summary-subtitle">{{ groupSummarySubtitle }}</p>
         <div class="episode-summary-cards group-statistic-cards">
           <section class="episode-summary-card">
@@ -812,7 +825,7 @@
           </el-table-column>
         </el-table>
       </el-dialog>
-      <el-dialog v-model="episodeScriptDialogVisible" width="1080px" class="episode-script-dialog" :show-close="false" @closed="resetEpisodeScriptDialog">
+      <el-dialog v-model="episodeScriptDialogVisible" width="820px" class="episode-script-dialog" :show-close="false" @closed="resetEpisodeScriptDialog">
         <el-tabs v-model="episodeScriptActiveTab" class="episode-script-tabs">
           <el-tab-pane label="导入分镜" name="shots">
             <div class="episode-script-columns">
@@ -911,7 +924,7 @@
           </div>
         </template>
       </el-dialog>
-      <el-dialog v-model="materialDialogVisible" :title="materialDialogTitle" width="680px" class="material-dialog" @closed="handleMaterialDialogClosed">
+      <el-dialog v-model="materialDialogVisible" :title="materialDialogTitle" width="820px" :show-close="false" class="material-dialog" @closed="handleMaterialDialogClosed">
         <el-form class="material-form" label-position="top">
           <el-form-item v-if="shouldShowMaterialCharacters" label="人物">
             <el-input
@@ -972,7 +985,7 @@
 import { computed, onMounted, onUnmounted, ref, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, Files, House, InfoFilled, MapLocation, Moon, Plus, Refresh, Search, Setting, Star, StarFilled, Sunny, Upload, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, Expand, Files, Fold, Hide, House, InfoFilled, MapLocation, Moon, Plus, Refresh, Search, Setting, Star, StarFilled, Sunny, Upload, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, normalizeDialogueReplacementRules } from './dialogue'
 import {
   createCharacterConfig,
@@ -997,7 +1010,7 @@ import {
   normalizeCharacterNameForMatch,
   recommendedSeconds,
 } from './prompt'
-import type { CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, SectionKey, Shot } from './types'
+import type { CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, SectionKey, Shot, ShotViewMode } from './types'
 import { useAppState } from './useAppState'
 
 type MaterialKind = 'characters' | 'scenes'
@@ -1061,6 +1074,7 @@ type WeeklyReportRange = {
   end: string
 }
 
+const EmptyPageHeaderIcon: Component = () => null
 const { state, activeEpisode } = useAppState()
 const materialDialogVisible = ref(false)
 const globalDialogVisible = ref(false)
@@ -1098,6 +1112,11 @@ const materialSceneSpaceOptions: MaterialSegmentedOption<SceneSpace>[] = [
   { label: '室内', value: '室内', icon: House },
   { label: '室外', value: '室外', icon: MapLocation },
 ]
+const shotViewModeOptions: MaterialSegmentedOption<ShotViewMode>[] = [
+  { label: '全部展开', value: 'expanded', icon: Expand },
+  { label: '完成折叠', value: 'collapse-completed', icon: Fold },
+  { label: '完成隐藏', value: 'hide-completed', icon: Hide },
+]
 const episodeDropdownRefs = new Map<string, { handleClose?: () => void }>()
 const groupDropdownRefs = new Map<string, { handleClose?: () => void }>()
 const scriptInputRefs = new Map<string, { textarea: HTMLTextAreaElement; handler: () => void }>()
@@ -1121,10 +1140,21 @@ const archivedTreeId = 'archived'
 const reviewRateTexts = ['拉完了', 'NPC', '人上人', '顶级', '夯']
 
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
+const areAllShotsUsingPositionReference = computed(() => {
+  const shots = activeEpisode.value?.shots ?? []
+  return shots.length > 0 && shots.every((shot) => shot.usePositionReference)
+})
+const areAllShotsComplete = computed(() => {
+  const shots = activeEpisode.value?.shots ?? []
+  return shots.length > 0 && shots.every((shot) => shot.status === 'complete')
+})
 const sortedEpisodeGroups = computed(() => state.episodeGroups.filter((group) => !group.archived).sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
 const sortedArchivedEpisodeGroups = computed(() => state.episodeGroups
   .filter((group) => group.archived)
-  .sort((a, b) => latestGroupProductionDate(b.id).localeCompare(latestGroupProductionDate(a.id))))
+  .sort((a, b) => {
+    const dateDiff = latestGroupProductionDate(b.id).localeCompare(latestGroupProductionDate(a.id))
+    return dateDiff || state.episodeGroups.indexOf(a) - state.episodeGroups.indexOf(b)
+  }))
 const sortedUngroupedEpisodes = computed(() => sortEpisodesForDisplay(state.episodes.filter((episode) => !episode.groupId)))
 const productionDateSet = computed(() => new Set(state.episodes.map((episode) => normalizeDateString(episode.productionData.productionDate)).filter((date): date is string => Boolean(date))))
 const detectionConflictShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === detectionConflictShotId.value) ?? null)
@@ -2409,7 +2439,11 @@ function insertBatchShots(episode: Episode, segments: BatchShotSegment[]) {
 }
 
 function isShotCollapsed(shot: Shot) {
-  return state.globalConfig.autoCollapseCompletedShots && shot.status === 'complete'
+  return state.shotViewMode === 'collapse-completed' && shot.status === 'complete'
+}
+
+function isShotHidden(shot: Shot) {
+  return state.shotViewMode === 'hide-completed' && shot.status === 'complete'
 }
 
 function hasModifiedShots(episode: Episode) {
@@ -2702,6 +2736,20 @@ function escapeHtml(value: string) {
 }
 function setShotStatus(shot: Shot, done: boolean) {
   shot.status = done ? 'complete' : 'incomplete'
+}
+
+function toggleAllPositionReferences() {
+  const shots = activeEpisode.value?.shots ?? []
+  const nextValue = !areAllShotsUsingPositionReference.value
+  shots.forEach((shot) => {
+    shot.usePositionReference = nextValue
+  })
+}
+
+function completeAllShots() {
+  activeEpisode.value?.shots.forEach((shot) => {
+    shot.status = 'complete'
+  })
 }
 
 function nonEmptyLines(text: string) {

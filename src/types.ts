@@ -1,4 +1,5 @@
 export type CompletionStatus = 'incomplete' | 'complete'
+export type ShotViewMode = 'expanded' | 'collapse-completed' | 'hide-completed'
 export type SceneTime = '白天' | '深夜'
 export type SceneSpace = '室内' | '室外'
 export type SectionKey = 'base' | 'sceneRole' | 'shot'
@@ -25,7 +26,6 @@ export interface GlobalConfig {
   baseSetting: string
   baseSettingSuffix: string
   sceneRoleSuffix: string
-  autoCollapseCompletedShots: boolean
   recommendedDurationRange: DurationRange
   dialogueReplacementRules: DialogueReplacementRule[]
   sections: SectionConfig[]
@@ -124,6 +124,7 @@ export interface Episode {
 
 export interface AppState {
   version: number
+  shotViewMode: ShotViewMode
   globalConfig: GlobalConfig
   episodeGroups: EpisodeGroup[]
   episodes: Episode[]
