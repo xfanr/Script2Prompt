@@ -64,8 +64,8 @@
                         <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
                           <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
                             <el-input v-model="episode.title" class="episode-title-input" placeholder="本集标题" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename" />
-                            <el-button class="rename-confirm" :icon="Check" circle type="success" @click="finishEpisodeRename" />
-                            <el-button class="rename-cancel" :icon="Close" circle type="danger" @click="cancelEpisodeRename(episode)" />
+                            <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename" />
+                            <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelEpisodeRename(episode)" />
                           </div>
                           <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
                         </div>
@@ -97,8 +97,8 @@
                             <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
                             <div v-if="editingGroupId === group.id" class="rename-inline" @click.stop @keydown.stop>
                               <el-input v-model="group.title" class="episode-title-input" placeholder="分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
-                              <el-button class="rename-confirm" :icon="Check" circle type="success" @click="finishGroupRename" />
-                              <el-button class="rename-cancel" :icon="Close" circle type="danger" @click="cancelGroupRename(group)" />
+                              <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishGroupRename" />
+                              <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelGroupRename(group)" />
                             </div>
                             <span v-else class="group-title-text">{{ group.title }}</span>
                             <span v-if="editingGroupId !== group.id && isGroupAutoStarred(group.id)" class="episode-star group-star">⭐️</span>
@@ -126,8 +126,8 @@
                             <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
                               <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
                                 <el-input v-model="episode.title" class="episode-title-input" placeholder="本集标题" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename" />
-                                <el-button class="rename-confirm" :icon="Check" circle type="success" @click="finishEpisodeRename" />
-                                <el-button class="rename-cancel" :icon="Close" circle type="danger" @click="cancelEpisodeRename(episode)" />
+                                <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename" />
+                                <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelEpisodeRename(episode)" />
                               </div>
                               <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
                             </div>
@@ -154,8 +154,8 @@
                         <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
                         <div v-if="editingGroupId === group.id" class="rename-inline" @click.stop @keydown.stop>
                           <el-input v-model="group.title" class="episode-title-input" placeholder="分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
-                          <el-button class="rename-confirm" :icon="Check" circle type="success" @click="finishGroupRename" />
-                          <el-button class="rename-cancel" :icon="Close" circle type="danger" @click="cancelGroupRename(group)" />
+                          <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishGroupRename" />
+                          <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelGroupRename(group)" />
                         </div>
                         <span v-else class="group-title-text">{{ group.title }}</span>
                         <span v-if="editingGroupId !== group.id && isGroupAutoStarred(group.id)" class="episode-star group-star">⭐️</span>
@@ -183,8 +183,8 @@
                         <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
                           <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
                             <el-input v-model="episode.title" class="episode-title-input" placeholder="本集标题" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename" />
-                            <el-button class="rename-confirm" :icon="Check" circle type="success" @click="finishEpisodeRename" />
-                            <el-button class="rename-cancel" :icon="Close" circle type="danger" @click="cancelEpisodeRename(episode)" />
+                            <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename" />
+                            <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelEpisodeRename(episode)" />
                           </div>
                           <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
                         </div>
@@ -317,8 +317,8 @@
                       @keydown.enter.prevent="saveShotRemark(shot)"
                       @keydown.esc.prevent="cancelShotRemarkEdit"
                     />
-                    <el-button class="shot-remark-button is-visible" :icon="Check" circle text type="primary" aria-label="保存分镜备注" @click.stop="saveShotRemark(shot)" />
-                    <el-button class="shot-remark-button is-visible" :icon="Close" circle text aria-label="取消编辑分镜备注" @click.stop="cancelShotRemarkEdit" />
+                    <el-button class="shot-remark-button is-visible" :icon="Check" circle size="small" type="success" aria-label="保存分镜备注" @click.stop="saveShotRemark(shot)" />
+                    <el-button class="shot-remark-button is-visible" :icon="Close" circle size="small" type="danger" aria-label="取消编辑分镜备注" @click.stop="cancelShotRemarkEdit" />
                   </template>
                   <template v-else>
                     <span v-if="hasShotRemark(shot)" class="shot-remark-text" :title="shot.remark">{{ shot.remark }}</span>
@@ -326,7 +326,7 @@
                       class="shot-remark-button"
                       :icon="EditPen"
                       circle
-                      text
+                      size="small"
                       :type="hasShotRemark(shot) ? 'primary' : undefined"
                       :aria-label="hasShotRemark(shot) ? '修改分镜备注' : '添加分镜备注'"
                       @click.stop="startShotRemarkEdit(shot)"
@@ -334,9 +334,10 @@
                     <el-button
                       v-if="hasShotRemark(shot)"
                       class="shot-remark-button shot-remark-delete"
-                      :icon="Close"
+                      :icon="Delete"
                       circle
-                      text
+                      size="small"
+                      type="danger"
                       aria-label="删除分镜备注"
                       @click.stop="deleteShotRemark(shot)"
                     />
@@ -385,8 +386,9 @@
                       </div>
                     </div>
                     <div class="script-title-stats">
-                      <span>{{ characterCount(effectiveShotText(shot)) }}/140 字</span>
-                      <span>推荐 {{ durationText(effectiveShotText(shot)) }}</span>
+                      <el-tag :type="durationState(effectiveShotText(shot)).warn ? 'danger' : 'info'" effect="light" round>
+                        {{ characterCount(effectiveShotText(shot)) }} 字 · 推荐 {{ durationText(effectiveShotText(shot)) }}
+                      </el-tag>
                     </div>
                   </div>
                   <div class="script-input-wrap" :class="{ warn: durationState(effectiveShotText(shot)).warn }">
@@ -558,6 +560,22 @@
               <span>{{ durationRangeDraft[1].toFixed(1) }}</span>
             </div>
           </el-form-item>
+          <el-form-item label="台词违禁词替换">
+            <div class="dialogue-rule-config">
+              <div class="dialogue-rule-heading">
+                <span>所有单集共用，替换内容留空表示删除违禁词。</span>
+                <el-button :icon="Plus" text type="primary" @click="addDialogueReplacementRule">添加规则</el-button>
+              </div>
+              <div v-if="!globalConfigDraft.dialogueReplacementRules.length" class="empty-note">暂无替换规则</div>
+              <div v-else class="dialogue-rule-list">
+                <div v-for="rule in globalConfigDraft.dialogueReplacementRules" :key="rule.id" class="dialogue-rule-row">
+                  <el-input v-model="rule.forbidden" placeholder="违禁词" clearable />
+                  <el-input v-model="rule.replacement" placeholder="替换内容，可留空" clearable />
+                  <el-button :icon="Delete" text type="danger" aria-label="删除替换规则" @click="removeDialogueReplacementRule(rule.id)" />
+                </div>
+              </div>
+            </div>
+          </el-form-item>
         </el-form>
         <template #footer>
           <el-button @click="resetGlobalDialog">重置</el-button>
@@ -635,42 +653,44 @@
         </template>
       </el-dialog>
       <el-dialog v-model="reviewSummaryVisible" :title="reviewSummaryTitle" width="820px" class="review-summary-dialog" @closed="reviewSummaryEpisodeId = null">
-        <div class="review-summary-stats">
-          <div>
-            <strong>{{ reviewSummary.total }}</strong>
-            <span>总分镜</span>
-          </div>
-          <div>
-            <strong>{{ reviewSummary.reviewedRate }}</strong>
-            <span>已评分率</span>
-          </div>
-          <div class="summary-average-card">
+        <div v-if="reviewSummaryEpisode" class="episode-summary-cards">
+          <section class="episode-summary-card">
+            <el-statistic title="平均分" :value="reviewSummary.averageValue" :precision="1" />
             <el-rate
-              class="summary-average-rate"
+              class="episode-average-rate"
               :class="{ muted: reviewSummary.averageValue <= 2 }"
               :model-value="reviewSummary.averageValue"
+              size="small"
               disabled
               allow-half
               :max="5"
             />
-            <span>平均分</span>
-          </div>
-          <div>
-            <strong>{{ reviewSummary.averageDrawRate }}</strong>
-            <span>平均抽卡率</span>
-          </div>
-          <div>
-            <strong>{{ reviewSummary.noSubtitleRate }}</strong>
-            <span>无字幕率</span>
-          </div>
-        </div>
-        <div v-if="reviewSummaryEpisode" class="episode-data-panel">
-          <section class="episode-data-card cost-card">
-            <div class="episode-data-heading">本集成本</div>
-            <div class="episode-data-field">
+          </section>
+          <section class="episode-summary-card draw-success-card">
+            <el-statistic title="抽卡成功率" :value="reviewSummary.drawSuccessRateValue">
+              <template #suffix>%</template>
+            </el-statistic>
+            <div class="episode-statistic-detail">
+              <span>总分镜数 {{ reviewSummary.total }}</span>
+              <span>总抽卡数 {{ reviewSummary.drawTotal }}</span>
+            </div>
+          </section>
+          <section class="episode-summary-card">
+            <el-statistic title="无字幕率" :value="reviewSummary.noSubtitleRateValue">
+              <template #suffix>%</template>
+            </el-statistic>
+            <div class="episode-statistic-detail">
+              <span>无字幕数 {{ reviewSummary.noSubtitleTotal }}</span>
+              <span>总抽卡数 {{ reviewSummary.drawTotal }}</span>
+            </div>
+          </section>
+          <section class="episode-summary-card episode-cost-card">
+            <el-statistic title="本集成本" :value="episodeTotalCost" :precision="4" />
+            <div class="episode-card-controls cost-controls">
               <el-input
                 class="compact-cost-input"
                 v-model="productionPointUsageDraft"
+                size="small"
                 maxlength="8"
                 inputmode="numeric"
                 @input="updateProductionNumber('pointUsage', productionPointUsageDraft)"
@@ -678,11 +698,10 @@
               >
                 <template #prepend>积分</template>
               </el-input>
-            </div>
-            <div class="episode-data-field">
               <el-input
                 class="compact-cost-input"
                 v-model="productionPointCostDraft"
+                size="small"
                 maxlength="8"
                 inputmode="decimal"
                 @input="updateProductionNumber('pointCost', productionPointCostDraft)"
@@ -691,17 +710,12 @@
                 <template #prepend>成本</template>
               </el-input>
             </div>
-            <div class="episode-data-field total-cost-field">
-              <strong>{{ episodeTotalCost }}</strong>
-            </div>
           </section>
-          <section class="episode-data-card date-card">
-            <div class="episode-data-heading">制作日期</div>
-            <div class="episode-data-field">
-              <div class="production-date-row">
-                <el-date-picker v-model="reviewSummaryEpisode.productionData.productionDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" />
-                <el-button type="primary" text @click="setProductionDateToday">今天</el-button>
-              </div>
+          <section class="episode-summary-card episode-date-card">
+            <el-statistic title="制作日期" :value="0" :formatter="formatEpisodeProductionDate" />
+            <div class="episode-card-controls production-date-row">
+              <el-date-picker v-model="reviewSummaryEpisode.productionData.productionDate" type="date" size="small" value-format="YYYY-MM-DD" placeholder="选择日期" />
+              <el-button type="primary" size="small" text @click="setProductionDateToday">今天</el-button>
             </div>
           </section>
         </div>
@@ -735,100 +749,143 @@
       </el-dialog>
       <el-dialog v-model="groupSummaryVisible" title="整组数据" width="820px" class="group-summary-dialog" @closed="activeGroupSummaryId = null">
         <p class="group-summary-subtitle">{{ groupSummarySubtitle }}</p>
-        <div class="review-summary-stats group-summary-stats">
-          <div>
-            <strong>{{ groupSummaryStats.total }}</strong>
-            <span>总分镜</span>
-          </div>
-          <div class="summary-average-card">
+        <div class="episode-summary-cards group-statistic-cards">
+          <section class="episode-summary-card">
+            <el-statistic title="平均分" :value="groupSummaryStats.averageValue" :precision="1" />
             <el-rate
-              class="summary-average-rate"
+              class="episode-average-rate"
               :class="{ muted: groupSummaryStats.averageValue <= 2 }"
               :model-value="groupSummaryStats.averageValue"
+              size="small"
               disabled
               allow-half
               :max="5"
             />
-            <span>平均分</span>
-          </div>
-          <div>
-            <strong>{{ groupSummaryStats.averageDrawRate }}</strong>
-            <span>平均抽卡率</span>
-          </div>
-        </div>
-        <div class="episode-data-panel group-data-panel">
-          <section class="episode-data-card cost-card group-cost-card">
-            <div class="episode-data-field total-cost-field">
-              <strong>{{ groupProductionSummary.totalCost }}</strong>
-              <span>整组费用</span>
+          </section>
+          <section class="episode-summary-card">
+            <el-statistic title="抽卡成功率" :value="groupSummaryStats.drawSuccessRateValue">
+              <template #suffix>%</template>
+            </el-statistic>
+            <div class="episode-statistic-detail">
+              <span>总分镜数 {{ groupSummaryStats.total }}</span>
+              <span>总抽卡数 {{ groupSummaryStats.drawTotal }}</span>
             </div>
           </section>
-          <section class="episode-data-card date-card group-date-card">
-            <div class="episode-data-field">
-              <strong>{{ groupProductionSummary.dateRange }}</strong>
-              <span>制作日期</span>
-            </div>
-          </section>
-          <section class="episode-data-card date-card group-date-card">
-            <div class="episode-data-field production-days-field">
-              <strong>{{ groupProductionSummary.productionDays }}</strong>
-              <span>总制作天数</span>
+          <section class="episode-summary-card">
+            <el-statistic title="无字幕率" :value="groupSummaryStats.noSubtitleRateValue">
+              <template #suffix>%</template>
+            </el-statistic>
+            <div class="episode-statistic-detail">
+              <span>无字幕数 {{ groupSummaryStats.noSubtitleTotal }}</span>
+              <span>总抽卡数 {{ groupSummaryStats.drawTotal }}</span>
             </div>
           </section>
         </div>
-        <el-table :data="groupSummaryRows" max-height="430" empty-text="暂无单集" show-summary :summary-method="getGroupSummaryTableSummary">
-          <el-table-column prop="title" label="标题" min-width="130" show-overflow-tooltip />
+        <div class="group-production-cards">
+          <section class="episode-summary-card">
+            <el-statistic title="整剧成本" :value="groupProductionSummary.totalCostValue" :precision="4" />
+            <div class="episode-statistic-detail">
+              <span>平均单集 {{ groupProductionSummary.averageEpisodeCost }}</span>
+              <span>总集数 {{ groupProductionSummary.episodeCount }}</span>
+            </div>
+          </section>
+          <section class="episode-summary-card">
+            <el-statistic title="制作时间" :value="0" :formatter="formatGroupProductionDateRange" />
+            <div class="episode-statistic-detail">
+              <span>总制作天数 {{ groupProductionSummary.productionDays }}</span>
+            </div>
+          </section>
+        </div>
+        <el-table :data="groupSummaryTableRows" max-height="430" empty-text="暂无单集" scrollbar-always-on :row-class-name="groupSummaryRowClass">
+          <el-table-column prop="title" label="标题" min-width="130" fixed="left" show-overflow-tooltip />
           <el-table-column prop="total" label="总分镜" width="86" />
-          <el-table-column prop="reviewedRate" label="已评分率" width="94" />
           <el-table-column prop="averageText" label="平均分" width="90" />
           <el-table-column prop="averageDrawRate" label="平均抽卡率" width="110" />
           <el-table-column prop="noSubtitleRate" label="无字幕率" width="94" />
           <el-table-column prop="pointUsageText" label="积分" width="92" />
-          <el-table-column prop="pointCost" label="成本" width="94" />
           <el-table-column prop="totalCost" label="总费用" width="98" />
           <el-table-column prop="productionDate" label="制作日期" width="116" />
           <el-table-column label="操作" width="84" fixed="right" align="center" header-align="center">
             <template #default="{ row }">
-              <el-button text type="primary" @click="openReviewSummary(row.episode)">打开</el-button>
+              <el-button v-if="!row.isSummary" text type="primary" @click="openReviewSummary(row.episode)">打开</el-button>
             </template>
           </el-table-column>
         </el-table>
       </el-dialog>
-      <el-dialog v-model="episodeScriptDialogVisible" title="本集剧本" width="960px" class="episode-script-dialog">
-        <el-input
-          v-model="episodeScriptDraft"
-          type="textarea"
-          :rows="16"
-          resize="vertical"
-          placeholder="粘贴或输入本集完整剧本文字；使用 --- 分段后可保存为分镜"
-          @input="autoRecognizeEpisodeScriptShots"
-        />
-        <div v-if="batchShotSegments.length" class="batch-shot-preview">
-          <div
-            v-for="(text, index) in batchShotSegments"
-            :key="`${index}-${text.length}`"
-            class="batch-shot-preview-item"
-            :class="{ warn: durationState(text).warn }"
-          >
-            <span class="batch-shot-index">#{{ index + 1 }}</span>
-            <p>{{ text }}</p>
-            <span class="batch-shot-stat">{{ characterCount(text) }} 字</span>
-            <span class="batch-shot-stat">推荐 {{ durationText(text) }}</span>
-          </div>
-        </div>
+      <el-dialog v-model="episodeScriptDialogVisible" width="1080px" class="episode-script-dialog" :show-close="false" @closed="resetEpisodeScriptDialog">
+        <el-tabs v-model="episodeScriptActiveTab" class="episode-script-tabs">
+          <el-tab-pane label="导入分镜" name="shots">
+            <div class="episode-script-columns">
+              <div class="episode-script-source-panel">
+                <div class="episode-script-panel-title">原始剧本</div>
+                <el-input
+                  v-model="episodeScriptDraft"
+                  class="episode-script-source-input"
+                  type="textarea"
+                  :rows="16"
+                  resize="none"
+                  placeholder="粘贴或输入本集完整剧本文字；使用 --- 分段后可导入为分镜"
+                  @input="syncEpisodeScriptDraft"
+                />
+              </div>
+              <div class="episode-script-preview-panel">
+                <div class="episode-script-panel-title">分镜列表</div>
+                <div class="batch-shot-preview">
+                  <div
+                    v-for="(segment, index) in batchShotSegments"
+                    :key="`${index}-${segment.text.length}-${segment.remark}`"
+                    class="batch-shot-preview-item"
+                    :class="{ warn: durationState(segment.text).warn }"
+                  >
+                    <div class="batch-shot-preview-head">
+                      <div class="batch-shot-heading">
+                        <span class="batch-shot-index">#{{ index + 1 }}</span>
+                        <span v-if="segment.remark" class="batch-shot-remark" :title="segment.remark">{{ segment.remark }}</span>
+                      </div>
+                      <span class="batch-shot-stat">{{ characterCount(segment.text) }} 字 · 推荐 {{ durationText(segment.text) }}</span>
+                    </div>
+                    <p>{{ segment.text }}</p>
+                  </div>
+                  <div v-if="!batchShotSegments.length" class="episode-script-empty empty-note">使用 --- 分隔剧本后，将在这里显示分镜。</div>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
+          <el-tab-pane label="提取台词" name="dialogue">
+            <div class="episode-script-columns">
+              <div class="episode-script-source-panel">
+                <div class="episode-script-panel-title">原始剧本</div>
+                <el-input
+                  v-model="episodeScriptDraft"
+                  class="episode-script-source-input"
+                  type="textarea"
+                  :rows="16"
+                  resize="none"
+                  placeholder="粘贴或输入包含人物名和冒号的剧本文字"
+                  @input="syncEpisodeScriptDraft"
+                />
+              </div>
+              <div class="dialogue-result-panel">
+                <div class="episode-script-panel-title">
+                  <span>台词结果</span>
+                  <el-tag size="small" type="info" effect="light">{{ dialogueView === 'replaced' ? '已替换' : '原文' }}</el-tag>
+                </div>
+                <el-input
+                  v-model="dialogueOutputDraft"
+                  class="dialogue-result-input"
+                  type="textarea"
+                  :rows="16"
+                  resize="none"
+                  placeholder="未提取到台词"
+                />
+              </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
         <template #footer>
           <div class="batch-shot-footer">
-            <el-alert
-              v-if="batchShotSegments.length"
-              class="batch-shot-count-alert"
-              :title="`已识别 ${batchShotSegments.length} 条分镜`"
-              type="success"
-              show-icon
-              :closable="false"
-            />
-            <div class="batch-shot-footer-actions">
+            <div v-if="episodeScriptActiveTab === 'shots'" class="batch-shot-footer-actions">
               <el-button @click="organizeEpisodeScriptDraft">整理</el-button>
-              <el-button plain @click="saveEpisodeScriptDialog">保存</el-button>
               <el-popconfirm
                 v-if="activeEpisode && hasModifiedShots(activeEpisode)"
                 title="当前分镜已有修改，确认导入分镜？"
@@ -841,6 +898,15 @@
                 </template>
               </el-popconfirm>
               <el-button v-else type="primary" @click="importEpisodeScriptShots">导入分镜</el-button>
+            </div>
+            <div v-else class="batch-shot-footer-actions">
+              <el-button
+                :disabled="dialogueView === 'original' && !state.globalConfig.dialogueReplacementRules.length"
+                @click="toggleDialogueReplacement"
+              >
+                {{ dialogueView === 'replaced' ? '还原' : '换词' }}
+              </el-button>
+              <el-button type="primary" :disabled="!dialogueOutputDraft.trim()" @click="copyExtractedDialogue">提取台词</el-button>
             </div>
           </div>
         </template>
@@ -907,8 +973,10 @@ import { computed, onMounted, onUnmounted, ref, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight, Check, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, Files, House, InfoFilled, MapLocation, Moon, Plus, Refresh, Search, Setting, Star, StarFilled, Sunny, Upload, WarningFilled } from '@element-plus/icons-vue'
+import { extractDialogueText, normalizeDialogueReplacementRules } from './dialogue'
 import {
   createCharacterConfig,
+  createDialogueReplacementRule,
   createEpisode,
   createEpisodeGroup,
   createEpisodeProductionData,
@@ -929,7 +997,7 @@ import {
   normalizeCharacterNameForMatch,
   recommendedSeconds,
 } from './prompt'
-import type { CharacterConfig, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, SectionKey, Shot } from './types'
+import type { CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, SectionKey, Shot } from './types'
 import { useAppState } from './useAppState'
 
 type MaterialKind = 'characters' | 'scenes'
@@ -965,6 +1033,12 @@ type MaterialAddResult = {
 }
 type MaterialDialogMode = 'add' | 'edit'
 type MaterialCommand = 'edit' | 'delete' | 'apply-all'
+type EpisodeScriptTab = 'shots' | 'dialogue'
+type DialogueView = 'original' | 'replaced'
+type BatchShotSegment = {
+  text: string
+  remark: string
+}
 type EditingMaterial = {
   kind: MaterialKind
   value: string
@@ -1003,7 +1077,11 @@ const materialDialogMode = ref<MaterialDialogMode>('add')
 const editingMaterial = ref<EditingMaterial | null>(null)
 const materialCharacterDraft = ref('')
 const materialSceneDrafts = ref<MaterialSceneDraft[]>(createMaterialSceneDrafts())
-const batchShotSegments = ref<string[]>([])
+const batchShotSegments = ref<BatchShotSegment[]>([])
+const episodeScriptActiveTab = ref<EpisodeScriptTab>('shots')
+const dialogueView = ref<DialogueView>('original')
+const dialogueOriginalDraft = ref('')
+const dialogueReplacedDraft = ref('')
 const selectedEpisodeGroupId = ref<string | null>(activeEpisode.value?.groupId ?? null)
 const editingEpisodeId = ref<string | null>(null)
 const editingEpisodeOriginalTitle = ref('')
@@ -1044,10 +1122,23 @@ const reviewRateTexts = ['拉完了', 'NPC', '人上人', '顶级', '夯']
 
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
 const sortedEpisodeGroups = computed(() => state.episodeGroups.filter((group) => !group.archived).sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
-const sortedArchivedEpisodeGroups = computed(() => state.episodeGroups.filter((group) => group.archived).sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
+const sortedArchivedEpisodeGroups = computed(() => state.episodeGroups
+  .filter((group) => group.archived)
+  .sort((a, b) => latestGroupProductionDate(b.id).localeCompare(latestGroupProductionDate(a.id))))
 const sortedUngroupedEpisodes = computed(() => sortEpisodesForDisplay(state.episodes.filter((episode) => !episode.groupId)))
 const productionDateSet = computed(() => new Set(state.episodes.map((episode) => normalizeDateString(episode.productionData.productionDate)).filter((date): date is string => Boolean(date))))
 const detectionConflictShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === detectionConflictShotId.value) ?? null)
+const dialogueOutputDraft = computed({
+  get: () => dialogueView.value === 'replaced' ? dialogueReplacedDraft.value : dialogueOriginalDraft.value,
+  set: (value: string) => {
+    if (dialogueView.value === 'replaced') {
+      dialogueReplacedDraft.value = value
+      return
+    }
+
+    dialogueOriginalDraft.value = value
+  },
+})
 const detectionConflict = computed(() => detectionConflictShot.value?.pendingDetection ?? null)
 const reviewSummaryEpisode = computed(() => state.episodes.find((episode) => episode.id === reviewSummaryEpisodeId.value) ?? activeEpisode.value ?? null)
 const activeGroupSummary = computed(() => state.episodeGroups.find((group) => group.id === activeGroupSummaryId.value) ?? null)
@@ -1074,7 +1165,7 @@ const reviewSummaryRows = computed(() => reviewSummaryEpisode.value?.shots.map((
 const reviewSummary = computed(() => summarizeShots(reviewSummaryEpisode.value?.shots ?? []))
 const episodeTotalCost = computed(() => {
   const data = reviewSummaryEpisode.value?.productionData ?? createEpisodeProductionData()
-  return (data.pointUsage * data.pointCost).toFixed(4)
+  return data.pointUsage * data.pointCost
 })
 const materialDialogTitle = computed(() => {
   if (materialDialogMode.value === 'add') {
@@ -1092,7 +1183,7 @@ const groupSummarySubtitle = computed(() => {
   const episodeNumbers = groupSummaryEpisodes.value.map(formatEpisodeSummaryNumber).join('/')
   return `《${title}》${episodeNumbers || '无'}，共${groupSummaryEpisodes.value.length}集`
 })
-const groupSummaryStats = computed(() => summarizeShots(groupSummaryEpisodes.value.flatMap((episode) => episode.shots)))
+const groupSummaryStats = computed(() => summarizeEpisodeGroup(groupSummaryEpisodes.value))
 const groupProductionSummary = computed(() => summarizeProductionData(groupSummaryEpisodes.value))
 const groupSummaryRows = computed(() => groupSummaryEpisodes.value.map((episode) => {
   const summary = summarizeShots(episode.shots)
@@ -1105,32 +1196,33 @@ const groupSummaryRows = computed(() => groupSummaryEpisodes.value.map((episode)
     episodeNumber: formatEpisodeSummaryNumber(episode),
     title: episode.title,
     total: summary.total,
-    reviewedRate: summary.reviewedRate,
     averageText: summary.averageValue ? `${summary.averageValue} 星` : '未评分',
     averageDrawRate: summary.averageDrawRate,
     noSubtitleRate: summary.noSubtitleRate,
     pointUsageText: formatIntegerWithCommas(data.pointUsage),
-    pointCost: formatPointCost(data.pointCost),
     totalCost: formatPointCost(data.pointUsage * data.pointCost),
     productionDate: productionDate ?? '未设置',
   }
 }))
-function getGroupSummaryTableSummary({ columns }: { columns: Array<{ property?: string }> }) {
-  const values: Record<string, string> = {
+const groupSummaryTableRows = computed(() => [
+  ...groupSummaryRows.value,
+  {
+    isSummary: true,
+    episode: null,
     episodeNumber: '汇总',
     title: `共 ${groupSummaryEpisodes.value.length} 集`,
-    total: String(groupSummaryStats.value.total),
-    reviewedRate: groupSummaryStats.value.reviewedRate,
+    total: groupSummaryStats.value.total,
     averageText: groupSummaryStats.value.averageValue ? `${groupSummaryStats.value.averageValue} 星` : '未评分',
     averageDrawRate: groupSummaryStats.value.averageDrawRate,
     noSubtitleRate: groupSummaryStats.value.noSubtitleRate,
     pointUsageText: groupProductionSummary.value.pointUsageText,
-    pointCost: groupProductionSummary.value.averagePointCost,
     totalCost: groupProductionSummary.value.totalCost,
     productionDate: groupProductionSummary.value.productionDays,
-  }
+  },
+])
 
-  return columns.map((column) => column.property ? values[column.property] ?? '' : '')
+function groupSummaryRowClass({ row }: { row: { isSummary?: boolean } }) {
+  return row.isSummary ? 'group-summary-total-row' : ''
 }
 
 function summarizeShots(shots: Shot[]) {
@@ -1138,21 +1230,37 @@ function summarizeShots(shots: Shot[]) {
   const ratingTotal = ratedShots.reduce((total, shot) => total + shot.review.rating, 0)
   const drawTotal = shots.reduce((total, shot) => total + shot.review.drawCount, 0)
   const noSubtitleTotal = shots.reduce((total, shot) => total + shot.review.noSubtitleCount, 0)
-  const percent = (value: number) => `${shots.length ? Math.round((value / shots.length) * 100) : 0}%`
+  const drawSuccessRateValue = drawTotal ? Math.round((shots.length / drawTotal) * 100) : 0
+  const noSubtitleRateValue = drawTotal ? Math.round((noSubtitleTotal / drawTotal) * 100) : 0
 
   return {
     total: shots.length,
-    reviewedRate: percent(shots.filter(isShotReviewed).length),
     averageValue: ratedShots.length ? Number((ratingTotal / ratedShots.length).toFixed(1)) : 0,
     drawTotal,
-    averageDrawRate: `${drawTotal ? Math.round((shots.length / drawTotal) * 100) : 0}%`,
-    noSubtitleRate: `${drawTotal ? Math.round((noSubtitleTotal / drawTotal) * 100) : 0}%`,
+    noSubtitleTotal,
+    drawSuccessRateValue,
+    noSubtitleRateValue,
+    averageDrawRate: `${drawSuccessRateValue}%`,
+    noSubtitleRate: `${noSubtitleRateValue}%`,
+  }
+}
+
+function summarizeEpisodeGroup(episodes: Episode[]) {
+  const summary = summarizeShots(episodes.flatMap((episode) => episode.shots))
+  const episodeAverages = episodes
+    .map((episode) => summarizeShots(episode.shots).averageValue)
+    .filter((average) => average > 0)
+
+  return {
+    ...summary,
+    averageValue: episodeAverages.length
+      ? Number((episodeAverages.reduce((total, average) => total + average, 0) / episodeAverages.length).toFixed(1))
+      : 0,
   }
 }
 
 function summarizeProductionData(episodes: Episode[]) {
   const pointUsage = episodes.reduce((total, episode) => total + episode.productionData.pointUsage, 0)
-  const pointCostTotal = episodes.reduce((total, episode) => total + episode.productionData.pointCost, 0)
   const totalCost = episodes.reduce((total, episode) => total + episode.productionData.pointUsage * episode.productionData.pointCost, 0)
   const dates = Array.from(new Set(episodes
     .map((episode) => normalizeDateString(episode.productionData.productionDate))
@@ -1160,8 +1268,10 @@ function summarizeProductionData(episodes: Episode[]) {
     .sort()
 
   return {
+    episodeCount: episodes.length,
     pointUsageText: formatIntegerWithCommas(pointUsage),
-    averagePointCost: formatPointCost(episodes.length ? pointCostTotal / episodes.length : 0),
+    averageEpisodeCost: formatPointCost(episodes.length ? totalCost / episodes.length : 0),
+    totalCostValue: totalCost,
     totalCost: formatPointCost(totalCost),
     dateRange: dates.length ? `${formatMonthDayWithSeparator(dates[0])} 至 ${formatMonthDayWithSeparator(dates[dates.length - 1])}` : '未设置',
     productionDays: `${dates.length} 天`,
@@ -1221,6 +1331,15 @@ function setProductionDateToday() {
   data.productionDate = formatDateString(new Date())
 }
 
+function formatEpisodeProductionDate() {
+  const date = normalizeDateString(reviewSummaryEpisode.value?.productionData.productionDate ?? '')
+  return date ? `${date.slice(5, 7)}月${date.slice(8, 10)}日` : '未设置'
+}
+
+function formatGroupProductionDateRange() {
+  return groupProductionSummary.value.dateRange
+}
+
 function formatIntegerWithCommas(value: number) {
   return Math.max(0, Math.round(value)).toLocaleString('en-US')
 }
@@ -1267,15 +1386,51 @@ function openGlobalDialog() {
 }
 
 function saveGlobalDialog() {
+  const dialogueRules = validateDialogueReplacementRules(globalConfigDraft.value.dialogueReplacementRules)
+
+  if (!dialogueRules) {
+    return
+  }
+
   const [min, max] = durationRangeDraft.value
   state.globalConfig = {
     ...cloneGlobalConfig(globalConfigDraft.value),
+    dialogueReplacementRules: dialogueRules,
     recommendedDurationRange: {
       min: Math.min(min, max),
       max: Math.max(min, max),
     },
   }
   globalDialogVisible.value = false
+}
+
+function validateDialogueReplacementRules(rules: DialogueReplacementRule[]) {
+  const normalized = rules.map((rule) => ({
+    ...rule,
+    forbidden: rule.forbidden.trim(),
+  }))
+
+  if (normalized.some((rule) => !rule.forbidden)) {
+    ElMessage.warning('违禁词不能为空')
+    return null
+  }
+
+  const forbiddenSet = new Set(normalized.map((rule) => rule.forbidden))
+
+  if (forbiddenSet.size !== normalized.length) {
+    ElMessage.warning('违禁词不能重复')
+    return null
+  }
+
+  return normalized
+}
+
+function addDialogueReplacementRule() {
+  globalConfigDraft.value.dialogueReplacementRules.push(createDialogueReplacementRule())
+}
+
+function removeDialogueReplacementRule(id: string) {
+  globalConfigDraft.value.dialogueReplacementRules = globalConfigDraft.value.dialogueReplacementRules.filter((rule) => rule.id !== id)
 }
 
 function cancelGlobalDialog() {
@@ -1369,6 +1524,14 @@ function toggleGroupIfNotEmpty(id: string) {
 
 function groupSortTitle(group: EpisodeGroup) {
   return editingGroupId.value === group.id ? editingGroupOriginalTitle.value : group.title
+}
+
+function latestGroupProductionDate(groupId: string) {
+  return state.episodes.reduce((latest, episode) => {
+    if (episode.groupId !== groupId) return latest
+    const date = normalizeDateString(episode.productionData.productionDate) ?? ''
+    return date > latest ? date : latest
+  }, '')
 }
 
 function episodeSortTitle(episode: Episode) {
@@ -2190,14 +2353,29 @@ function handleAddShotCommand(command: 'start' | 'end' | { action: 'after'; inde
   addShotAt(command.index + 1)
 }
 
-function splitBatchShotText(value: string) {
+function splitBatchShotText(value: string): BatchShotSegment[] {
   return value
+    .replace(/\r\n/g, '\n')
     .split(/---/g)
-    .map((item) => item.trim())
-    .filter(Boolean)
+    .map((item, index) => {
+      let text = item
+      let remark = ''
+
+      if (index > 0) {
+        const remarkMatch = text.match(/^[ \t　]*#([^#\r\n]*)#/)
+
+        if (remarkMatch) {
+          remark = remarkMatch[1].trim() ? remarkMatch[1] : ''
+          text = text.slice(remarkMatch[0].length)
+        }
+      }
+
+      return { text: text.trim(), remark }
+    })
+    .filter((segment) => Boolean(segment.text))
 }
 
-function insertBatchShots(episode: Episode, segments: string[]) {
+function insertBatchShots(episode: Episode, segments: BatchShotSegment[]) {
   if (!episode || !segments.length) {
     return 0
   }
@@ -2206,19 +2384,22 @@ function insertBatchShots(episode: Episode, segments: string[]) {
   const shouldReuseFirstShot = episode.shots.length === 1 && firstShot && !firstShot.text.trim()
 
   if (shouldReuseFirstShot) {
-    firstShot.text = segments[0]
+    firstShot.text = segments[0].text
+    firstShot.remark = segments[0].remark
     detectShotCharacters(firstShot, { silent: true, showConflict: false })
 
-    segments.slice(1).forEach((text) => {
+    segments.slice(1).forEach((segment) => {
       const shot = createShot()
-      shot.text = text
+      shot.text = segment.text
+      shot.remark = segment.remark
       episode.shots.push(shot)
       detectShotCharacters(shot, { silent: true, showConflict: false })
     })
   } else {
-    segments.forEach((text) => {
+    segments.forEach((segment) => {
       const shot = createShot()
-      shot.text = text
+      shot.text = segment.text
+      shot.remark = segment.remark
       episode.shots.push(shot)
       detectShotCharacters(shot, { silent: true, showConflict: false })
     })
@@ -2863,14 +3044,24 @@ function openGroupSummary(groupId: string) {
 }
 
 function openEpisodeScriptDialog() {
+  episodeScriptActiveTab.value = 'shots'
+  dialogueView.value = 'original'
   episodeScriptDraft.value = activeEpisode.value?.scriptText ?? ''
-  autoRecognizeEpisodeScriptShots()
+  refreshEpisodeScriptDerivedDrafts()
   episodeScriptDialogVisible.value = true
 }
 
 function organizeEpisodeScriptDraft() {
-  episodeScriptDraft.value = episodeScriptDraft.value
+  const protectedRemarks: string[] = []
+  const protectedDraft = episodeScriptDraft.value
     .replace(/\r\n/g, '\n')
+    .replace(/[ \t　]*---[ \t　]*#([^#\r\n]*)#[ \t　]*/g, (_match, remark: string) => {
+      const placeholder = `\n__SHOT_REMARK_${protectedRemarks.length}__\n`
+      protectedRemarks.push(remark)
+      return placeholder
+    })
+
+  episodeScriptDraft.value = protectedDraft
     .replace(/[ \t　]*---[ \t　]*/g, '\n---\n')
     .replace(/[△▲][ \t　]*/g, '')
     .replace(/[\t　]+/g, '')
@@ -2879,12 +3070,25 @@ function organizeEpisodeScriptDraft() {
     .replace(/\n[ \t　]+/g, '\n')
     .replace(/\n{2,}/g, '\n')
     .trim()
-  autoRecognizeEpisodeScriptShots()
+    .replace(/__SHOT_REMARK_(\d+)__/g, (_match, index: string) => `--- #${protectedRemarks[Number(index)]}#`)
+  syncEpisodeScriptDraft()
   ElMessage.success('已整理剧本文字')
 }
 
-function autoRecognizeEpisodeScriptShots() {
+function refreshEpisodeScriptDerivedDrafts() {
   batchShotSegments.value = splitBatchShotText(episodeScriptDraft.value)
+  dialogueOriginalDraft.value = extractDialogueText(episodeScriptDraft.value)
+  dialogueReplacedDraft.value = extractDialogueText(episodeScriptDraft.value, state.globalConfig.dialogueReplacementRules)
+}
+
+function syncEpisodeScriptDraft() {
+  const episode = activeEpisode.value
+
+  if (episode) {
+    episode.scriptText = episodeScriptDraft.value
+  }
+
+  refreshEpisodeScriptDerivedDrafts()
 }
 
 function refreshBatchShotSegments() {
@@ -2898,18 +3102,33 @@ function refreshBatchShotSegments() {
   return true
 }
 
-function saveEpisodeScriptDialog() {
-  const episode = activeEpisode.value
+function resetEpisodeScriptDialog() {
+  batchShotSegments.value = []
+  dialogueOriginalDraft.value = ''
+  dialogueReplacedDraft.value = ''
+  dialogueView.value = 'original'
+  episodeScriptActiveTab.value = 'shots'
+}
 
-  if (!episode) {
-    episodeScriptDialogVisible.value = false
+function toggleDialogueReplacement() {
+  dialogueView.value = dialogueView.value === 'replaced' ? 'original' : 'replaced'
+}
+
+async function copyExtractedDialogue() {
+  if (!dialogueOutputDraft.value.trim()) {
+    ElMessage.warning('没有可复制的台词')
     return
   }
 
-  episode.scriptText = episodeScriptDraft.value
+  const copied = await copyText(dialogueOutputDraft.value)
+
+  if (!copied) {
+    ElMessage.error('复制失败，请手动选择文本复制')
+    return
+  }
+
+  ElMessage.success('已复制台词')
   episodeScriptDialogVisible.value = false
-  batchShotSegments.value = []
-  ElMessage.success('已保存本集剧本')
 }
 
 function importEpisodeScriptShots() {
@@ -3110,20 +3329,20 @@ function durationText(text: string) {
   return formatSeconds(recommendedSeconds(text))
 }
 
-function durationState(text: string): { type: 'success' | 'warning' | 'danger'; warn: boolean } {
+function durationState(text: string): { warn: boolean } {
   const seconds = recommendedSeconds(text)
   const min = Math.min(state.globalConfig.recommendedDurationRange.min, state.globalConfig.recommendedDurationRange.max)
   const max = Math.max(state.globalConfig.recommendedDurationRange.min, state.globalConfig.recommendedDurationRange.max)
 
   if (!text.trim()) {
-    return { type: 'warning', warn: false }
+    return { warn: false }
   }
 
   if (seconds < min || seconds > max) {
-    return { type: 'danger', warn: true }
+    return { warn: true }
   }
 
-  return { type: 'success', warn: false }
+  return { warn: false }
 }
 
 function namesText(names: string[]) {
@@ -3231,18 +3450,32 @@ async function importEpisode(event: Event) {
     return
   }
 
-  const batches: Array<{ fileName: string; groups: unknown; episodes: Episode[] }> = []
+  const batches: Array<{
+    fileName: string
+    groups: unknown
+    episodes: Episode[]
+    hasDialogueRules: boolean
+    dialogueRules: unknown
+  }> = []
 
   for (const file of files) {
     try {
       const payload = JSON.parse(await file.text()) as Partial<ExportPayload> & { episodes?: Episode[] }
       const episodes = Array.isArray(payload.episodes) ? payload.episodes : payload.episode ? [payload.episode] : []
+      const globalSnapshot = payload.globalConfigSnapshot as Partial<GlobalConfig> | undefined
+      const hasDialogueRules = Boolean(globalSnapshot && Object.prototype.hasOwnProperty.call(globalSnapshot, 'dialogueReplacementRules'))
 
       if (!episodes.length) {
         throw new Error('invalid episode')
       }
 
-      batches.push({ fileName: file.name, groups: payload.episodeGroups, episodes })
+      batches.push({
+        fileName: file.name,
+        groups: payload.episodeGroups,
+        episodes,
+        hasDialogueRules,
+        dialogueRules: globalSnapshot?.dialogueReplacementRules,
+      })
     } catch {
       ElMessage.error(`导入失败：${file.name} 格式不正确或缺少单集数据`)
     }
@@ -3257,6 +3490,8 @@ async function importEpisode(event: Event) {
   if (!importMode) {
     return
   }
+
+  applyImportedDialogueRules(batches, importMode)
 
   if (importMode === 'replace') {
     state.episodeGroups = []
@@ -3323,6 +3558,29 @@ async function importEpisode(event: Event) {
   } else {
     ElMessage.info('没有可导入的新剧本')
   }
+}
+
+function applyImportedDialogueRules(
+  batches: Array<{ hasDialogueRules: boolean; dialogueRules: unknown }>,
+  importMode: ImportMode,
+) {
+  const batchesWithRules = batches.filter((batch) => batch.hasDialogueRules)
+
+  if (!batchesWithRules.length) {
+    return
+  }
+
+  if (importMode === 'replace') {
+    const lastBatch = batchesWithRules[batchesWithRules.length - 1]
+    state.globalConfig.dialogueReplacementRules = normalizeDialogueReplacementRules(lastBatch.dialogueRules)
+    return
+  }
+
+  const importedRules = batchesWithRules.flatMap((batch) => normalizeDialogueReplacementRules(batch.dialogueRules))
+  state.globalConfig.dialogueReplacementRules = normalizeDialogueReplacementRules([
+    ...state.globalConfig.dialogueReplacementRules,
+    ...importedRules,
+  ])
 }
 
 async function selectImportMode(): Promise<ImportMode | null> {

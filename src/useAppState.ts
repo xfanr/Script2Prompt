@@ -1,4 +1,5 @@
 import { computed, reactive, watch } from 'vue'
+import { normalizeDialogueReplacementRules } from './dialogue'
 import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, createSceneConfig, defaultBaseSettingSuffix, STORAGE_KEY } from './defaults'
 import type { AppState, EpisodeProductionData, PromptReview, SceneAsset, SceneConfig } from './types'
 
@@ -117,6 +118,7 @@ function loadState(): AppState {
     parsed.globalConfig.recommendedDurationRange ??= { min: 4, max: 21 }
     parsed.globalConfig.recommendedDurationRange.min ??= 4
     parsed.globalConfig.recommendedDurationRange.max ??= 21
+    parsed.globalConfig.dialogueReplacementRules = normalizeDialogueReplacementRules(parsed.globalConfig.dialogueReplacementRules)
     parsed.episodeGroups ??= []
     parsed.episodeGroups.forEach((group) => {
       group.starred ??= false

@@ -15,12 +15,19 @@ export interface DurationRange {
   max: number
 }
 
+export interface DialogueReplacementRule {
+  id: string
+  forbidden: string
+  replacement: string
+}
+
 export interface GlobalConfig {
   baseSetting: string
   baseSettingSuffix: string
   sceneRoleSuffix: string
   autoCollapseCompletedShots: boolean
   recommendedDurationRange: DurationRange
+  dialogueReplacementRules: DialogueReplacementRule[]
   sections: SectionConfig[]
 }
 

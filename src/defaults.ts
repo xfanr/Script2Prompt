@@ -1,4 +1,4 @@
-import type { AppState, CharacterConfig, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
+import type { AppState, CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
 export const APP_VERSION = 1
@@ -29,6 +29,7 @@ export function createGlobalConfig(): GlobalConfig {
     sceneRoleSuffix: defaultSceneRoleSuffix,
     autoCollapseCompletedShots: true,
     recommendedDurationRange: { min: 4, max: 21 },
+    dialogueReplacementRules: [],
     sections: [
       { key: 'base', title: '基础设定', order: 1, enabled: true },
       { key: 'sceneRole', title: '场景与角色设定', order: 2, enabled: true },
@@ -52,6 +53,14 @@ export function createSceneConfig(name = '', time: SceneTime = '白天', space: 
     time,
     space,
     statusText,
+  }
+}
+
+export function createDialogueReplacementRule(forbidden = '', replacement = ''): DialogueReplacementRule {
+  return {
+    id: createId('dialogue-rule'),
+    forbidden,
+    replacement,
   }
 }
 
