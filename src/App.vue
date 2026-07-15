@@ -242,7 +242,7 @@
             </template>
             <template #content>
               <div class="stage-page-actions">
-                <el-dropdown class="shot-create-actions" split-button size="default" type="primary" @click="openEpisodeScriptDialog" @command="handleAddShotCommand">
+                <el-dropdown class="shot-create-actions" split-button :button-props="{ round: true }" size="default" type="primary" @click="openEpisodeScriptDialog" @command="handleAddShotCommand">
                   导入分镜
                   <template #dropdown>
                     <el-dropdown-menu>
@@ -254,9 +254,9 @@
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
-                <el-button size="default" plain type="primary" @click="openReviewSummary(activeEpisode)">本集数据</el-button>
-                <el-button text type="primary" :bg="areAllShotsUsingPositionReference" @click="toggleAllPositionReferences">全部多人</el-button>
-                <el-button text type="primary" :bg="areAllShotsComplete" @click="completeAllShots">全部完成</el-button>
+                <el-button round size="default" type="primary" @click="openReviewSummary(activeEpisode)">本集数据</el-button>
+                <el-button round text type="primary" :bg="areAllShotsUsingPositionReference" @click="toggleAllPositionReferences">全部多人</el-button>
+                <el-button round text type="primary" :bg="areAllShotsComplete" @click="completeAllShots">全部完成</el-button>
               </div>
             </template>
             <template #extra>
@@ -279,7 +279,7 @@
                     @command="(command) => handleMaterialCommand(command, 'characters', item)"
                   >
                     <el-button class="asset-link-button" link :type="isCharacterUsed(item) ? 'success' : 'info'">
-                      <span class="asset-link-text">{{ item }}</span>
+                      <span class="asset-link-text">【{{ item }}】</span>
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
@@ -295,7 +295,7 @@
                     @command="(command) => handleMaterialCommand(command, 'scenes', item.name)"
                   >
                     <el-button class="asset-link-button" link :type="isSceneUsed(item.name) ? 'success' : 'info'">
-                      <span class="asset-link-text">{{ item.time }}，{{ item.space }}，{{ item.name }}</span>
+                      <span class="asset-link-text">【{{ item.time }}，{{ item.space }}，{{ item.name }}】</span>
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
@@ -457,10 +457,11 @@
                         class="scene-status-input"
                         placeholder="状态内容"
                       >
-                        <template #append>
-                          <el-popconfirm title="确认同步到所有同名场景状态？" confirm-button-text="同步" cancel-button-text="取消" @confirm="syncSceneStatus(scene)">
+                        <template #suffix>
+                          <el-icon v-if="!scene.name.trim()" class="scene-status-suffix-icon is-disabled" title="请先选择场景" aria-label="请先选择场景"><Refresh /></el-icon>
+                          <el-popconfirm v-else title="确认同步到所有同名场景状态？" confirm-button-text="同步" cancel-button-text="取消" @confirm="syncSceneStatus(scene)">
                             <template #reference>
-                              <el-button :icon="Refresh" :disabled="!scene.name.trim()" />
+                              <el-icon class="scene-status-suffix-icon" title="同步同名场景状态" aria-label="同步同名场景状态"><Refresh /></el-icon>
                             </template>
                           </el-popconfirm>
                         </template>
@@ -484,25 +485,28 @@
                     <div class="character-config-list">
                       <div v-if="!shot.characters.length" class="empty-note">暂无人物项</div>
                       <div v-for="character in shot.characters" :key="character.id" class="config-line character-line">
-                      <el-select v-model="character.name" placeholder="选择人物" filterable>
-                        <el-option
-                          v-for="item in activeEpisode.characters"
-                          :key="item"
-                          :label="item"
-                          :value="item"
-                          :disabled="isCharacterOptionDisabled(shot, character.id, item)"
-                        />
-                      </el-select>
-                      <el-checkbox v-model="character.includeVoice" border :class="{ 'is-voice-overflow': isVoiceOverflow(shot) && character.includeVoice }">音色</el-checkbox>
+                      <div class="character-identity-controls">
+                        <el-select v-model="character.name" placeholder="选择人物" filterable>
+                          <el-option
+                            v-for="item in activeEpisode.characters"
+                            :key="item"
+                            :label="item"
+                            :value="item"
+                            :disabled="isCharacterOptionDisabled(shot, character.id, item)"
+                          />
+                        </el-select>
+                        <el-checkbox v-model="character.includeVoice" border :class="{ 'is-voice-overflow': isVoiceOverflow(shot) && character.includeVoice }">音色</el-checkbox>
+                      </div>
                       <el-input
                         v-model="character.statusText"
                         class="character-status-input"
                         placeholder="状态内容"
                       >
-                        <template #append>
-                          <el-popconfirm title="确认同步到所有同名人物状态？" confirm-button-text="同步" cancel-button-text="取消" @confirm="syncCharacterStatus(character)">
+                        <template #suffix>
+                          <el-icon v-if="!character.name.trim()" class="status-sync-suffix-icon is-disabled" title="请先选择人物" aria-label="请先选择人物"><Refresh /></el-icon>
+                          <el-popconfirm v-else title="确认同步到所有同名人物状态？" confirm-button-text="同步" cancel-button-text="取消" @confirm="syncCharacterStatus(character)">
                             <template #reference>
-                              <el-button :icon="Refresh" :disabled="!character.name.trim()" />
+                              <el-icon class="status-sync-suffix-icon" title="同步同名人物状态" aria-label="同步同名人物状态"><Refresh /></el-icon>
                             </template>
                           </el-popconfirm>
                         </template>
@@ -572,6 +576,9 @@
               <el-slider v-model="durationRangeDraft" range :min="3" :max="25" :step="0.5" :format-tooltip="formatDurationTooltip" />
               <span>{{ durationRangeDraft[1].toFixed(1) }}</span>
             </div>
+          </el-form-item>
+          <el-form-item label="新建单集默认成本">
+            <el-input-number v-model="globalConfigDraft.defaultPointCost" class="global-config-number-input" :min="0" :precision="4" :step="0.0001" controls-position="right" />
           </el-form-item>
           <el-form-item label="台词违禁词替换">
             <div class="dialogue-rule-config">
@@ -811,8 +818,9 @@
         </div>
         <el-table :data="groupSummaryTableRows" max-height="430" empty-text="暂无单集" scrollbar-always-on :row-class-name="groupSummaryRowClass">
           <el-table-column prop="title" label="标题" min-width="130" fixed="left" show-overflow-tooltip />
-          <el-table-column prop="total" label="总分镜" width="86" />
           <el-table-column prop="averageText" label="平均分" width="90" />
+          <el-table-column prop="total" label="总分镜" width="86" />
+          <el-table-column prop="drawTotal" label="总抽卡" width="86" />
           <el-table-column prop="averageDrawRate" label="平均抽卡率" width="110" />
           <el-table-column prop="noSubtitleRate" label="无字幕率" width="94" />
           <el-table-column prop="pointUsageText" label="积分" width="92" />
@@ -1226,6 +1234,7 @@ const groupSummaryRows = computed(() => groupSummaryEpisodes.value.map((episode)
     episodeNumber: formatEpisodeSummaryNumber(episode),
     title: episode.title,
     total: summary.total,
+    drawTotal: summary.drawTotal,
     averageText: summary.averageValue ? `${summary.averageValue} 星` : '未评分',
     averageDrawRate: summary.averageDrawRate,
     noSubtitleRate: summary.noSubtitleRate,
@@ -1242,6 +1251,7 @@ const groupSummaryTableRows = computed(() => [
     episodeNumber: '汇总',
     title: `共 ${groupSummaryEpisodes.value.length} 集`,
     total: groupSummaryStats.value.total,
+    drawTotal: groupSummaryStats.value.drawTotal,
     averageText: groupSummaryStats.value.averageValue ? `${groupSummaryStats.value.averageValue} 星` : '未评分',
     averageDrawRate: groupSummaryStats.value.averageDrawRate,
     noSubtitleRate: groupSummaryStats.value.noSubtitleRate,
@@ -1425,6 +1435,7 @@ function saveGlobalDialog() {
   const [min, max] = durationRangeDraft.value
   state.globalConfig = {
     ...cloneGlobalConfig(globalConfigDraft.value),
+    defaultPointCost: Math.max(0, Number(Number(globalConfigDraft.value.defaultPointCost || 0).toFixed(4))),
     dialogueReplacementRules: dialogueRules,
     recommendedDurationRange: {
       min: Math.min(min, max),
@@ -2316,7 +2327,7 @@ function syncCharacterStatus(source: CharacterConfig) {
 function addEpisode() {
   const targetGroupId = getSelectedEpisodeGroupId()
   const targetTreeId = targetGroupId ?? 'ungrouped'
-  const episode = createEpisode(groupEpisodeCount(targetTreeId) + 1)
+  const episode = createEpisode(groupEpisodeCount(targetTreeId) + 1, state.globalConfig.defaultPointCost)
   episode.groupId = targetGroupId
   state.episodes.push(episode)
   state.activeEpisodeId = episode.id
@@ -3596,7 +3607,7 @@ async function importEpisode(event: Event) {
   })
 
   if (!state.episodes.length) {
-    const episode = createEpisode(1)
+    const episode = createEpisode(1, state.globalConfig.defaultPointCost)
     state.episodes = [episode]
     selectEpisode(episode)
   }

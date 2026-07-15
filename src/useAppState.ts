@@ -1,6 +1,6 @@
 import { computed, reactive, watch } from 'vue'
 import { normalizeDialogueReplacementRules } from './dialogue'
-import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, createSceneConfig, defaultBaseSettingSuffix, STORAGE_KEY } from './defaults'
+import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, createSceneConfig, DEFAULT_POINT_COST, defaultBaseSettingSuffix, STORAGE_KEY } from './defaults'
 import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
 
 const shotViewModes: ShotViewMode[] = ['expanded', 'collapse-completed', 'hide-completed']
@@ -124,6 +124,9 @@ function loadState(): AppState {
     parsed.globalConfig.recommendedDurationRange ??= { min: 4, max: 21 }
     parsed.globalConfig.recommendedDurationRange.min ??= 4
     parsed.globalConfig.recommendedDurationRange.max ??= 21
+    parsed.globalConfig.defaultPointCost = typeof parsed.globalConfig.defaultPointCost === 'number' && Number.isFinite(parsed.globalConfig.defaultPointCost)
+      ? Math.max(0, Number(parsed.globalConfig.defaultPointCost.toFixed(4)))
+      : DEFAULT_POINT_COST
     parsed.globalConfig.dialogueReplacementRules = normalizeDialogueReplacementRules(parsed.globalConfig.dialogueReplacementRules)
     parsed.episodeGroups ??= []
     parsed.episodeGroups.forEach((group) => {
@@ -155,7 +158,7 @@ function loadState(): AppState {
     })
 
     if (!parsed.episodes.length) {
-      const episode = createEpisode(1)
+      const episode = createEpisode(1, parsed.globalConfig.defaultPointCost)
       parsed.episodes = [episode]
       parsed.activeEpisodeId = episode.id
     }

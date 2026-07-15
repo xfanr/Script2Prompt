@@ -2,6 +2,7 @@ import type { AppState, CharacterConfig, DialogueReplacementRule, Episode, Episo
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
 export const APP_VERSION = 1
+export const DEFAULT_POINT_COST = 0.0051
 
 export const defaultBaseSetting = `纪实高清电影。光线通透均匀，高光不过曝，暗部保留完整细节，带轻微柔光质感。采用浅景深。禁止使用远景、全景镜头。
 音频仅保留同期声，无背景音乐。
@@ -28,6 +29,7 @@ export function createGlobalConfig(): GlobalConfig {
     baseSettingSuffix: defaultBaseSettingSuffix,
     sceneRoleSuffix: defaultSceneRoleSuffix,
     recommendedDurationRange: { min: 4, max: 21 },
+    defaultPointCost: DEFAULT_POINT_COST,
     dialogueReplacementRules: [],
     sections: [
       { key: 'base', title: '基础设定', order: 1, enabled: true },
@@ -82,10 +84,10 @@ export function createPromptReview(): PromptReview {
   }
 }
 
-export function createEpisodeProductionData(): EpisodeProductionData {
+export function createEpisodeProductionData(pointCost = 0): EpisodeProductionData {
   return {
     pointUsage: 0,
-    pointCost: 0,
+    pointCost,
     productionDate: '',
   }
 }
@@ -117,7 +119,7 @@ export function createEpisodeGroup(): EpisodeGroup {
   }
 }
 
-export function createEpisode(index = 1): Episode {
+export function createEpisode(index = 1, pointCost = DEFAULT_POINT_COST): Episode {
   return {
     id: createId('episode'),
     title: '第 x 集',
@@ -126,19 +128,20 @@ export function createEpisode(index = 1): Episode {
     starred: false,
     scenes: [],
     props: [],
-    productionData: createEpisodeProductionData(),
+    productionData: createEpisodeProductionData(pointCost),
     scriptText: '',
     shots: [createShot()],
   }
 }
 
 export function createInitialState(): AppState {
-  const episode = createEpisode(1)
+  const globalConfig = createGlobalConfig()
+  const episode = createEpisode(1, globalConfig.defaultPointCost)
 
   return {
     version: APP_VERSION,
     shotViewMode: 'collapse-completed',
-    globalConfig: createGlobalConfig(),
+    globalConfig,
     episodeGroups: [],
     episodes: [episode],
     activeEpisodeId: episode.id,

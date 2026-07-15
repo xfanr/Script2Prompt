@@ -27,6 +27,7 @@ export interface GlobalConfig {
   baseSettingSuffix: string
   sceneRoleSuffix: string
   recommendedDurationRange: DurationRange
+  defaultPointCost: number
   dialogueReplacementRules: DialogueReplacementRule[]
   sections: SectionConfig[]
 }

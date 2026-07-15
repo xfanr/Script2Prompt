@@ -1225,6 +1225,7 @@ html.dark .episode-panel {
 }
 
 .config-cell {
+  container-type: inline-size;
   gap: 10px;
   overflow-y: auto;
   padding: 0 12px;
@@ -1278,7 +1279,7 @@ html.dark .episode-panel {
 
 .scene-line {
   display: grid;
-  grid-template-columns: 226px minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(100px, 1fr) minmax(0, 1fr) 32px;
   align-items: center;
   gap: 8px;
 }
@@ -1291,7 +1292,15 @@ html.dark .episode-panel {
 
 .character-line {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(100px, 1fr) minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 8px;
+}
+
+.character-identity-controls {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
 }
@@ -1304,6 +1313,44 @@ html.dark .episode-panel {
 .character-status-input,
 .scene-status-input {
   min-width: 0;
+}
+
+.scene-status-suffix-icon,
+.status-sync-suffix-icon {
+  color: var(--el-color-primary);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.scene-status-suffix-icon.is-disabled,
+.status-sync-suffix-icon.is-disabled {
+  color: var(--el-text-color-disabled);
+  cursor: not-allowed;
+}
+
+@container (max-width: 420px) {
+  .config-cell .scene-line,
+  .config-cell .character-line {
+    grid-template-columns: minmax(0, 1fr) 32px;
+  }
+
+  .scene-line .el-select,
+  .character-identity-controls {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .scene-status-input,
+  .character-status-input {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .scene-line > .el-button,
+  .character-line > .el-button {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
 }
 
 .is-voice-overflow .el-checkbox__inner,
@@ -1696,6 +1743,10 @@ html.dark .episode-panel {
 .global-config-dialog .section-config .el-input-number {
   width: 100%;
   min-width: 0;
+}
+
+.global-config-number-input {
+  width: min(180px, 100%);
 }
 
 .global-config-textarea {
@@ -2119,19 +2170,19 @@ html.dark .episode-panel {
 }
 
 .scene-line {
-  grid-template-columns: 226px minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(100px, 1fr) minmax(0, 1fr) 32px;
 }
 
 .character-line {
-  grid-template-columns: 144px auto minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(100px, 1fr) minmax(0, 1fr) 32px;
 }
 
 .character-line .el-select {
-  width: 144px;
+  width: 100%;
 }
 
 .scene-line .el-select {
-  width: 226px;
+  width: 100%;
 }
 
 .is-voice-overflow.is-bordered,
