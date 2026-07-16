@@ -583,7 +583,7 @@
           <el-form-item label="台词违禁词替换">
             <div class="dialogue-rule-config">
               <div class="dialogue-rule-heading">
-                <span>所有单集共用，替换内容留空表示删除违禁词。</span>
+                <span>所有单集共用，保存后生效；替换内容留空表示删除违禁词。</span>
                 <el-button :icon="Plus" text type="primary" @click="addDialogueReplacementRule">添加规则</el-button>
               </div>
               <div v-if="!globalConfigDraft.dialogueReplacementRules.length" class="empty-note">暂无替换规则</div>
@@ -891,14 +891,19 @@
                   <span>台词结果</span>
                   <el-tag size="small" type="info" effect="light">{{ dialogueView === 'replaced' ? '已替换' : '原文' }}</el-tag>
                 </div>
-                <el-input
-                  v-model="dialogueOutputDraft"
-                  class="dialogue-result-input"
-                  type="textarea"
-                  :rows="16"
-                  resize="none"
-                  placeholder="未提取到台词"
-                />
+                <div class="dialogue-result-stack" :class="{ 'is-readonly': dialogueView === 'replaced' }">
+                  <div :ref="setDialogueHighlightRef" class="dialogue-line-highlight-layer" aria-hidden="true" v-html="highlightedDialogueText"></div>
+                  <el-input
+                    :ref="setDialogueInputRef"
+                    v-model="dialogueOutputDraft"
+                    class="dialogue-result-input"
+                    type="textarea"
+                    :rows="16"
+                    resize="none"
+                    :readonly="dialogueView === 'replaced'"
+                    placeholder="未提取到台词"
+                  />
+                </div>
               </div>
             </div>
           </el-tab-pane>
@@ -990,11 +995,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, type Component } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight, Check, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, Expand, Files, Fold, Hide, House, InfoFilled, MapLocation, Moon, Plus, Refresh, Search, Setting, Star, StarFilled, Sunny, Upload, WarningFilled } from '@element-plus/icons-vue'
-import { extractDialogueText, normalizeDialogueReplacementRules } from './dialogue'
+import { extractDialogueText, normalizeDialogueReplacementRules, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
   createDialogueReplacementRule,
@@ -1127,8 +1132,16 @@ const shotViewModeOptions: MaterialSegmentedOption<ShotViewMode>[] = [
 ]
 const episodeDropdownRefs = new Map<string, { handleClose?: () => void }>()
 const groupDropdownRefs = new Map<string, { handleClose?: () => void }>()
-const scriptInputRefs = new Map<string, { textarea: HTMLTextAreaElement; handler: () => void }>()
+type HighlightInputBinding = {
+  textarea: HTMLTextAreaElement
+  handler: () => void
+  observer: ResizeObserver | null
+}
+
+const scriptInputRefs = new Map<string, HighlightInputBinding>()
 const scriptHighlightRefs = new Map<string, HTMLElement>()
+let dialogueInputRef: HighlightInputBinding | null = null
+let dialogueHighlightRef: HTMLElement | null = null
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const reviewDialogVisible = ref(false)
 const reviewSummaryVisible = ref(false)
@@ -1169,13 +1182,19 @@ const detectionConflictShot = computed(() => activeEpisode.value?.shots.find((sh
 const dialogueOutputDraft = computed({
   get: () => dialogueView.value === 'replaced' ? dialogueReplacedDraft.value : dialogueOriginalDraft.value,
   set: (value: string) => {
-    if (dialogueView.value === 'replaced') {
-      dialogueReplacedDraft.value = value
-      return
+    if (dialogueView.value === 'original') {
+      dialogueOriginalDraft.value = value
     }
-
-    dialogueOriginalDraft.value = value
   },
+})
+const highlightedDialogueText = computed(() => {
+  const text = dialogueOutputDraft.value || ' '
+  return text
+    .split('\n')
+    .map((line) => countNonPunctuationCharacters(line) > 10
+      ? `<mark>${escapeHtml(line)}</mark>`
+      : escapeHtml(line))
+    .join('\n')
 })
 const detectionConflict = computed(() => detectionConflictShot.value?.pendingDetection ?? null)
 const reviewSummaryEpisode = computed(() => state.episodes.find((episode) => episode.id === reviewSummaryEpisodeId.value) ?? activeEpisode.value ?? null)
@@ -1864,6 +1883,7 @@ function setScriptInputRef(id: string, input: unknown) {
 
   if (!input || typeof input !== 'object') {
     existing?.textarea.removeEventListener('scroll', existing.handler)
+    existing?.observer?.disconnect()
     scriptInputRefs.delete(id)
     return
   }
@@ -1877,9 +1897,14 @@ function setScriptInputRef(id: string, input: unknown) {
   }
 
   existing?.textarea.removeEventListener('scroll', existing.handler)
+  existing?.observer?.disconnect()
   const handler = () => syncScriptHighlightScroll(id)
+  const observer = typeof ResizeObserver === 'undefined'
+    ? null
+    : new ResizeObserver(() => syncScriptHighlightScroll(id))
   textarea.addEventListener('scroll', handler, { passive: true })
-  scriptInputRefs.set(id, { textarea, handler })
+  observer?.observe(textarea)
+  scriptInputRefs.set(id, { textarea, handler, observer })
   syncScriptHighlightScroll(id)
 }
 
@@ -1894,6 +1919,66 @@ function syncScriptHighlightScroll(id: string) {
   highlight.scrollTop = inputRef.textarea.scrollTop
   highlight.scrollLeft = inputRef.textarea.scrollLeft
 }
+
+function setDialogueHighlightRef(element: unknown) {
+  dialogueHighlightRef = element instanceof HTMLElement ? element : null
+  syncDialogueHighlightScroll()
+}
+
+function setDialogueInputRef(input: unknown) {
+  const current = dialogueInputRef
+
+  if (!input || typeof input !== 'object') {
+    current?.textarea.removeEventListener('scroll', current.handler)
+    current?.observer?.disconnect()
+    dialogueInputRef = null
+    return
+  }
+
+  const candidate = input as { textarea?: HTMLTextAreaElement; $el?: HTMLElement }
+  const textarea = candidate.textarea ?? candidate.$el?.querySelector('textarea') ?? null
+
+  if (!textarea || current?.textarea === textarea) {
+    syncDialogueHighlightScroll()
+    return
+  }
+
+  current?.textarea.removeEventListener('scroll', current.handler)
+  current?.observer?.disconnect()
+  const handler = () => syncDialogueHighlightScroll()
+  const observer = typeof ResizeObserver === 'undefined'
+    ? null
+    : new ResizeObserver(syncDialogueHighlightScroll)
+  textarea.addEventListener('scroll', handler, { passive: true })
+  observer?.observe(textarea)
+  dialogueInputRef = { textarea, handler, observer }
+  syncDialogueHighlightScroll()
+}
+
+function syncDialogueHighlightScroll() {
+  if (!dialogueInputRef || !dialogueHighlightRef) {
+    return
+  }
+
+  dialogueHighlightRef.scrollTop = dialogueInputRef.textarea.scrollTop
+  dialogueHighlightRef.scrollLeft = dialogueInputRef.textarea.scrollLeft
+}
+
+function syncAllScriptHighlights() {
+  scriptInputRefs.forEach((_, id) => syncScriptHighlightScroll(id))
+}
+
+watch(
+  () => activeEpisode.value?.shots.map((shot) => `${shot.id}\u0001${shot.text}`).join('\u0000') ?? '',
+  () => void nextTick(syncAllScriptHighlights),
+  { flush: 'post' },
+)
+
+watch(
+  [dialogueOutputDraft, dialogueView],
+  () => void nextTick(syncDialogueHighlightScroll),
+  { flush: 'post' },
+)
 
 function closeDropdownsExcept(type: 'episode' | 'group', id: string) {
   episodeDropdownRefs.forEach((dropdown, key) => {
@@ -3170,7 +3255,13 @@ function resetEpisodeScriptDialog() {
 }
 
 function toggleDialogueReplacement() {
-  dialogueView.value = dialogueView.value === 'replaced' ? 'original' : 'replaced'
+  if (dialogueView.value === 'replaced') {
+    dialogueView.value = 'original'
+    return
+  }
+
+  dialogueReplacedDraft.value = replaceDialogueText(dialogueOriginalDraft.value, state.globalConfig.dialogueReplacementRules)
+  dialogueView.value = 'replaced'
 }
 
 async function copyExtractedDialogue() {
@@ -3378,6 +3469,13 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleShotCopyShortcut)
+  scriptInputRefs.forEach((binding) => {
+    binding.textarea.removeEventListener('scroll', binding.handler)
+    binding.observer?.disconnect()
+  })
+  scriptInputRefs.clear()
+  dialogueInputRef?.textarea.removeEventListener('scroll', dialogueInputRef.handler)
+  dialogueInputRef?.observer?.disconnect()
 })
 
 function characterCount(text: string) {

@@ -29,11 +29,22 @@ export function normalizeDialogueReplacementRules(rules: unknown): DialogueRepla
 }
 
 export function applyDialogueReplacementRules(text: string, rules: DialogueReplacementRule[]) {
-  return rules
+  const sortedRules = rules
     .filter((rule) => rule.forbidden)
     .map((rule, index) => ({ rule, index }))
     .sort((a, b) => Array.from(b.rule.forbidden).length - Array.from(a.rule.forbidden).length || a.index - b.index)
-    .reduce((result, { rule }) => result.split(rule.forbidden).join(rule.replacement), text)
+
+  if (!sortedRules.length) {
+    return text
+  }
+
+  const replacements = new Map(sortedRules.map(({ rule }) => [rule.forbidden, rule.replacement]))
+  const pattern = new RegExp(sortedRules.map(({ rule }) => escapeRegExp(rule.forbidden)).join('|'), 'g')
+  return text.replace(pattern, (match) => replacements.get(match) ?? match)
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 export function extractDialogueText(script: string, rules: DialogueReplacementRule[] = []) {
@@ -54,7 +65,11 @@ export function extractDialogueText(script: string, rules: DialogueReplacementRu
     .filter(Boolean)
     .join('\n')
 
-  return normalizeDialogueLines(applyDialogueReplacementRules(extracted, rules))
+  return replaceDialogueText(extracted, rules)
+}
+
+export function replaceDialogueText(text: string, rules: DialogueReplacementRule[]) {
+  return normalizeDialogueLines(applyDialogueReplacementRules(text, rules))
 }
 
 function removeRoundBracketContent(text: string) {

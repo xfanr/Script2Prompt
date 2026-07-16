@@ -1092,6 +1092,12 @@ html.dark .episode-panel {
 }
 
 .script-textarea-stack {
+  --highlight-font-family: inherit;
+  --highlight-font-size: 15px;
+  --highlight-line-height: 24px;
+  --highlight-letter-spacing: 0;
+  --highlight-padding-block: 10px;
+  --highlight-padding-inline: 11px;
   position: relative;
   display: flex;
   min-height: 0;
@@ -1152,40 +1158,55 @@ html.dark .episode-panel {
 .script-input-wrap .el-textarea__inner {
   position: relative;
   z-index: 2;
+  box-sizing: border-box;
   resize: none;
+  padding: var(--highlight-padding-block) var(--highlight-padding-inline);
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
   color: var(--el-text-color-primary);
   caret-color: var(--el-text-color-primary);
-  font-size: 15px;
-  line-height: 1.6;
+  font-family: var(--highlight-font-family);
+  font-size: var(--highlight-font-size);
+  font-kerning: none;
+  font-variant-ligatures: none;
+  line-height: var(--highlight-line-height);
+  letter-spacing: var(--highlight-letter-spacing);
+  overflow-wrap: break-word;
+  word-break: break-word;
+  tab-size: 4;
+  white-space: pre-wrap;
+  scrollbar-gutter: stable;
 }
 
 .script-highlight-layer {
   position: absolute;
-  inset: 1px;
+  inset: 0;
   z-index: 1;
+  box-sizing: border-box;
   overflow: auto;
-  scrollbar-width: none;
-  padding: 10px 11px;
+  padding: var(--highlight-padding-block) var(--highlight-padding-inline);
   border-radius: 4px;
   color: transparent;
-  font: inherit;
-  font-size: 15px;
-  line-height: 1.6;
+  font-family: var(--highlight-font-family);
+  font-size: var(--highlight-font-size);
+  font-kerning: none;
+  font-variant-ligatures: none;
+  line-height: var(--highlight-line-height);
+  letter-spacing: var(--highlight-letter-spacing);
   white-space: pre-wrap;
+  overflow-wrap: break-word;
   word-break: break-word;
+  tab-size: 4;
   pointer-events: none;
-}
-
-.script-highlight-layer::-webkit-scrollbar {
-  display: none;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: stable;
 }
 
 .script-highlight-layer mark {
   border-radius: 3px;
   color: transparent;
+  font: inherit;
 }
 
 .script-highlight-layer .matched-character.without-voice {
@@ -1363,10 +1384,13 @@ html.dark .episode-panel {
 }
 
 .preview-cell pre {
+  box-sizing: border-box;
   flex: 1 1 auto;
+  width: 100%;
   min-height: 0;
   max-height: none;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   margin: 0;
   padding: 16px;
   border: 1px solid var(--el-border-color);
@@ -1377,6 +1401,8 @@ html.dark .episode-panel {
   font-size: 15px;
   line-height: 1.7;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .review-dialog .el-rate {
@@ -1916,6 +1942,32 @@ html.dark .episode-panel {
   flex: 1 1 auto;
 }
 
+.dialogue-result-stack {
+  --highlight-font-family: inherit;
+  --highlight-font-size: 15px;
+  --highlight-line-height: 26px;
+  --highlight-letter-spacing: 0;
+  --highlight-padding-block: 5px;
+  --highlight-padding-inline: 11px;
+  position: relative;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-fill-color);
+}
+
+.dialogue-result-stack.is-readonly {
+  background: var(--el-color-info-light-9);
+}
+
+.dialogue-result-stack .dialogue-result-input {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+}
+
 .episode-script-dialog .episode-script-source-input .el-textarea__inner,
 .episode-script-dialog .dialogue-result-input .el-textarea__inner {
   height: 100%;
@@ -1923,15 +1975,55 @@ html.dark .episode-panel {
   max-height: none;
   color: var(--el-text-color-primary);
   font-size: 15px;
-  line-height: 1.7;
 }
 
 .episode-script-dialog .episode-script-source-input .el-textarea__inner {
   background: var(--el-fill-color-lighter);
+  line-height: 1.7;
+}
+
+.episode-script-dialog .dialogue-result-input .el-textarea__inner,
+.dialogue-line-highlight-layer {
+  box-sizing: border-box;
+  padding: var(--highlight-padding-block) var(--highlight-padding-inline);
+  font-family: var(--highlight-font-family);
+  font-size: var(--highlight-font-size);
+  font-kerning: none;
+  font-variant-ligatures: none;
+  line-height: var(--highlight-line-height);
+  letter-spacing: var(--highlight-letter-spacing);
+  overflow-wrap: break-word;
+  word-break: break-word;
+  tab-size: 4;
+  white-space: pre-wrap;
+  scrollbar-gutter: stable;
 }
 
 .episode-script-dialog .dialogue-result-input .el-textarea__inner {
-  background: var(--el-fill-color);
+  background: transparent;
+}
+
+.dialogue-result-stack.is-readonly .dialogue-result-input .el-textarea__inner {
+  color: var(--el-text-color-regular);
+  cursor: default;
+  box-shadow: 0 0 0 1px var(--el-color-info-light-5) inset;
+}
+
+.dialogue-line-highlight-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: auto;
+  color: transparent;
+  pointer-events: none;
+  scrollbar-color: transparent transparent;
+}
+
+.dialogue-line-highlight-layer mark {
+  border-radius: 3px;
+  color: transparent;
+  background: var(--el-color-warning-light-7);
+  font: inherit;
 }
 
 .batch-shot-preview {
@@ -2152,20 +2244,20 @@ html.dark .episode-panel {
 }
 
 .script-input-wrap .el-textarea__inner {
-  padding: 10px 11px;
-  font-family: inherit;
-  font-size: 15px;
-  line-height: 1.6;
-  letter-spacing: 0;
+  padding: var(--highlight-padding-block) var(--highlight-padding-inline);
+  font-family: var(--highlight-font-family);
+  font-size: var(--highlight-font-size);
+  line-height: var(--highlight-line-height);
+  letter-spacing: var(--highlight-letter-spacing);
 }
 
 .script-highlight-layer {
-  inset: 1px;
-  padding: 10px 11px;
-  font-family: inherit;
-  font-size: 15px;
-  line-height: 1.6;
-  letter-spacing: 0;
+  inset: 0;
+  padding: var(--highlight-padding-block) var(--highlight-padding-inline);
+  font-family: var(--highlight-font-family);
+  font-size: var(--highlight-font-size);
+  line-height: var(--highlight-line-height);
+  letter-spacing: var(--highlight-letter-spacing);
   overflow-wrap: break-word;
 }
 
