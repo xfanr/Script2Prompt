@@ -238,11 +238,12 @@
               <span class="stage-page-title">
                 <span>《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》</span>
                 <span>{{ activeEpisode.title }}</span>
+                <el-button :icon="DataAnalysis" circle title="本集数据" aria-label="本集数据" @click="openReviewSummary(activeEpisode)" />
               </span>
             </template>
             <template #content>
               <div class="stage-page-actions">
-                <el-dropdown class="shot-create-actions" split-button :button-props="{ round: true }" size="default" type="primary" @click="openEpisodeScriptDialog" @command="handleAddShotCommand">
+                <el-dropdown class="shot-create-actions" split-button :button-props="{ round: true }" size="default" type="primary" @click="openEpisodeScriptDialog('shots')" @command="handleAddShotCommand">
                   导入分镜
                   <template #dropdown>
                     <el-dropdown-menu>
@@ -254,7 +255,7 @@
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
-                <el-button round size="default" type="primary" @click="openReviewSummary(activeEpisode)">本集数据</el-button>
+                <el-button round size="default" type="primary" @click="openEpisodeScriptDialog('dialogue')">提取台词</el-button>
                 <el-button round text type="primary" :bg="areAllShotsUsingPositionReference" @click="toggleAllPositionReferences">全部多人</el-button>
                 <el-button round text type="primary" :bg="areAllShotsComplete" @click="completeAllShots">全部完成</el-button>
               </div>
@@ -396,8 +397,30 @@
                     <div class="script-title-left">
                       <span>{{ sectionTitle('shot') }}</span>
                       <div class="script-title-actions">
-                        <el-checkbox :model-value="shot.connectPrevious && !isConnectPreviousDisabled(index)" :disabled="isConnectPreviousDisabled(index)" @update:model-value="shot.connectPrevious = Boolean($event)">承上</el-checkbox>
-                        <el-checkbox :model-value="shot.connectNext && !isConnectNextDisabled(index)" :disabled="isConnectNextDisabled(index)" @update:model-value="shot.connectNext = Boolean($event)">启下</el-checkbox>
+                        <el-input-number
+                          :model-value="shot.connectPreviousCount"
+                          :min="0"
+                          :max="10"
+                          :step="1"
+                          :disabled="index === 0"
+                          controls-position="right"
+                          size="small"
+                          step-strictly
+                          aria-label="承上截取标点数"
+                          @update:model-value="updateShotConnectionCount(shot, 'previous', $event)"
+                        />
+                        <el-input-number
+                          :model-value="shot.connectNextCount"
+                          :min="0"
+                          :max="10"
+                          :step="1"
+                          :disabled="index === activeEpisode.shots.length - 1"
+                          controls-position="right"
+                          size="small"
+                          step-strictly
+                          aria-label="启下截取标点数"
+                          @update:model-value="updateShotConnectionCount(shot, 'next', $event)"
+                        />
                         <el-button :icon="Search" text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
                       </div>
                     </div>
@@ -1023,6 +1046,7 @@ import {
   normalizeCharacterNameForMatch,
   recommendedSeconds,
 } from './prompt'
+import { normalizeConnectionPunctuationCount, normalizeStoredConnectionPunctuationCount, takeLeadingPunctuationSegments, takeTrailingPunctuationSegments } from './shotContext'
 import type { CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, SectionKey, Shot, ShotViewMode } from './types'
 import { useAppState } from './useAppState'
 
@@ -2546,8 +2570,8 @@ function hasModifiedShots(episode: Episode) {
   return episode.shots.some((shot) => (
     Boolean(shot.text.trim())
     || Boolean(shot.remark.trim())
-    || shot.connectPrevious
-    || shot.connectNext
+    || shot.connectPreviousCount > 0
+    || shot.connectNextCount > 0
     || hasConfiguredScenes(shot)
     || shot.characters.length > 0
     || shot.usePositionReference
@@ -2848,70 +2872,47 @@ function completeAllShots() {
   })
 }
 
-function nonEmptyLines(text: string) {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-}
-
-function firstSentenceText(line: string) {
-  const match = line.match(/[。！？.!?]/)
-
-  if (!match || match.index === undefined) {
-    return line
-  }
-
-  return line.slice(0, match.index + match[0].length).trim()
-}
-
-function lastSentenceText(line: string) {
-  const trimmed = line.trim()
-  const speakerPrefix = trimmed.match(/^([^：:\r\n]+[：:])/)?.[1] ?? ''
-  const content = speakerPrefix ? trimmed.slice(speakerPrefix.length).trim() : trimmed
-  const sentences = content.match(/[^\u3002\uff01\uff1f!?]+[\u3002\uff01\uff1f!?]?/g)
-  const sentence = sentences?.at(-1)?.trim() ?? content
-
-  return speakerPrefix && sentence ? `${speakerPrefix}${sentence}` : sentence
-}
-
 function shotIndex(shot: Shot) {
   return activeEpisode.value?.shots.findIndex((item) => item.id === shot.id) ?? -1
 }
 
-function previousShotTail(index: number) {
+function previousShotTail(index: number, count = 1) {
   const previous = activeEpisode.value?.shots[index - 1]
-  const lines = previous ? nonEmptyLines(previous.text) : []
-  return lastSentenceText(lines.at(-1) ?? '')
+  return takeTrailingPunctuationSegments(previous?.text ?? '', count)
 }
 
-function nextShotHead(index: number) {
+function nextShotHead(index: number, count = 1) {
   const next = activeEpisode.value?.shots[index + 1]
-  return firstSentenceText(next ? nonEmptyLines(next.text)[0] ?? '' : '')
-}
-
-function isConnectPreviousDisabled(index: number) {
-  return !previousShotTail(index)
-}
-
-function isConnectNextDisabled(index: number) {
-  return !nextShotHead(index)
+  return takeLeadingPunctuationSegments(next?.text ?? '', count)
 }
 
 function connectedPreviousText(shot: Shot, index: number) {
-  return shot.connectPrevious ? previousShotTail(index) : ''
+  return previousShotTail(index, shot.connectPreviousCount)
 }
 
 function connectedNextText(shot: Shot, index: number) {
-  return shot.connectNext ? nextShotHead(index) : ''
+  return nextShotHead(index, shot.connectNextCount)
+}
+
+function updateShotConnectionCount(shot: Shot, direction: 'previous' | 'next', value: unknown) {
+  const count = normalizeConnectionPunctuationCount(value)
+
+  if (direction === 'previous') {
+    shot.connectPreviousCount = count
+    shot.connectPrevious = count > 0
+    return
+  }
+
+  shot.connectNextCount = count
+  shot.connectNext = count > 0
 }
 
 function effectiveShotText(shot: Shot) {
   const index = shotIndex(shot)
   const lines = [
-    shot.connectPrevious && index > -1 ? previousShotTail(index) : '',
+    index > -1 ? previousShotTail(index, shot.connectPreviousCount) : '',
     shot.text.trim(),
-    shot.connectNext && index > -1 ? nextShotHead(index) : '',
+    index > -1 ? nextShotHead(index, shot.connectNextCount) : '',
   ].filter(Boolean)
 
   return lines.join('\n').trim()
@@ -3187,8 +3188,8 @@ function openGroupSummary(groupId: string) {
   groupSummaryVisible.value = true
 }
 
-function openEpisodeScriptDialog() {
-  episodeScriptActiveTab.value = 'shots'
+function openEpisodeScriptDialog(tab: EpisodeScriptTab) {
+  episodeScriptActiveTab.value = tab
   dialogueView.value = 'original'
   episodeScriptDraft.value = activeEpisode.value?.scriptText ?? ''
   refreshEpisodeScriptDerivedDrafts()
@@ -3799,7 +3800,9 @@ function episodeComparableSignature(episode: Episode) {
       text: shot.text,
       remark: shot.remark,
       connectPrevious: shot.connectPrevious,
+      connectPreviousCount: shot.connectPreviousCount,
       connectNext: shot.connectNext,
+      connectNextCount: shot.connectNextCount,
       scenes: shot.scenes.map((scene) => ({
         name: scene.name,
         time: scene.time,
@@ -3906,8 +3909,10 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       ...shot,
       id: createId('shot'),
       remark: typeof shot.remark === 'string' ? shot.remark : '',
-      connectPrevious: Boolean(shot.connectPrevious),
-      connectNext: Boolean(shot.connectNext),
+      connectPrevious: normalizeStoredConnectionPunctuationCount(shot.connectPreviousCount, shot.connectPrevious) > 0,
+      connectPreviousCount: normalizeStoredConnectionPunctuationCount(shot.connectPreviousCount, shot.connectPrevious),
+      connectNext: normalizeStoredConnectionPunctuationCount(shot.connectNextCount, shot.connectNext) > 0,
+      connectNextCount: normalizeStoredConnectionPunctuationCount(shot.connectNextCount, shot.connectNext),
       pendingDetection: null,
       autoSyncNotice: null,
       undoCharacters: null,

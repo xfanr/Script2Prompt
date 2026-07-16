@@ -92,7 +92,9 @@ export interface Shot {
   text: string
   remark: string
   connectPrevious: boolean
+  connectPreviousCount: number
   connectNext: boolean
+  connectNextCount: number
   scenes: SceneConfig[]
   usePositionReference: boolean
   characters: CharacterConfig[]

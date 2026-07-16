@@ -1,6 +1,7 @@
 import { computed, reactive, watch } from 'vue'
 import { normalizeDialogueReplacementRules } from './dialogue'
 import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, createSceneConfig, DEFAULT_POINT_COST, defaultBaseSettingSuffix, STORAGE_KEY } from './defaults'
+import { normalizeStoredConnectionPunctuationCount } from './shotContext'
 import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
 
 const shotViewModes: ShotViewMode[] = ['expanded', 'collapse-completed', 'hide-completed']
@@ -146,8 +147,10 @@ function loadState(): AppState {
       episode.scriptText = typeof episode.scriptText === 'string' ? episode.scriptText : ''
       episode.shots?.forEach((shot) => {
         shot.remark = typeof shot.remark === 'string' ? shot.remark : ''
-        shot.connectPrevious = Boolean(shot.connectPrevious)
-        shot.connectNext = Boolean(shot.connectNext)
+        shot.connectPreviousCount = normalizeStoredConnectionPunctuationCount(shot.connectPreviousCount, shot.connectPrevious)
+        shot.connectPrevious = shot.connectPreviousCount > 0
+        shot.connectNextCount = normalizeStoredConnectionPunctuationCount(shot.connectNextCount, shot.connectNext)
+        shot.connectNext = shot.connectNextCount > 0
         shot.scenes = normalizeShotScenes(shot.scenes, episode.scenes)
         shot.characters ??= []
         shot.characters.forEach((character) => {

@@ -597,7 +597,7 @@ html.dark .episode-panel {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   white-space: nowrap;
 }
 
@@ -1006,36 +1006,8 @@ html.dark .episode-panel {
   gap: 12px;
 }
 
-.script-title-actions .el-checkbox {
-  margin-right: 0;
-}
-
-.script-title-actions .el-checkbox__label {
-  padding-left: 4px;
-  color: var(--el-text-color-regular);
-}
-
-.script-title-actions .el-checkbox__inner {
-  border-color: var(--el-border-color);
-  background: var(--el-fill-color-blank);
-}
-
-.script-title-actions .el-checkbox__input.is-checked .el-checkbox__inner {
-  border-color: var(--el-color-primary);
-  background: var(--el-color-primary);
-}
-
-.script-title-actions .el-checkbox__input.is-checked + .el-checkbox__label {
-  color: var(--el-text-color-primary);
-}
-
-.script-title-actions .el-checkbox__input.is-disabled .el-checkbox__inner {
-  border-color: var(--el-border-color-light);
-  background: var(--el-fill-color-light);
-}
-
-.script-title-actions .el-checkbox__input.is-disabled + .el-checkbox__label {
-  color: var(--el-text-color-disabled);
+.script-title-actions .el-input-number {
+  width: 70px;
 }
 
 .script-title-stats {
