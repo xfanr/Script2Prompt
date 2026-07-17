@@ -138,7 +138,8 @@ function composeSceneRoleSection(globalConfig: GlobalConfig, shot: Shot) {
     })
 
   if (shot.usePositionReference) {
-    lines.push('多角色位置参考@（仅参考图中人物在空间中的位置，人物动作、姿态、情绪均以分镜详情为准）。')
+    const reverseAngle = shot.useReverseAngle ? '，反打视角@' : ''
+    lines.push(`多角色位置参考@${reverseAngle}（仅参考图中人物在空间中的位置，人物动作、姿态、情绪均以分镜详情为准）。`)
   }
 
   shot.characters

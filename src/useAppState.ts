@@ -152,6 +152,7 @@ function loadState(): AppState {
         shot.connectNextCount = normalizeStoredConnectionPunctuationCount(shot.connectNextCount, shot.connectNext)
         shot.connectNext = shot.connectNextCount > 0
         shot.scenes = normalizeShotScenes(shot.scenes, episode.scenes)
+        shot.useReverseAngle = Boolean(shot.useReverseAngle)
         shot.characters ??= []
         shot.characters.forEach((character) => {
           character.statusText ??= ''

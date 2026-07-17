@@ -103,6 +103,7 @@ export function createShot(): Shot {
     connectNextCount: 0,
     scenes: [createSceneConfig()],
     usePositionReference: false,
+    useReverseAngle: false,
     characters: [],
     status: 'incomplete',
     review: createPromptReview(),

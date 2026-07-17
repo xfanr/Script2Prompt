@@ -1,8 +1,8 @@
 export const MIN_CONNECTION_PUNCTUATION_COUNT = 0
 export const MAX_CONNECTION_PUNCTUATION_COUNT = 10
 
-const punctuationClusterPattern = /\p{P}+/gu
-const punctuationAtEndPattern = /\p{P}\s*$/u
+const punctuationClusterPattern = /[^\P{P}@]+/gu
+const punctuationAtEndPattern = /[^\P{P}@](?:@|\s)*$/u
 const bracketPairs = new Map([
   ['(', ')'],
   ['（', '）'],

@@ -482,7 +482,12 @@
                       >
                         <template #suffix>
                           <el-icon v-if="!scene.name.trim()" class="scene-status-suffix-icon is-disabled" title="请先选择场景" aria-label="请先选择场景"><Refresh /></el-icon>
-                          <el-popconfirm v-else title="确认同步到所有同名场景状态？" confirm-button-text="同步" cancel-button-text="取消" @confirm="syncSceneStatus(scene)">
+                          <el-popconfirm v-else title="确认同步同名场景状态？">
+                            <template #actions="{ confirm, cancel }">
+                              <el-button size="small" text @click="cancel($event)">取消</el-button>
+                              <el-button size="small" @click="syncSceneStatus(shot, scene, 'following'); confirm($event)">向下</el-button>
+                              <el-button size="small" type="primary" @click="syncSceneStatus(shot, scene, 'all'); confirm($event)">全部</el-button>
+                            </template>
                             <template #reference>
                               <el-icon class="scene-status-suffix-icon" title="同步同名场景状态" aria-label="同步同名场景状态"><Refresh /></el-icon>
                             </template>
@@ -501,7 +506,20 @@
                     <div class="config-heading character-heading">
                       <div class="character-heading-title">
                         <span>人物配置</span>
-                        <el-checkbox v-model="shot.usePositionReference">位置参考</el-checkbox>
+                        <el-segmented
+                          :model-value="positionReferenceMode(shot)"
+                          :options="positionReferenceModeOptions"
+                          size="small"
+                          class="shot-view-segmented position-reference-segmented"
+                          aria-label="位置参考模式"
+                          @change="setPositionReferenceMode(shot, $event)"
+                        >
+                          <template #default="{ item }">
+                            <el-icon :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
+                              <component :is="segmentedOptionIcon(item)" />
+                            </el-icon>
+                          </template>
+                        </el-segmented>
                       </div>
                       <el-button :icon="Plus" text type="primary" @click="addCharacterToShot(shot)">添加人物</el-button>
                     </div>
@@ -527,7 +545,12 @@
                       >
                         <template #suffix>
                           <el-icon v-if="!character.name.trim()" class="status-sync-suffix-icon is-disabled" title="请先选择人物" aria-label="请先选择人物"><Refresh /></el-icon>
-                          <el-popconfirm v-else title="确认同步到所有同名人物状态？" confirm-button-text="同步" cancel-button-text="取消" @confirm="syncCharacterStatus(character)">
+                          <el-popconfirm v-else title="确认同步同名人物状态？">
+                            <template #actions="{ confirm, cancel }">
+                              <el-button size="small" text @click="cancel($event)">取消</el-button>
+                              <el-button size="small" @click="syncCharacterStatus(shot, character, 'following'); confirm($event)">向下</el-button>
+                              <el-button size="small" type="primary" @click="syncCharacterStatus(shot, character, 'all'); confirm($event)">全部</el-button>
+                            </template>
                             <template #reference>
                               <el-icon class="status-sync-suffix-icon" title="同步同名人物状态" aria-label="同步同名人物状态"><Refresh /></el-icon>
                             </template>
@@ -1021,7 +1044,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, Expand, Files, Fold, Hide, House, InfoFilled, MapLocation, Moon, Plus, Refresh, Search, Setting, Star, StarFilled, Sunny, Upload, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, Expand, Files, Fold, Hide, House, InfoFilled, MapLocation, Moon, Plus, Refresh, Search, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, normalizeDialogueReplacementRules, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
@@ -1051,6 +1074,8 @@ import type { CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, E
 import { useAppState } from './useAppState'
 
 type MaterialKind = 'characters' | 'scenes'
+type StatusSyncScope = 'following' | 'all'
+type PositionReferenceMode = 'none' | 'position' | 'reverse'
 type MaterialSceneDraft = {
   name: string
   time: SceneTime
@@ -1153,6 +1178,11 @@ const shotViewModeOptions: MaterialSegmentedOption<ShotViewMode>[] = [
   { label: '全部展开', value: 'expanded', icon: Expand },
   { label: '完成折叠', value: 'collapse-completed', icon: Fold },
   { label: '完成隐藏', value: 'hide-completed', icon: Hide },
+]
+const positionReferenceModeOptions: MaterialSegmentedOption<PositionReferenceMode>[] = [
+  { label: '常规视角', value: 'none', icon: User },
+  { label: '位置参考', value: 'position', icon: SortUp },
+  { label: '反打视角', value: 'reverse', icon: Sort },
 ]
 const episodeDropdownRefs = new Map<string, { handleClose?: () => void }>()
 const groupDropdownRefs = new Map<string, { handleClose?: () => void }>()
@@ -2393,7 +2423,7 @@ function applySceneToAllShots(value: string) {
   ElMessage.success('已应用到本集全部分镜')
 }
 
-function syncSceneStatus(source: SceneConfig) {
+function syncSceneStatus(sourceShot: Shot, source: SceneConfig, scope: StatusSyncScope) {
   const episode = activeEpisode.value
   const name = source.name.trim()
 
@@ -2401,8 +2431,14 @@ function syncSceneStatus(source: SceneConfig) {
     return
   }
 
+  const sourceIndex = episode.shots.findIndex((shot) => shot.id === sourceShot.id)
+  if (scope === 'following' && sourceIndex < 0) {
+    return
+  }
+
   let count = 0
-  episode.shots.forEach((shot) => {
+  const targetShots = scope === 'following' ? episode.shots.slice(sourceIndex + 1) : episode.shots
+  targetShots.forEach((shot) => {
     shot.scenes.forEach((scene) => {
       if (scene.name === name) {
         scene.statusText = source.statusText ?? ''
@@ -2410,10 +2446,10 @@ function syncSceneStatus(source: SceneConfig) {
       }
     })
   })
-  ElMessage.success(`已同步 ${count} 个场景状态`)
+  ElMessage.success(scope === 'following' ? `已向下同步 ${count} 个场景状态` : `已同步 ${count} 个场景状态`)
 }
 
-function syncCharacterStatus(source: CharacterConfig) {
+function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: StatusSyncScope) {
   const episode = activeEpisode.value
   const name = source.name.trim()
 
@@ -2421,8 +2457,14 @@ function syncCharacterStatus(source: CharacterConfig) {
     return
   }
 
+  const sourceIndex = episode.shots.findIndex((shot) => shot.id === sourceShot.id)
+  if (scope === 'following' && sourceIndex < 0) {
+    return
+  }
+
   let count = 0
-  episode.shots.forEach((shot) => {
+  const targetShots = scope === 'following' ? episode.shots.slice(sourceIndex + 1) : episode.shots
+  targetShots.forEach((shot) => {
     shot.characters.forEach((character) => {
       if (character.name === name) {
         character.statusText = source.statusText ?? ''
@@ -2430,7 +2472,7 @@ function syncCharacterStatus(source: CharacterConfig) {
       }
     })
   })
-  ElMessage.success(`已同步 ${count} 个人物状态`)
+  ElMessage.success(scope === 'following' ? `已向下同步 ${count} 个人物状态` : `已同步 ${count} 个人物状态`)
 }
 
 function addEpisode() {
@@ -2575,6 +2617,7 @@ function hasModifiedShots(episode: Episode) {
     || hasConfiguredScenes(shot)
     || shot.characters.length > 0
     || shot.usePositionReference
+    || shot.useReverseAngle
     || shot.status !== 'incomplete'
     || !isReviewDefault(shot.review)
   ))
@@ -2856,6 +2899,23 @@ function escapeHtml(value: string) {
 }
 function setShotStatus(shot: Shot, done: boolean) {
   shot.status = done ? 'complete' : 'incomplete'
+}
+
+function positionReferenceMode(shot: Shot): PositionReferenceMode {
+  if (!shot.usePositionReference) {
+    return 'none'
+  }
+
+  return shot.useReverseAngle ? 'reverse' : 'position'
+}
+
+function setPositionReferenceMode(shot: Shot, value: string | number | boolean | undefined) {
+  if (value !== 'none' && value !== 'position' && value !== 'reverse') {
+    return
+  }
+
+  shot.usePositionReference = value !== 'none'
+  shot.useReverseAngle = value === 'reverse'
 }
 
 function toggleAllPositionReferences() {
@@ -3810,6 +3870,7 @@ function episodeComparableSignature(episode: Episode) {
         statusText: scene.statusText ?? '',
       })),
       usePositionReference: shot.usePositionReference,
+      useReverseAngle: shot.useReverseAngle,
       characters: shot.characters.map((character) => ({
         name: character.name,
         includeVoice: character.includeVoice,
@@ -3913,6 +3974,7 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       connectPreviousCount: normalizeStoredConnectionPunctuationCount(shot.connectPreviousCount, shot.connectPrevious),
       connectNext: normalizeStoredConnectionPunctuationCount(shot.connectNextCount, shot.connectNext) > 0,
       connectNextCount: normalizeStoredConnectionPunctuationCount(shot.connectNextCount, shot.connectNext),
+      useReverseAngle: Boolean(shot.useReverseAngle),
       pendingDetection: null,
       autoSyncNotice: null,
       undoCharacters: null,

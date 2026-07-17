@@ -97,6 +97,7 @@ export interface Shot {
   connectNextCount: number
   scenes: SceneConfig[]
   usePositionReference: boolean
+  useReverseAngle: boolean
   characters: CharacterConfig[]
   status: CompletionStatus
   review: PromptReview
