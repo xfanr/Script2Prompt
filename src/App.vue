@@ -12,14 +12,13 @@
               <span>Script2Prompt</span>
             </div>
             <div v-if="!sidebarCollapsed" class="sidebar-tools">
-              <div class="theme-switch" role="group" aria-label="主题切换">
-                <button class="theme-switch-option" :class="{ active: !isDarkMode }" type="button" title="浅色模式" aria-label="浅色模式" @click="setDarkMode(false)">
-                  <el-icon><Sunny /></el-icon>
-                </button>
-                <button class="theme-switch-option" :class="{ active: isDarkMode }" type="button" title="深色模式" aria-label="深色模式" @click="setDarkMode(true)">
-                  <el-icon><Moon /></el-icon>
-                </button>
-              </div>
+              <el-segmented v-model="isDarkMode" :options="themeModeOptions" class="theme-switch" aria-label="主题切换" @change="setDarkMode">
+                <template #default="{ item }">
+                  <el-icon :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
+                    <component :is="segmentedOptionIcon(item)" />
+                  </el-icon>
+                </template>
+              </el-segmented>
               <el-button
                 class="global-config-icon"
                 :icon="Setting"
@@ -36,10 +35,10 @@
               <div class="episode-header">
                 <span>剧本管理</span>
                 <el-button-group class="episode-actions">
-                  <el-button :icon="Plus" title="添加单集" aria-label="添加单集" @click="addEpisode" />
-                  <el-button :icon="Files" title="新建分组" aria-label="新建分组" @click="addEpisodeGroup" />
+                  <el-button :icon="Plus" round title="添加单集" aria-label="添加单集" @click="addEpisode" />
+                  <el-button :icon="Folder" title="新建分组" aria-label="新建分组" @click="addEpisodeGroup" />
                   <el-button :icon="Upload" title="导入备份" aria-label="导入备份" @click="triggerImport" />
-                  <el-button :icon="Download" title="保存备份" aria-label="保存备份" @click="exportAllEpisodes" />
+                  <el-button :icon="Download" round title="保存备份" aria-label="保存备份" @click="exportAllEpisodes" />
                 </el-button-group>
               </div>
               <el-scrollbar class="episode-scrollbar">
@@ -206,7 +205,12 @@
             </section>
 
             <div class="weekly-report-row">
-              <span>复制周报</span>
+              <span class="weekly-report-title">
+                <span>复制周报</span>
+                <el-tooltip v-if="isTodayMonday" content="记得交周报" placement="top">
+                  <el-icon class="weekly-report-reminder" aria-label="记得交周报" tabindex="0"><WarningFilled /></el-icon>
+                </el-tooltip>
+              </span>
               <el-date-picker
                 v-model="weeklyReportWeek"
                 class="weekly-report-picker"
@@ -238,7 +242,10 @@
               <span class="stage-page-title">
                 <span>《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》</span>
                 <span>{{ activeEpisode.title }}</span>
-                <el-button :icon="DataAnalysis" circle title="本集数据" aria-label="本集数据" @click="openReviewSummary(activeEpisode)" />
+                <span class="stage-title-data-actions">
+                  <el-button :icon="Notebook" circle title="整组数据" aria-label="整组数据" @click="openGroupSummary(activeEpisode.groupId ?? 'ungrouped')" />
+                  <el-button :icon="Document" circle title="本集数据" aria-label="本集数据" @click="openReviewSummary(activeEpisode)" />
+                </span>
               </span>
             </template>
             <template #content>
@@ -397,29 +404,20 @@
                     <div class="script-title-left">
                       <span>{{ sectionTitle('shot') }}</span>
                       <div class="script-title-actions">
-                        <el-input-number
-                          :model-value="shot.connectPreviousCount"
-                          :min="0"
-                          :max="10"
+                        <el-slider
+                          class="shot-connection-slider"
+                          :model-value="shotConnectionValue(shot, index)"
+                          :min="-8"
+                          :max="8"
                           :step="1"
-                          :disabled="index === 0"
-                          controls-position="right"
+                          range
+                          :show-stops="false"
+                          :marks="shotConnectionMarks"
                           size="small"
-                          step-strictly
-                          aria-label="承上截取标点数"
-                          @update:model-value="updateShotConnectionCount(shot, 'previous', $event)"
-                        />
-                        <el-input-number
-                          :model-value="shot.connectNextCount"
-                          :min="0"
-                          :max="10"
-                          :step="1"
-                          :disabled="index === activeEpisode.shots.length - 1"
-                          controls-position="right"
-                          size="small"
-                          step-strictly
-                          aria-label="启下截取标点数"
-                          @update:model-value="updateShotConnectionCount(shot, 'next', $event)"
+                          :disabled="activeEpisode.shots.length === 1"
+                          :format-tooltip="formatShotConnectionTooltip"
+                          aria-label="承上启下截取标点数，左滑块承上，右滑块启下"
+                          @update:model-value="updateShotConnectionValue(shot, index, $event)"
                         />
                         <el-button :icon="Search" text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
                       </div>
@@ -432,11 +430,6 @@
                   </div>
                   <div class="script-input-wrap" :class="{ warn: durationState(effectiveShotText(shot)).warn }">
                     <div v-if="connectedPreviousText(shot, index)" class="script-context-line is-previous" aria-readonly="true">
-                      <el-tooltip :content="connectedPreviousText(shot, index)" placement="top" popper-class="script-context-tooltip">
-                        <el-icon class="script-context-preview" aria-label="查看完整衔接上文">
-                          <InfoFilled />
-                        </el-icon>
-                      </el-tooltip>
                       <span class="script-context-text">{{ connectedPreviousText(shot, index) }}</span>
                     </div>
                     <div class="script-textarea-stack">
@@ -452,11 +445,6 @@
                     </div>
                     <div v-if="connectedNextText(shot, index)" class="script-context-line is-next" aria-readonly="true">
                       <span class="script-context-text">{{ connectedNextText(shot, index) }}</span>
-                      <el-tooltip :content="connectedNextText(shot, index)" placement="bottom" popper-class="script-context-tooltip">
-                        <el-icon class="script-context-preview" aria-label="查看完整衔接下文">
-                          <InfoFilled />
-                        </el-icon>
-                      </el-tooltip>
                     </div>
                   </div>
                 </section>
@@ -1044,7 +1032,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Download, EditPen, Expand, Files, Fold, Hide, House, InfoFilled, MapLocation, Moon, Plus, Refresh, Search, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Folder, Fold, Hide, House, MapLocation, Moon, Notebook, Plus, Refresh, Search, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, normalizeDialogueReplacementRules, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
@@ -1069,7 +1057,7 @@ import {
   normalizeCharacterNameForMatch,
   recommendedSeconds,
 } from './prompt'
-import { normalizeConnectionPunctuationCount, normalizeStoredConnectionPunctuationCount, takeLeadingPunctuationSegments, takeTrailingPunctuationSegments } from './shotContext'
+import { normalizeConnectionPunctuationCount, normalizeStoredShotConnection, takeLeadingPunctuationSegments, takeTrailingPunctuationSegments } from './shotContext'
 import type { CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, SectionKey, Shot, ShotViewMode } from './types'
 import { useAppState } from './useAppState'
 
@@ -1174,6 +1162,10 @@ const materialSceneSpaceOptions: MaterialSegmentedOption<SceneSpace>[] = [
   { label: '室内', value: '室内', icon: House },
   { label: '室外', value: '室外', icon: MapLocation },
 ]
+const themeModeOptions = [
+  { label: '浅色模式', value: false, icon: Sunny },
+  { label: '深色模式', value: true, icon: Moon },
+]
 const shotViewModeOptions: MaterialSegmentedOption<ShotViewMode>[] = [
   { label: '全部展开', value: 'expanded', icon: Expand },
   { label: '完成折叠', value: 'collapse-completed', icon: Fold },
@@ -1213,6 +1205,12 @@ const productionPointCostDraft = ref('0.0000')
 const weeklyReportWeek = ref<Date | string | null>(null)
 const archivedTreeId = 'archived'
 const reviewRateTexts = ['拉完了', 'NPC', '人上人', '顶级', '夯']
+const isTodayMonday = new Date().getDay() === 1
+const shotConnectionMarks = {
+  [-3]: '',
+  0: '',
+  3: '',
+}
 
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
 const areAllShotsUsingPositionReference = computed(() => {
@@ -1243,17 +1241,30 @@ const dialogueOutputDraft = computed({
 })
 const highlightedDialogueText = computed(() => {
   const text = dialogueOutputDraft.value || ' '
+  const replacementTerms = dialogueView.value === 'replaced'
+    ? Array.from(new Set(state.globalConfig.dialogueReplacementRules
+      .flatMap((rule) => replaceDialogueText(rule.replacement, []).split('\n'))
+      .map((term) => term.trim())
+      .filter(Boolean)))
+      .sort((a, b) => b.length - a.length)
+    : []
+
   return text
     .split('\n')
-    .map((line) => countNonPunctuationCharacters(line) > 10
-      ? `<mark>${escapeHtml(line)}</mark>`
-      : escapeHtml(line))
+    .map((line) => {
+      const highlightedLine = highlightDialogueReplacements(line, replacementTerms)
+      return countNonPunctuationCharacters(line) > 10
+        ? `<mark class="dialogue-length-warning">${highlightedLine}</mark>`
+        : highlightedLine
+    })
     .join('\n')
 })
 const detectionConflict = computed(() => detectionConflictShot.value?.pendingDetection ?? null)
 const reviewSummaryEpisode = computed(() => state.episodes.find((episode) => episode.id === reviewSummaryEpisodeId.value) ?? activeEpisode.value ?? null)
 const activeGroupSummary = computed(() => state.episodeGroups.find((group) => group.id === activeGroupSummaryId.value) ?? null)
-const groupSummaryEpisodes = computed(() => activeGroupSummaryId.value ? episodesForGroup(activeGroupSummaryId.value) : [])
+const groupSummaryEpisodes = computed(() => activeGroupSummaryId.value === 'ungrouped'
+  ? sortedUngroupedEpisodes.value
+  : activeGroupSummaryId.value ? episodesForGroup(activeGroupSummaryId.value) : [])
 const reviewSummaryTitle = computed(() => {
   const episode = reviewSummaryEpisode.value
 
@@ -1290,7 +1301,7 @@ const materialCharacterPlaceholder = computed(() => materialDialogMode.value ===
 const shouldShowMaterialCharacters = computed(() => materialDialogMode.value === 'add' || editingMaterial.value?.kind === 'characters')
 const shouldShowMaterialScenes = computed(() => materialDialogMode.value === 'add' || editingMaterial.value?.kind === 'scenes')
 const groupSummarySubtitle = computed(() => {
-  const title = activeGroupSummary.value?.title ?? ''
+  const title = activeGroupSummaryId.value === 'ungrouped' ? '未分组' : activeGroupSummary.value?.title ?? ''
   const episodeNumbers = groupSummaryEpisodes.value.map(formatEpisodeSummaryNumber).join('/')
   return `《${title}》${episodeNumbers || '无'}，共${groupSummaryEpisodes.value.length}集`
 })
@@ -2634,6 +2645,7 @@ function deleteShot(id: string) {
   }
 
   activeEpisode.value.shots = activeEpisode.value.shots.filter((shot) => shot.id !== id)
+  normalizeEpisodeShotConnections(activeEpisode.value)
 }
 
 function addMaterialDrafts() {
@@ -2885,6 +2897,27 @@ function highlightedShotText(shot: Shot) {
   rawParts.push(escapeHtml(text.slice(cursor)))
   return rawParts.join('')
 }
+
+function highlightDialogueReplacements(line: string, replacementTerms: string[]) {
+  if (!replacementTerms.length) {
+    return escapeHtml(line)
+  }
+
+  const pattern = new RegExp(replacementTerms.map(escapeRegExp).join('|'), 'g')
+  const highlightedParts: string[] = []
+  let cursor = 0
+
+  line.replace(pattern, (match, offset: number) => {
+    highlightedParts.push(escapeHtml(line.slice(cursor, offset)))
+    highlightedParts.push(`<mark class="dialogue-replacement-highlight">${escapeHtml(match)}</mark>`)
+    cursor = offset + match.length
+    return match
+  })
+
+  highlightedParts.push(escapeHtml(line.slice(cursor)))
+  return highlightedParts.join('')
+}
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -2954,17 +2987,68 @@ function connectedNextText(shot: Shot, index: number) {
   return nextShotHead(index, shot.connectNextCount)
 }
 
-function updateShotConnectionCount(shot: Shot, direction: 'previous' | 'next', value: unknown) {
-  const count = normalizeConnectionPunctuationCount(value)
+function shotConnectionValue(shot: Shot, index: number) {
+  const connection = normalizeStoredShotConnection(
+    shot.connectPreviousCount,
+    shot.connectPrevious,
+    shot.connectNextCount,
+    shot.connectNext,
+    index > 0,
+    index < (activeEpisode.value?.shots.length ?? 0) - 1,
+  )
 
-  if (direction === 'previous') {
-    shot.connectPreviousCount = count
-    shot.connectPrevious = count > 0
+  return [
+    connection.connectPrevious ? -connection.connectPreviousCount : 0,
+    connection.connectNext ? connection.connectNextCount : 0,
+  ]
+}
+
+function updateShotConnectionValue(shot: Shot, index: number, value: unknown) {
+  if (!Array.isArray(value) || value.length < 2) {
     return
   }
 
-  shot.connectNextCount = count
-  shot.connectNext = count > 0
+  const previousValue = Number(value[0])
+  const nextValue = Number(value[1])
+  const lastIndex = (activeEpisode.value?.shots.length ?? 0) - 1
+  const connectPreviousCount = index > 0 && Number.isFinite(previousValue) && previousValue < 0
+    ? normalizeConnectionPunctuationCount(Math.abs(previousValue))
+    : 0
+  const connectNextCount = index < lastIndex && Number.isFinite(nextValue) && nextValue > 0
+    ? normalizeConnectionPunctuationCount(nextValue)
+    : 0
+  Object.assign(shot, {
+    connectPrevious: connectPreviousCount > 0,
+    connectPreviousCount,
+    connectNext: connectNextCount > 0,
+    connectNextCount,
+  })
+}
+
+function formatShotConnectionTooltip(value: number) {
+  if (value < 0) {
+    return `承上 ${Math.abs(value)}`
+  }
+
+  if (value > 0) {
+    return `启下 ${value}`
+  }
+
+  return '不衔接'
+}
+
+function normalizeEpisodeShotConnections(episode: Episode) {
+  const lastIndex = episode.shots.length - 1
+  episode.shots.forEach((shot, index) => {
+    Object.assign(shot, normalizeStoredShotConnection(
+      shot.connectPreviousCount,
+      shot.connectPrevious,
+      shot.connectNextCount,
+      shot.connectNext,
+      index > 0,
+      index < lastIndex,
+    ))
+  })
 }
 
 function effectiveShotText(shot: Shot) {
@@ -3240,7 +3324,7 @@ function openReviewSummary(episode = activeEpisode.value) {
 }
 
 function openGroupSummary(groupId: string) {
-  if (!state.episodeGroups.some((group) => group.id === groupId)) {
+  if (groupId !== 'ungrouped' && !state.episodeGroups.some((group) => group.id === groupId)) {
     return
   }
 
@@ -3965,25 +4049,33 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
     props: [],
     productionData: normalizeEpisodeProductionData(episode.productionData),
     scriptText: typeof episode.scriptText === 'string' ? episode.scriptText : '',
-    shots: shots.map((shot) => ({
-      ...createShot(),
-      ...shot,
-      id: createId('shot'),
-      remark: typeof shot.remark === 'string' ? shot.remark : '',
-      connectPrevious: normalizeStoredConnectionPunctuationCount(shot.connectPreviousCount, shot.connectPrevious) > 0,
-      connectPreviousCount: normalizeStoredConnectionPunctuationCount(shot.connectPreviousCount, shot.connectPrevious),
-      connectNext: normalizeStoredConnectionPunctuationCount(shot.connectNextCount, shot.connectNext) > 0,
-      connectNextCount: normalizeStoredConnectionPunctuationCount(shot.connectNextCount, shot.connectNext),
-      useReverseAngle: Boolean(shot.useReverseAngle),
-      pendingDetection: null,
-      autoSyncNotice: null,
-      undoCharacters: null,
-      review: normalizePromptReview(shot.review),
-      scenes: normalizeImportedShotScenes(shot.scenes, scenes),
-      characters: Array.isArray(shot.characters)
-        ? shot.characters.map((character) => ({ ...character, id: createId('character') }))
-        : [],
-    })),
+    shots: shots.map((shot, index) => {
+      const connection = normalizeStoredShotConnection(
+        shot.connectPreviousCount,
+        shot.connectPrevious,
+        shot.connectNextCount,
+        shot.connectNext,
+        index > 0,
+        index < shots.length - 1,
+      )
+
+      return {
+        ...createShot(),
+        ...shot,
+        ...connection,
+        id: createId('shot'),
+        remark: typeof shot.remark === 'string' ? shot.remark : '',
+        useReverseAngle: Boolean(shot.useReverseAngle),
+        pendingDetection: null,
+        autoSyncNotice: null,
+        undoCharacters: null,
+        review: normalizePromptReview(shot.review),
+        scenes: normalizeImportedShotScenes(shot.scenes, scenes),
+        characters: Array.isArray(shot.characters)
+          ? shot.characters.map((character) => ({ ...character, id: createId('character') }))
+          : [],
+      }
+    }),
   }
 }
 </script>

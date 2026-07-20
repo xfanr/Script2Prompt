@@ -1,5 +1,5 @@
 export const MIN_CONNECTION_PUNCTUATION_COUNT = 0
-export const MAX_CONNECTION_PUNCTUATION_COUNT = 10
+export const MAX_CONNECTION_PUNCTUATION_COUNT = 8
 
 const punctuationClusterPattern = /[^\P{P}@]+/gu
 const punctuationAtEndPattern = /[^\P{P}@](?:@|\s)*$/u
@@ -37,6 +37,29 @@ export function normalizeStoredConnectionPunctuationCount(value: unknown, legacy
   }
 
   return Math.max(1, normalizeConnectionPunctuationCount(value))
+}
+
+export function normalizeStoredShotConnection(
+  previousValue: unknown,
+  previousEnabled: unknown,
+  nextValue: unknown,
+  nextEnabled: unknown,
+  allowPrevious = true,
+  allowNext = true,
+) {
+  const connectPreviousCount = allowPrevious
+    ? normalizeStoredConnectionPunctuationCount(previousValue, previousEnabled)
+    : MIN_CONNECTION_PUNCTUATION_COUNT
+  const connectNextCount = allowNext
+    ? normalizeStoredConnectionPunctuationCount(nextValue, nextEnabled)
+    : MIN_CONNECTION_PUNCTUATION_COUNT
+
+  return {
+    connectPrevious: connectPreviousCount > 0,
+    connectPreviousCount,
+    connectNext: connectNextCount > 0,
+    connectNextCount,
+  }
 }
 
 export function takeLeadingPunctuationSegments(text: string, count: number) {
