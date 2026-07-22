@@ -705,8 +705,8 @@
         <el-form class="dialog-form-width-limit review-form" label-position="top">
           <el-form-item label="评分">
             <el-rate
-              v-model="reviewDraft.rating"
-              clearable
+              :model-value="reviewDraft.rating"
+              disabled
               show-text
               :texts="reviewRateTexts"
               :low-threshold="2"
@@ -730,7 +730,7 @@
                   :step="1"
                   :controls="false"
                   aria-label="自定义抽卡次数"
-                  @change="syncNoSubtitleCount"
+                  @change="handleReviewCustomDrawCountChange"
                 />
               </Transition>
             </div>
@@ -3499,6 +3499,23 @@ function reviewMajoritySubtitleCount(drawCount: number) {
   return majorityCount === halfCount ? Math.min(drawCount, majorityCount + 1) : majorityCount
 }
 
+function calculateAutomaticReviewRating(drawCount: number, notePrefix: string) {
+  const normalizedDrawCount = Math.max(1, Math.min(8, Math.round(drawCount)))
+  const drawCountPenalty = normalizedDrawCount > 6 ? 3 : normalizedDrawCount > 4 ? 2 : normalizedDrawCount > 2 ? 1 : 0
+  const notePrefixCategory = notePrefix.split('→')[0]?.trim() ?? ''
+  const notePrefixPenalty = notePrefixCategory === '抽卡失误' ? 1 : 0
+
+  return Math.max(1, Math.min(5, 5 - drawCountPenalty - notePrefixPenalty))
+}
+
+function updateAutomaticReviewRating() {
+  if (!Number.isFinite(reviewDraft.value.drawCount)) {
+    return
+  }
+
+  reviewDraft.value.rating = calculateAutomaticReviewRating(reviewDraft.value.drawCount, reviewDraft.value.notePrefix)
+}
+
 function syncNoSubtitleCount() {
   if (!Number.isFinite(reviewDraft.value.drawCount)) {
     return
@@ -3524,6 +3541,12 @@ function selectReviewDrawCountMode(value: string | number | boolean | undefined)
     ? 1
     : mode === 'two' ? 2 : mode === 'three' ? 3 : mode === 'four' ? 4 : 5
   syncNoSubtitleCount()
+  updateAutomaticReviewRating()
+}
+
+function handleReviewCustomDrawCountChange() {
+  syncNoSubtitleCount()
+  updateAutomaticReviewRating()
 }
 
 function selectReviewSubtitleMode(value: string | number | boolean | undefined) {
@@ -3548,6 +3571,7 @@ function updateReviewNotePrefix(value: unknown) {
   const path = Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
   reviewNotePrefixPath.value = path
   reviewDraft.value.notePrefix = path.length === 2 ? path.join('→') : ''
+  updateAutomaticReviewRating()
 }
 
 function formatReviewNote(review: PromptReview) {
@@ -3571,6 +3595,15 @@ function resetReviewDraft() {
 
 function clearReviewDialog() {
   resetReviewDraft()
+
+  const shot = activeReviewShot.value
+
+  if (!shot) {
+    return
+  }
+
+  shot.review = normalizePromptReview(reviewDraft.value)
+  ElMessage.success('已清空评分')
 }
 
 function openReviewDialog(shot: Shot) {
