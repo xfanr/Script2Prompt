@@ -601,6 +601,7 @@ html.dark .episode-panel {
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
+  margin-left: 10px;
   overflow: visible;
 }
 
@@ -620,17 +621,8 @@ html.dark .episode-panel {
   margin-left: 0;
 }
 
-.add-material-button.el-button {
-  display: inline-flex;
-  height: 24px;
-  flex: 0 0 auto;
-  align-items: center;
-  margin-right: 2px;
-  padding: 2px 4px;
-  font-weight: 800;
-}
-
-.shot-create-actions {
+.shot-create-actions,
+.material-create-actions {
   flex: 0 0 auto;
   white-space: nowrap;
 }
@@ -1197,11 +1189,6 @@ html.dark .episode-panel {
   background: var(--el-color-primary-light-3);
 }
 
-.script-input-wrap.warn .el-textarea__inner {
-  border-color: transparent;
-  background: transparent;
-}
-
 .script-inline-stats {
   position: absolute;
   right: 10px;
@@ -1218,11 +1205,6 @@ html.dark .episode-panel {
   padding: 4px 12px;
   border-radius: 5px;
   background: var(--el-color-success-light-9);
-}
-
-.script-input-wrap.warn .script-inline-stats span {
-  color: var(--el-color-danger);
-  background: var(--el-color-danger-light-9);
 }
 
 .config-cell {
@@ -2373,17 +2355,6 @@ html.dark .episode-panel {
 
 .is-voice-overflow .el-checkbox__inner::after {
   transition-property: transform, border-color !important;
-}
-
-.script-input-wrap.warn .el-textarea__inner,
-.script-input-wrap.warn .el-textarea .el-textarea__inner {
-  border-color: transparent !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.script-input-wrap.warn {
-  background: var(--el-color-danger-light-8);
 }
 
 .el-overlay {

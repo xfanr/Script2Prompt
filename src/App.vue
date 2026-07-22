@@ -250,8 +250,19 @@
             </template>
             <template #content>
               <div class="stage-page-actions">
+                <el-dropdown class="material-create-actions" split-button :button-props="{ round: true }" size="default" type="primary" @click="openMaterialDialog" @command="cloneEpisodeMaterials">
+                  添加素材
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item v-for="episode in materialCloneSourceEpisodes" :key="episode.id" :command="episode.id">
+                        克隆 {{ episode.title }}
+                      </el-dropdown-item>
+                      <el-dropdown-item v-if="!materialCloneSourceEpisodes.length" disabled>暂无可克隆集数</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
                 <el-dropdown class="shot-create-actions" split-button :button-props="{ round: true }" size="default" type="primary" @click="openEpisodeScriptDialog('shots')" @command="handleAddShotCommand">
-                  导入分镜
+                  添加分镜
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item command="start">添至开头</el-dropdown-item>
@@ -263,8 +274,8 @@
                   </template>
                 </el-dropdown>
                 <el-button round size="default" type="primary" @click="openEpisodeScriptDialog('dialogue')">提取台词</el-button>
-                <el-button round text type="primary" :bg="areAllShotsUsingPositionReference" @click="toggleAllPositionReferences">全部多人</el-button>
-                <el-button round text type="primary" :bg="areAllShotsComplete" @click="toggleAllShotsCompletion">全部完成</el-button>
+                <el-button round text type="primary" :bg="areAllShotsUsingPositionReference" @click="toggleAllPositionReferences">全定位</el-button>
+                <el-button round text type="primary" :bg="areAllShotsComplete" @click="toggleAllShotsCompletion">全完成</el-button>
               </div>
             </template>
             <template #extra>
@@ -278,7 +289,6 @@
             </template>
             <div class="asset-editor">
               <div class="asset-tags">
-                <el-button class="add-material-button" link type="primary" @click="openMaterialDialog">添加素材</el-button>
                 <div class="asset-materials-scroll">
                   <el-dropdown
                     v-for="item in activeEpisode.characters"
@@ -428,7 +438,7 @@
                       </el-tag>
                     </div>
                   </div>
-                  <div class="script-input-wrap" :class="{ warn: durationState(effectiveShotText(shot)).warn }">
+                  <div class="script-input-wrap">
                     <div v-if="connectedPreviousText(shot, index)" class="script-context-line is-previous" aria-readonly="true">
                       <span class="script-context-text">{{ connectedPreviousText(shot, index) }}</span>
                     </div>
@@ -831,7 +841,16 @@
           <section class="episode-summary-card episode-date-card">
             <el-statistic title="制作日期" :value="0" :formatter="formatEpisodeProductionDate" />
             <div class="episode-card-controls production-date-row">
-              <el-date-picker v-model="reviewSummaryEpisode.productionData.productionDate" type="date" size="small" value-format="YYYY-MM-DD" placeholder="选择日期" />
+              <el-date-picker v-model="reviewSummaryEpisode.productionData.productionDate" type="date" size="small" value-format="YYYY-MM-DD" placeholder="选择日期">
+                <template #default="cell">
+                  <div class="el-date-table-cell weekly-report-date-cell" :class="{ 'has-production': hasProductionOnPickerCell(cell) }">
+                    <span class="el-date-table-cell__text">
+                      {{ cell.text }}
+                      <i v-if="hasProductionOnPickerCell(cell)" aria-hidden="true"></i>
+                    </span>
+                  </div>
+                </template>
+              </el-date-picker>
               <el-button type="primary" size="small" text @click="setProductionDateToday">今天</el-button>
             </div>
           </section>
@@ -932,7 +951,7 @@
       </el-dialog>
       <el-dialog v-model="episodeScriptDialogVisible" width="820px" class="episode-script-dialog" :show-close="false" @closed="resetEpisodeScriptDialog">
         <el-tabs v-model="episodeScriptActiveTab" class="episode-script-tabs">
-          <el-tab-pane label="导入分镜" name="shots">
+          <el-tab-pane label="添加分镜" name="shots">
             <div class="episode-script-columns">
               <div class="episode-script-source-panel">
                 <div class="episode-script-panel-title">原始剧本</div>
@@ -1011,16 +1030,16 @@
               <el-button @click="organizeEpisodeScriptDraft">整理</el-button>
               <el-popconfirm
                 v-if="activeEpisode && hasModifiedShots(activeEpisode)"
-                title="当前分镜已有修改，确认导入分镜？"
-                confirm-button-text="导入"
+                title="当前分镜已有修改，确认添加分镜？"
+                confirm-button-text="添加"
                 cancel-button-text="取消"
                 @confirm="importEpisodeScriptShots"
               >
                 <template #reference>
-                  <el-button type="primary">导入分镜</el-button>
+                  <el-button type="primary">添加分镜</el-button>
                 </template>
               </el-popconfirm>
-              <el-button v-else type="primary" @click="importEpisodeScriptShots">导入分镜</el-button>
+              <el-button v-else type="primary" @click="importEpisodeScriptShots">添加分镜</el-button>
             </div>
             <div v-else class="batch-shot-footer-actions">
               <el-button
@@ -1301,6 +1320,18 @@ const sortedArchivedEpisodeGroups = computed(() => state.episodeGroups
     return dateDiff || state.episodeGroups.indexOf(a) - state.episodeGroups.indexOf(b)
   }))
 const sortedUngroupedEpisodes = computed(() => sortEpisodesForDisplay(state.episodes.filter((episode) => !episode.groupId)))
+const materialCloneSourceEpisodes = computed(() => {
+  const targetEpisode = activeEpisode.value
+
+  if (!targetEpisode) {
+    return []
+  }
+
+  return sortEpisodesForDisplay(state.episodes.filter((episode) => (
+    episode.id !== targetEpisode.id
+    && (episode.groupId ?? null) === (targetEpisode.groupId ?? null)
+  )))
+})
 const productionDateSet = computed(() => new Set(state.episodes.map((episode) => normalizeDateString(episode.productionData.productionDate)).filter((date): date is string => Boolean(date))))
 const detectionConflictShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === detectionConflictShotId.value) ?? null)
 const dialogueOutputDraft = computed({
@@ -2332,6 +2363,39 @@ function openMaterialDialog() {
   editingMaterial.value = null
   resetMaterialDrafts()
   materialDialogVisible.value = true
+}
+
+function cloneEpisodeMaterials(sourceEpisodeId: string) {
+  const targetEpisode = activeEpisode.value
+  const sourceEpisode = state.episodes.find((episode) => episode.id === sourceEpisodeId)
+
+  if (
+    !targetEpisode
+    || !sourceEpisode
+    || sourceEpisode.id === targetEpisode.id
+    || (sourceEpisode.groupId ?? null) !== (targetEpisode.groupId ?? null)
+  ) {
+    return
+  }
+
+  const characters = sourceEpisode.characters.filter((character) => !targetEpisode.characters.includes(character))
+  const existingSceneNames = new Set(targetEpisode.scenes.map((scene) => scene.name))
+  const scenes = sourceEpisode.scenes
+    .filter((scene) => !existingSceneNames.has(scene.name))
+    .map((scene) => createSceneAsset(scene.name, scene.time, scene.space))
+  const added = characters.length + scenes.length
+  const skipped = sourceEpisode.characters.length + sourceEpisode.scenes.length - added
+
+  targetEpisode.characters.push(...characters)
+  targetEpisode.scenes.push(...scenes)
+
+  if (added && skipped) {
+    ElMessage.success(`已克隆 ${added} 项素材，跳过 ${skipped} 个重复项`)
+  } else if (added) {
+    ElMessage.success(`已克隆 ${added} 项素材`)
+  } else {
+    ElMessage.info('该集素材均已存在')
+  }
 }
 
 function confirmMaterialDialog() {
