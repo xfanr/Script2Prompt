@@ -1,4 +1,4 @@
-import type { AppState, CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
+import type { AppState, CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, ReviewNotePrefixOption, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
 export const APP_VERSION = 1
@@ -13,6 +13,20 @@ export const defaultSceneRoleSuffix =
 
 export const defaultBaseSettingSuffix =
   '禁止生成角色同款分身或双胞胎效果。'
+
+export const defaultReviewNotePrefixPaths = [
+  '模型失误→读音',
+  '模型失误→穿模',
+  '模型失误→位置',
+  '模型失误→动作',
+  '模型失误→角色ID漂移',
+  '模型失误→角色多胞胎',
+  '抽卡失误→引用缺失',
+  '抽卡失误→引用冗余',
+  '抽卡失误→引用错乱',
+  '抽卡失误→参考图错误',
+  '剧本失误→前后矛盾',
+]
 
 export function createId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -31,6 +45,7 @@ export function createGlobalConfig(): GlobalConfig {
     recommendedDurationRange: { min: 4, max: 21 },
     defaultPointCost: DEFAULT_POINT_COST,
     dialogueReplacementRules: [],
+    reviewNotePrefixOptions: createDefaultReviewNotePrefixOptions(),
     sections: [
       { key: 'base', title: '基础设定', order: 1, enabled: true },
       { key: 'sceneRole', title: '场景与角色设定', order: 2, enabled: true },
@@ -65,6 +80,54 @@ export function createDialogueReplacementRule(forbidden = '', replacement = ''):
   }
 }
 
+export function createReviewNotePrefixOption(category = '', label = ''): ReviewNotePrefixOption {
+  return {
+    id: createId('review-note-prefix'),
+    category,
+    label,
+  }
+}
+
+export function createDefaultReviewNotePrefixOptions(): ReviewNotePrefixOption[] {
+  return defaultReviewNotePrefixPaths.map((path) => {
+    const [category, label] = path.split('→')
+    return createReviewNotePrefixOption(category, label)
+  })
+}
+
+export function normalizeReviewNotePrefixOptions(options: unknown): ReviewNotePrefixOption[] {
+  if (!Array.isArray(options)) {
+    return []
+  }
+
+  const normalized = options.map((option) => {
+    if (typeof option === 'string') {
+      const [category = '', label = ''] = option.split('→')
+      return createReviewNotePrefixOption(category.trim(), label.trim())
+    }
+
+    if (!option || typeof option !== 'object') {
+      return null
+    }
+
+    const value = option as Partial<ReviewNotePrefixOption>
+    const category = typeof value.category === 'string' ? value.category.trim() : ''
+    const label = typeof value.label === 'string' ? value.label.trim() : ''
+
+    if (!category || !label) {
+      return null
+    }
+
+    return {
+      id: typeof value.id === 'string' && value.id ? value.id : createId('review-note-prefix'),
+      category,
+      label,
+    }
+  }).filter((option): option is ReviewNotePrefixOption => Boolean(option))
+
+  return normalized.filter((option, index, list) => list.findIndex((item) => item.category === option.category && item.label === option.label) === index)
+}
+
 export function createCharacterConfig(name = '', includeVoice = false): CharacterConfig {
   return {
     id: createId('character'),
@@ -80,6 +143,7 @@ export function createPromptReview(): PromptReview {
     rating: 0,
     drawCount: 1,
     noSubtitleCount: 0,
+    notePrefix: '',
     note: '',
   }
 }

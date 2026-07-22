@@ -22,6 +22,12 @@ export interface DialogueReplacementRule {
   replacement: string
 }
 
+export interface ReviewNotePrefixOption {
+  id: string
+  category: string
+  label: string
+}
+
 export interface GlobalConfig {
   baseSetting: string
   baseSettingSuffix: string
@@ -29,6 +35,7 @@ export interface GlobalConfig {
   recommendedDurationRange: DurationRange
   defaultPointCost: number
   dialogueReplacementRules: DialogueReplacementRule[]
+  reviewNotePrefixOptions: ReviewNotePrefixOption[]
   sections: SectionConfig[]
 }
 
@@ -78,6 +85,7 @@ export interface PromptReview {
   rating: number
   drawCount: number
   noSubtitleCount: number
+  notePrefix: string
   note: string
 }
 

@@ -1,6 +1,6 @@
 import { computed, reactive, watch } from 'vue'
 import { normalizeDialogueReplacementRules } from './dialogue'
-import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, createSceneConfig, DEFAULT_POINT_COST, defaultBaseSettingSuffix, STORAGE_KEY } from './defaults'
+import { APP_VERSION, createDefaultReviewNotePrefixOptions, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, createSceneConfig, DEFAULT_POINT_COST, defaultBaseSettingSuffix, normalizeReviewNotePrefixOptions, STORAGE_KEY } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
 import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
 
@@ -84,6 +84,7 @@ function normalizePromptReview(review: unknown): PromptReview {
     rating,
     drawCount,
     noSubtitleCount,
+    notePrefix: typeof value.notePrefix === 'string' ? value.notePrefix : '',
     note: typeof value.note === 'string' ? value.note : '',
   }
 }
@@ -129,6 +130,9 @@ function loadState(): AppState {
       ? Math.max(0, Number(parsed.globalConfig.defaultPointCost.toFixed(4)))
       : DEFAULT_POINT_COST
     parsed.globalConfig.dialogueReplacementRules = normalizeDialogueReplacementRules(parsed.globalConfig.dialogueReplacementRules)
+    parsed.globalConfig.reviewNotePrefixOptions = Array.isArray(parsed.globalConfig.reviewNotePrefixOptions)
+      ? normalizeReviewNotePrefixOptions(parsed.globalConfig.reviewNotePrefixOptions)
+      : createDefaultReviewNotePrefixOptions()
     parsed.episodeGroups ??= []
     parsed.episodeGroups.forEach((group) => {
       group.starred ??= false
