@@ -1,8 +1,8 @@
 import { computed, reactive, watch } from 'vue'
 import { normalizeDialogueReplacementRules } from './dialogue'
-import { APP_VERSION, createDefaultReviewNotePrefixOptions, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, createSceneConfig, DEFAULT_POINT_COST, defaultBaseSettingSuffix, normalizeReviewNotePrefixOptions, STORAGE_KEY } from './defaults'
+import { APP_VERSION, createDefaultReviewNotePrefixOptions, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createReviewNotePrefixOption, createSceneAsset, createSceneConfig, DEFAULT_POINT_COST, defaultBaseSettingSuffix, normalizeReviewNotePrefixOptions, STORAGE_KEY } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
-import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
+import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, ReviewNotePrefixOption, SceneAsset, SceneConfig, ShotViewMode } from './types'
 
 const shotViewModes: ShotViewMode[] = ['expanded', 'collapse-completed', 'hide-completed']
 
@@ -103,6 +103,25 @@ function normalizeEpisodeProductionData(data: unknown): EpisodeProductionData {
   }
 }
 
+function migrateReviewNotePrefixOptionsV2(options: ReviewNotePrefixOption[]) {
+  const migrated = options.slice()
+
+  insertReviewNotePrefixOption(migrated, '模型失误', '渲染定位图', '动作')
+  insertReviewNotePrefixOption(migrated, '抽卡失误', '内容过多', '引用错乱')
+
+  return migrated
+}
+
+function insertReviewNotePrefixOption(options: ReviewNotePrefixOption[], category: string, label: string, afterLabel: string) {
+  if (options.some((option) => option.category === category && option.label === label)) {
+    return
+  }
+
+  const anchorIndex = options.findIndex((option) => option.category === category && option.label === afterLabel)
+  const insertIndex = anchorIndex >= 0 ? anchorIndex + 1 : options.length
+  options.splice(insertIndex, 0, createReviewNotePrefixOption(category, label))
+}
+
 function loadState(): AppState {
   const raw = localStorage.getItem(STORAGE_KEY)
 
@@ -112,8 +131,9 @@ function loadState(): AppState {
 
   try {
     const parsed = JSON.parse(raw) as AppState
+    const storedVersion = parsed.version
 
-    if (parsed.version !== APP_VERSION || !Array.isArray(parsed.episodes) || !parsed.globalConfig) {
+    if (!Number.isInteger(storedVersion) || storedVersion < 1 || storedVersion > APP_VERSION || !Array.isArray(parsed.episodes) || !parsed.globalConfig) {
       return createInitialState()
     }
 
@@ -130,9 +150,13 @@ function loadState(): AppState {
       ? Math.max(0, Number(parsed.globalConfig.defaultPointCost.toFixed(4)))
       : DEFAULT_POINT_COST
     parsed.globalConfig.dialogueReplacementRules = normalizeDialogueReplacementRules(parsed.globalConfig.dialogueReplacementRules)
-    parsed.globalConfig.reviewNotePrefixOptions = Array.isArray(parsed.globalConfig.reviewNotePrefixOptions)
+    const reviewNotePrefixOptions = Array.isArray(parsed.globalConfig.reviewNotePrefixOptions)
       ? normalizeReviewNotePrefixOptions(parsed.globalConfig.reviewNotePrefixOptions)
       : createDefaultReviewNotePrefixOptions()
+    parsed.globalConfig.reviewNotePrefixOptions = storedVersion < 2
+      ? migrateReviewNotePrefixOptionsV2(reviewNotePrefixOptions)
+      : reviewNotePrefixOptions
+    parsed.version = APP_VERSION
     parsed.episodeGroups ??= []
     parsed.episodeGroups.forEach((group) => {
       group.starred ??= false
@@ -173,6 +197,10 @@ function loadState(): AppState {
       const episode = createEpisode(1, parsed.globalConfig.defaultPointCost)
       parsed.episodes = [episode]
       parsed.activeEpisodeId = episode.id
+    }
+
+    if (storedVersion < APP_VERSION) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed))
     }
 
     return parsed

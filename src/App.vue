@@ -1,5 +1,5 @@
 <template>
-  <el-config-provider>
+  <el-config-provider :message="{ placement: 'bottom' }">
     <div class="app-shell">
       <input ref="fileInputRef" class="file-input" type="file" accept="application/json,.json" multiple @change="importEpisode" />
 
@@ -62,8 +62,8 @@
                       >
                         <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
                           <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
-                            <el-input v-model="episode.title" class="episode-title-input" placeholder="本集标题" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename" />
-                            <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename" />
+                            <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="集数" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
+                            <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename(episode)" />
                             <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelEpisodeRename(episode)" />
                           </div>
                           <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
@@ -100,8 +100,7 @@
                               <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelGroupRename(group)" />
                             </div>
                             <span v-else class="group-title-text">{{ group.title }}</span>
-                            <span v-if="editingGroupId !== group.id && isGroupAutoStarred(group.id)" class="episode-star group-star">⭐️</span>
-                            <span v-else-if="editingGroupId !== group.id" class="group-star-placeholder" aria-hidden="true"></span>
+                            <em v-if="editingGroupId !== group.id">{{ episodesForGroup(group.id).length }}</em>
                           </div>
                           <template #dropdown>
                             <el-dropdown-menu>
@@ -124,8 +123,8 @@
                           >
                             <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
                               <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
-                                <el-input v-model="episode.title" class="episode-title-input" placeholder="本集标题" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename" />
-                                <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename" />
+                                <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="集数" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
+                                <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename(episode)" />
                                 <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelEpisodeRename(episode)" />
                               </div>
                               <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
@@ -181,8 +180,8 @@
                       >
                         <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
                           <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
-                            <el-input v-model="episode.title" class="episode-title-input" placeholder="本集标题" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename" />
-                            <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename" />
+                            <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="集数" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
+                            <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename(episode)" />
                             <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelEpisodeRename(episode)" />
                           </div>
                           <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
@@ -319,6 +318,7 @@
                       <el-dropdown-menu>
                         <el-dropdown-item command="edit" :icon="EditPen">修改</el-dropdown-item>
                         <el-dropdown-item command="apply-all" :icon="Refresh">全设</el-dropdown-item>
+                        <el-dropdown-item command="fill-empty" :icon="Finished">补全</el-dropdown-item>
                         <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
@@ -429,7 +429,8 @@
                           aria-label="承上启下截取标点数，左滑块承上，右滑块启下"
                           @update:model-value="updateShotConnectionValue(shot, index, $event)"
                         />
-                        <el-button :icon="Search" text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
+                        <el-button text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
+                        <el-button text type="primary" @click="copyShotDetail(shot)">复制</el-button>
                       </div>
                     </div>
                     <div class="script-title-stats">
@@ -581,7 +582,6 @@
                       </el-tooltip>
                     </span>
                     <div class="preview-copy-actions">
-                      <el-button :icon="CopyDocument" text type="primary" @click="copyShotDetail(shot)">详情</el-button>
                       <el-button :icon="CopyDocument" text type="primary" @click="copyPrompt(shot)">完整</el-button>
                     </div>
                   </div>
@@ -701,7 +701,7 @@
           <el-button type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换</el-button>
         </template>
       </el-dialog>
-      <el-dialog v-model="reviewDialogVisible" title="提示词评分" width="820px" :show-close="false" class="review-dialog" @closed="activeReviewShot = null">
+      <el-dialog v-model="reviewDialogVisible" :title="reviewDialogTitle" width="820px" :show-close="false" class="review-dialog" @closed="activeReviewShot = null">
         <el-form class="dialog-form-width-limit review-form" label-position="top">
           <el-form-item label="评分">
             <el-rate
@@ -719,43 +719,38 @@
                 <el-radio-button value="two">2次</el-radio-button>
                 <el-radio-button value="three">3次</el-radio-button>
                 <el-radio-button value="four">4次</el-radio-button>
-                <el-radio-button value="custom">填写</el-radio-button>
               </el-radio-group>
-              <Transition name="review-custom-input">
-                <el-input-number
-                  v-if="reviewDrawCountMode === 'custom'"
-                  v-model="reviewDraft.drawCount"
-                  :min="1"
-                  :max="8"
-                  :step="1"
-                  :controls="false"
-                  aria-label="自定义抽卡次数"
-                  @change="handleReviewCustomDrawCountChange"
-                />
-              </Transition>
+              <el-input-number
+                v-model="reviewCustomDrawCount"
+                :min="1"
+                :max="8"
+                :step="1"
+                :controls="false"
+                placeholder="填写"
+                aria-label="自定义抽卡次数"
+                @input="updateReviewCustomDrawCount"
+                @blur="finalizeReviewDrawCountInput"
+              />
             </div>
           </el-form-item>
           <el-form-item label="无字幕">
             <div class="review-choice-field">
               <el-radio-group v-model="reviewSubtitleMode" @change="selectReviewSubtitleMode">
                 <el-radio-button value="subtitled">全有 0</el-radio-button>
-                <el-radio-button value="half">半数 {{ reviewHalfSubtitleCount(reviewDraft.drawCount) }}</el-radio-button>
-                <el-radio-button value="majority">多数 {{ reviewMajoritySubtitleCount(reviewDraft.drawCount) }}</el-radio-button>
-                <el-radio-button value="subtitle-free">全无 {{ reviewDraft.drawCount }}</el-radio-button>
-                <el-radio-button value="custom">填写</el-radio-button>
+                <el-radio-button value="half">半数 {{ reviewHalfSubtitleCount(reviewDrawCountValue) }}</el-radio-button>
+                <el-radio-button value="majority">多数 {{ reviewMajoritySubtitleCount(reviewDrawCountValue) }}</el-radio-button>
+                <el-radio-button value="subtitle-free">全无 {{ reviewDrawCountValue }}</el-radio-button>
               </el-radio-group>
-              <Transition name="review-custom-input">
-                <el-input-number
-                  v-if="reviewSubtitleMode === 'custom'"
-                  v-model="reviewCustomSubtitleCount"
-                  :min="0"
-                  :max="reviewDraft.drawCount"
-                  :step="1"
-                  :controls="false"
-                  aria-label="自定义无字幕次数"
-                  @input="updateReviewCustomSubtitleCount"
-                />
-              </Transition>
+              <el-input-number
+                v-model="reviewCustomSubtitleCount"
+                :min="0"
+                :max="reviewDrawCountValue"
+                :step="1"
+                :controls="false"
+                placeholder="填写"
+                aria-label="自定义无字幕次数"
+                @input="updateReviewCustomSubtitleCount"
+              />
             </div>
           </el-form-item>
           <el-form-item label="备注">
@@ -1114,7 +1109,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Folder, Fold, Hide, House, MapLocation, Moon, Notebook, Plus, Refresh, Search, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Finished, Folder, Fold, Hide, House, MapLocation, Moon, Notebook, Plus, Refresh, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, normalizeDialogueReplacementRules, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
@@ -1122,6 +1117,7 @@ import {
   createEpisode,
   createEpisodeGroup,
   createEpisodeProductionData,
+  formatEpisodeTitle,
   createGlobalConfig,
   createId,
   createPromptReview,
@@ -1179,7 +1175,7 @@ type MaterialAddResult = {
   skipped: number
 }
 type MaterialDialogMode = 'add' | 'edit'
-type MaterialCommand = 'edit' | 'delete' | 'apply-all'
+type MaterialCommand = 'edit' | 'delete' | 'apply-all' | 'fill-empty'
 type EpisodeScriptTab = 'shots' | 'dialogue'
 type DialogueView = 'original' | 'replaced'
 type BatchShotSegment = {
@@ -1191,8 +1187,8 @@ type EditingMaterial = {
   value: string
 }
 type ImportMode = 'replace' | 'merge'
-type ReviewDrawCountMode = 'one' | 'two' | 'three' | 'four' | 'custom'
-type ReviewSubtitleMode = 'subtitled' | 'half' | 'majority' | 'subtitle-free' | 'custom'
+type ReviewDrawCountMode = '' | 'one' | 'two' | 'three' | 'four'
+type ReviewSubtitleMode = '' | 'subtitled' | 'half' | 'majority' | 'subtitle-free'
 type WeeklyReportPickerCell = {
   dayjs?: {
     format: (pattern: string) => string
@@ -1235,6 +1231,7 @@ const dialogueReplacedDraft = ref('')
 const selectedEpisodeGroupId = ref<string | null>(activeEpisode.value?.groupId ?? null)
 const editingEpisodeId = ref<string | null>(null)
 const editingEpisodeOriginalTitle = ref('')
+const editingEpisodeNumber = ref('')
 const editingGroupId = ref<string | null>(null)
 const editingGroupOriginalTitle = ref('')
 const expandedGroupIds = ref<string[]>(['ungrouped'])
@@ -1285,9 +1282,10 @@ const activeGroupSummaryId = ref<string | null>(null)
 const editingShotRemarkId = ref<string | null>(null)
 const shotRemarkDraft = ref('')
 const reviewDraft = ref<PromptReview>(createPromptReview())
-const reviewDrawCountMode = ref<ReviewDrawCountMode>('one')
+const reviewDrawCountMode = ref<ReviewDrawCountMode>('')
+const reviewCustomDrawCount = ref<number | undefined>()
 const reviewSubtitleMode = ref<ReviewSubtitleMode>('subtitled')
-const reviewCustomSubtitleCount = ref(3)
+const reviewCustomSubtitleCount = ref<number | undefined>()
 const reviewNotePrefixPath = ref<string[]>([])
 const episodeScriptDraft = ref('')
 const productionPointUsageDraft = ref('0')
@@ -1392,6 +1390,18 @@ const reviewSummaryTitle = computed(() => {
 
   return `《${getEpisodeGroupTitle(episode.groupId ?? null)}》${episode.title}数据`
 })
+const reviewDialogTitle = computed(() => {
+  const shot = activeReviewShot.value
+  const index = shot ? activeEpisode.value?.shots.findIndex((item) => item.id === shot.id) ?? -1 : -1
+
+  if (!shot || index < 0) {
+    return '提示词评分'
+  }
+
+  const remark = shot.remark.trim()
+  return `给 #${index + 1}${remark ? ` ${remark}` : ''} 评分`
+})
+const reviewDrawCountValue = computed(() => currentReviewDrawCount() ?? 0)
 const reviewSummaryRows = computed(() => reviewSummaryEpisode.value?.shots.map((shot, index) => ({
   shot,
   index: `#${index + 1}`,
@@ -2043,14 +2053,46 @@ function buildWeeklyReport(value: Date | string | null) {
   return lines.join('\n')
 }
 
-function finishEpisodeRename() {
+function filterEpisodeNumberInput(value: string) {
+  return value.replace(/\D/g, '')
+}
+
+function getEpisodeNumberDraft(title: string) {
+  return title.match(/\d+/)?.[0] ?? ''
+}
+
+function isEpisodeNumberUsed(groupId: string | null, episodeNumber: number, excludedEpisodeId?: string) {
+  return state.episodes.some((item) => (
+    item.id !== excludedEpisodeId
+    && item.groupId === groupId
+    && parseEpisodeNumber(item.title) === episodeNumber
+  ))
+}
+
+function finishEpisodeRename(episode: Episode) {
+  const episodeNumber = Number(editingEpisodeNumber.value)
+
+  if (Number.isInteger(episodeNumber) && episodeNumber > 0) {
+    if (isEpisodeNumberUsed(episode.groupId, episodeNumber, episode.id)) {
+      ElMessage.warning(`当前分组已存在${formatEpisodeTitle(episodeNumber)}`)
+      return
+    }
+
+    episode.title = formatEpisodeTitle(episodeNumber)
+  } else {
+    episode.title = editingEpisodeOriginalTitle.value || episode.title
+  }
+
   editingEpisodeId.value = null
   editingEpisodeOriginalTitle.value = ''
+  editingEpisodeNumber.value = ''
 }
 
 function cancelEpisodeRename(episode: Episode) {
   episode.title = editingEpisodeOriginalTitle.value || episode.title
-  finishEpisodeRename()
+  editingEpisodeId.value = null
+  editingEpisodeOriginalTitle.value = ''
+  editingEpisodeNumber.value = ''
 }
 
 function finishGroupRename() {
@@ -2248,6 +2290,7 @@ function handleEpisodeCommand(command: string | { action: 'move'; groupId: strin
 
   if (command === 'edit') {
     editingEpisodeOriginalTitle.value = episode.title
+    editingEpisodeNumber.value = getEpisodeNumberDraft(episode.title)
     editingEpisodeId.value = episode.id
     return
   }
@@ -2473,6 +2516,11 @@ function handleMaterialCommand(command: string | number | object, kind: Material
 
   if (action === 'apply-all' && kind === 'scenes') {
     applySceneToAllShots(value)
+    return
+  }
+
+  if (action === 'fill-empty' && kind === 'scenes') {
+    fillEmptyShotsWithScene(value)
   }
 }
 
@@ -2622,6 +2670,32 @@ function applySceneToAllShots(value: string) {
   ElMessage.success('已应用到本集全部分镜')
 }
 
+function fillEmptyShotsWithScene(value: string) {
+  const episode = activeEpisode.value
+  const sceneAsset = episode?.scenes.find((scene) => scene.name === value)
+
+  if (!episode || !sceneAsset) {
+    return
+  }
+
+  let count = 0
+  episode.shots.forEach((shot) => {
+    if (shot.scenes.some((scene) => scene.name.trim())) {
+      return
+    }
+
+    const preservedStatus = shot.scenes[0]?.statusText ?? ''
+    shot.scenes = [createSceneConfig(sceneAsset.name, sceneAsset.time, sceneAsset.space, preservedStatus)]
+    count += 1
+  })
+
+  if (count) {
+    ElMessage.success(`已补全 ${count} 条空场景分镜`)
+  } else {
+    ElMessage.info('没有需要补全的空场景分镜')
+  }
+}
+
 function syncSceneStatus(sourceShot: Shot, source: SceneConfig, scope: StatusSyncScope) {
   const episode = activeEpisode.value
   const name = source.name.trim()
@@ -2677,13 +2751,20 @@ function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: S
 function addEpisode() {
   const targetGroupId = getSelectedEpisodeGroupId()
   const targetTreeId = targetGroupId ?? 'ungrouped'
-  const episode = createEpisode(groupEpisodeCount(targetTreeId) + 1, state.globalConfig.defaultPointCost)
+  let episodeNumber = groupEpisodeCount(targetTreeId) + 1
+
+  while (isEpisodeNumberUsed(targetGroupId, episodeNumber)) {
+    episodeNumber += 1
+  }
+
+  const episode = createEpisode(episodeNumber, state.globalConfig.defaultPointCost)
   episode.groupId = targetGroupId
   state.episodes.push(episode)
   state.activeEpisodeId = episode.id
   selectedEpisodeGroupId.value = targetGroupId
   expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, targetTreeId]))
   editingEpisodeOriginalTitle.value = episode.title
+  editingEpisodeNumber.value = getEpisodeNumberDraft(episode.title)
   editingEpisodeId.value = episode.id
 }
 
@@ -3509,62 +3590,104 @@ function calculateAutomaticReviewRating(drawCount: number, notePrefix: string) {
 }
 
 function updateAutomaticReviewRating() {
-  if (!Number.isFinite(reviewDraft.value.drawCount)) {
+  const drawCount = currentReviewDrawCount()
+
+  if (!drawCount) {
+    reviewDraft.value.rating = 0
     return
   }
 
-  reviewDraft.value.rating = calculateAutomaticReviewRating(reviewDraft.value.drawCount, reviewDraft.value.notePrefix)
+  reviewDraft.value.drawCount = drawCount
+  reviewDraft.value.rating = calculateAutomaticReviewRating(drawCount, reviewDraft.value.notePrefix)
 }
 
 function syncNoSubtitleCount() {
-  if (!Number.isFinite(reviewDraft.value.drawCount)) {
+  const drawCount = currentReviewDrawCount()
+
+  if (!drawCount) {
+    reviewDraft.value.noSubtitleCount = 0
     return
   }
 
+  reviewDraft.value.noSubtitleCount = currentReviewNoSubtitleCount(drawCount) ?? Number.NaN
+}
+
+function currentReviewDrawCount() {
+  const shortcutValue = reviewDrawCountMode.value === 'one'
+    ? 1
+    : reviewDrawCountMode.value === 'two'
+      ? 2
+      : reviewDrawCountMode.value === 'three' ? 3 : reviewDrawCountMode.value === 'four' ? 4 : null
+
+  return shortcutValue ?? (isValidReviewDrawCount(reviewCustomDrawCount.value) ? reviewCustomDrawCount.value : null)
+}
+
+function isValidReviewDrawCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 8
+}
+
+function currentReviewNoSubtitleCount(drawCount: number) {
   if (reviewSubtitleMode.value === 'subtitled') {
-    reviewDraft.value.noSubtitleCount = 0
-  } else if (reviewSubtitleMode.value === 'half') {
-    reviewDraft.value.noSubtitleCount = reviewHalfSubtitleCount(reviewDraft.value.drawCount)
-  } else if (reviewSubtitleMode.value === 'majority') {
-    reviewDraft.value.noSubtitleCount = reviewMajoritySubtitleCount(reviewDraft.value.drawCount)
-  } else if (reviewSubtitleMode.value === 'subtitle-free') {
-    reviewDraft.value.noSubtitleCount = reviewDraft.value.drawCount
-  } else if (Number.isFinite(reviewCustomSubtitleCount.value)) {
-    reviewCustomSubtitleCount.value = Math.min(reviewCustomSubtitleCount.value, reviewDraft.value.drawCount)
-    reviewDraft.value.noSubtitleCount = reviewCustomSubtitleCount.value
+    return 0
   }
+
+  if (reviewSubtitleMode.value === 'half') {
+    return reviewHalfSubtitleCount(drawCount)
+  }
+
+  if (reviewSubtitleMode.value === 'majority') {
+    return reviewMajoritySubtitleCount(drawCount)
+  }
+
+  if (reviewSubtitleMode.value === 'subtitle-free') {
+    return drawCount
+  }
+
+  const customValue = reviewCustomSubtitleCount.value
+  return typeof customValue === 'number' && Number.isInteger(customValue) && customValue >= 0 && customValue <= drawCount
+    ? customValue
+    : null
 }
 
 function selectReviewDrawCountMode(value: string | number | boolean | undefined) {
-  const mode = value as ReviewDrawCountMode
-  reviewDraft.value.drawCount = mode === 'one'
-    ? 1
-    : mode === 'two' ? 2 : mode === 'three' ? 3 : mode === 'four' ? 4 : 5
+  reviewDrawCountMode.value = value as ReviewDrawCountMode
+  reviewCustomDrawCount.value = undefined
   syncNoSubtitleCount()
   updateAutomaticReviewRating()
 }
 
-function handleReviewCustomDrawCountChange() {
+function updateReviewCustomDrawCount(value: number | null | undefined) {
+  if (!isValidReviewDrawCount(value)) {
+    return
+  }
+
+  reviewDrawCountMode.value = ''
+  reviewDraft.value.drawCount = value
+}
+
+function finalizeReviewDrawCountInput() {
   syncNoSubtitleCount()
   updateAutomaticReviewRating()
 }
 
 function selectReviewSubtitleMode(value: string | number | boolean | undefined) {
-  const mode = value as ReviewSubtitleMode
-  if (mode === 'custom') {
-    reviewCustomSubtitleCount.value = Math.min(reviewCustomSubtitleCount.value, reviewDraft.value.drawCount)
-    reviewDraft.value.noSubtitleCount = reviewCustomSubtitleCount.value
-    return
-  }
-
-  reviewDraft.value.noSubtitleCount = mode === 'subtitled'
-    ? 0
-    : mode === 'half' ? reviewHalfSubtitleCount(reviewDraft.value.drawCount)
-      : mode === 'majority' ? reviewMajoritySubtitleCount(reviewDraft.value.drawCount) : reviewDraft.value.drawCount
+  reviewSubtitleMode.value = value as ReviewSubtitleMode
+  reviewCustomSubtitleCount.value = undefined
+  syncNoSubtitleCount()
 }
 
 function updateReviewCustomSubtitleCount(value: number | null | undefined) {
-  reviewDraft.value.noSubtitleCount = typeof value === 'number' ? value : Number.NaN
+  const drawCount = currentReviewDrawCount()
+
+  if (!drawCount || typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > drawCount) {
+    if (!reviewSubtitleMode.value) {
+      reviewDraft.value.noSubtitleCount = Number.NaN
+    }
+    return
+  }
+
+  reviewSubtitleMode.value = ''
+  reviewDraft.value.noSubtitleCount = value
 }
 
 function updateReviewNotePrefix(value: unknown) {
@@ -3587,9 +3710,10 @@ function formatReviewNote(review: PromptReview) {
 
 function resetReviewDraft() {
   reviewDraft.value = createPromptReview()
-  reviewDrawCountMode.value = 'one'
+  reviewDrawCountMode.value = ''
+  reviewCustomDrawCount.value = undefined
   reviewSubtitleMode.value = 'subtitled'
-  reviewCustomSubtitleCount.value = 3
+  reviewCustomSubtitleCount.value = undefined
   reviewNotePrefixPath.value = []
 }
 
@@ -3609,19 +3733,22 @@ function clearReviewDialog() {
 function openReviewDialog(shot: Shot) {
   activeReviewShot.value = shot
   reviewDraft.value = { ...normalizePromptReview(shot.review) }
-  reviewDrawCountMode.value = reviewDraft.value.drawCount === 1
+  reviewDrawCountMode.value = isReviewDefault(reviewDraft.value)
+    ? ''
+    : reviewDraft.value.drawCount === 1
     ? 'one'
     : reviewDraft.value.drawCount === 2
       ? 'two'
-      : reviewDraft.value.drawCount === 3 ? 'three' : reviewDraft.value.drawCount === 4 ? 'four' : 'custom'
+      : reviewDraft.value.drawCount === 3 ? 'three' : reviewDraft.value.drawCount === 4 ? 'four' : ''
+  reviewCustomDrawCount.value = reviewDrawCountMode.value ? undefined : isReviewDefault(reviewDraft.value) ? undefined : reviewDraft.value.drawCount
   reviewSubtitleMode.value = reviewDraft.value.noSubtitleCount === 0
     ? 'subtitled'
     : reviewDraft.value.noSubtitleCount === reviewDraft.value.drawCount
       ? 'subtitle-free'
       : reviewDraft.value.noSubtitleCount === reviewHalfSubtitleCount(reviewDraft.value.drawCount)
         ? 'half'
-        : reviewDraft.value.noSubtitleCount === reviewMajoritySubtitleCount(reviewDraft.value.drawCount) ? 'majority' : 'custom'
-  reviewCustomSubtitleCount.value = reviewSubtitleMode.value === 'custom' ? reviewDraft.value.noSubtitleCount : 3
+        : reviewDraft.value.noSubtitleCount === reviewMajoritySubtitleCount(reviewDraft.value.drawCount) ? 'majority' : ''
+  reviewCustomSubtitleCount.value = reviewSubtitleMode.value ? undefined : reviewDraft.value.noSubtitleCount
   reviewNotePrefixPath.value = reviewDraft.value.notePrefix.split('→').filter(Boolean)
   reviewDialogVisible.value = true
 }
@@ -3634,16 +3761,23 @@ function saveReviewDialog() {
     return
   }
 
-  if (reviewDrawCountMode.value === 'custom' && !Number.isFinite(reviewDraft.value.drawCount)) {
+  const drawCount = currentReviewDrawCount()
+
+  if (!drawCount) {
     ElMessage.warning('请填写抽卡次数')
     return
   }
 
-  if (reviewSubtitleMode.value === 'custom' && !Number.isFinite(reviewDraft.value.noSubtitleCount)) {
+  const noSubtitleCount = currentReviewNoSubtitleCount(drawCount)
+
+  if (noSubtitleCount === null) {
     ElMessage.warning('请填写无字幕次数')
     return
   }
 
+  reviewDraft.value.drawCount = drawCount
+  reviewDraft.value.noSubtitleCount = noSubtitleCount
+  updateAutomaticReviewRating()
   const normalizedReview = normalizePromptReview(reviewDraft.value)
 
   if (isReviewDefault(normalizedReview)) {

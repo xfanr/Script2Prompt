@@ -1405,17 +1405,6 @@ html.dark .episode-panel {
   flex: 1 1 0;
 }
 
-.review-custom-input-enter-active,
-.review-custom-input-leave-active {
-  transition: opacity 160ms ease, transform 160ms ease;
-}
-
-.review-custom-input-enter-from,
-.review-custom-input-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-}
-
 .review-note-input .el-input-group__prepend {
   box-sizing: border-box;
   width: min(220px, 46%);

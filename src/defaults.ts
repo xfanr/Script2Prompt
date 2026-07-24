@@ -1,7 +1,7 @@
 import type { AppState, CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, ReviewNotePrefixOption, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
-export const APP_VERSION = 1
+export const APP_VERSION = 2
 export const DEFAULT_POINT_COST = 0.0051
 
 export const defaultBaseSetting = `纪实高清电影。光线通透均匀，高光不过曝，暗部保留完整细节，带轻微柔光质感。采用浅景深。禁止使用远景、全景镜头。
@@ -19,11 +19,13 @@ export const defaultReviewNotePrefixPaths = [
   '模型失误→穿模',
   '模型失误→位置',
   '模型失误→动作',
+  '模型失误→渲染定位图',
   '模型失误→角色ID漂移',
   '模型失误→角色多胞胎',
   '抽卡失误→引用缺失',
   '抽卡失误→引用冗余',
   '抽卡失误→引用错乱',
+  '抽卡失误→内容过多',
   '抽卡失误→参考图错误',
   '剧本失误→前后矛盾',
 ]
@@ -186,10 +188,15 @@ export function createEpisodeGroup(): EpisodeGroup {
   }
 }
 
+export function formatEpisodeTitle(index: number) {
+  const normalizedIndex = Math.max(1, Math.trunc(index))
+  return `第 ${String(normalizedIndex).padStart(2, '0')} 集`
+}
+
 export function createEpisode(index = 1, pointCost = DEFAULT_POINT_COST): Episode {
   return {
     id: createId('episode'),
-    title: '第 x 集',
+    title: formatEpisodeTitle(index),
     characters: [],
     groupId: null,
     starred: false,
