@@ -412,7 +412,7 @@
                 <section class="shot-cell script-cell">
                   <div class="cell-title script-title">
                     <div class="script-title-left">
-                      <span>{{ sectionTitle('shot') }}</span>
+                      <span>分镜详情</span>
                       <div class="script-title-actions">
                         <el-slider
                           class="shot-connection-slider"
@@ -594,74 +594,7 @@
       </div>
     </div>
 
-      <el-dialog v-model="globalDialogVisible" title="全局配置" width="820px" :show-close="false" class="global-config-dialog" @close="cancelGlobalDialog">
-        <el-form class="global-config-form" label-position="top">
-          <el-form-item label="章节设置">
-            <div class="section-config-list">
-              <div v-for="section in globalConfigDraft.sections" :key="section.key" class="section-config">
-                <el-switch v-model="section.enabled" />
-                <el-input v-model="section.title" class="global-config-title-input" />
-                <el-input-number v-model="section.order" :min="1" :max="9" />
-              </div>
-            </div>
-          </el-form-item>
-          <el-form-item :label="draftSectionTitle('base')">
-            <el-input v-model="globalConfigDraft.baseSetting" class="global-config-textarea" type="textarea" :rows="7" resize="vertical" />
-          </el-form-item>
-          <el-form-item :label="draftSectionTitle('base') + ' 后缀'">
-            <el-input v-model="globalConfigDraft.baseSettingSuffix" class="global-config-textarea" type="textarea" :rows="3" resize="vertical" />
-          </el-form-item>
-          <el-form-item :label="draftSectionTitle('sceneRole') + ' 后缀'">
-            <el-input v-model="globalConfigDraft.sceneRoleSuffix" class="global-config-textarea" type="textarea" :rows="4" resize="vertical" />
-          </el-form-item>
-          <el-form-item label="安全时长">
-            <div class="duration-range-config slider-range-config">
-              <span>{{ durationRangeDraft[0].toFixed(1) }}</span>
-              <el-slider v-model="durationRangeDraft" range :min="3" :max="25" :step="0.5" :format-tooltip="formatDurationTooltip" />
-              <span>{{ durationRangeDraft[1].toFixed(1) }}</span>
-            </div>
-          </el-form-item>
-          <el-form-item label="新建单集默认成本">
-            <el-input-number v-model="globalConfigDraft.defaultPointCost" class="global-config-number-input" :min="0" :precision="4" :step="0.0001" controls-position="right" />
-          </el-form-item>
-          <el-form-item label="台词违禁词替换">
-            <div class="dialogue-rule-config">
-              <div class="dialogue-rule-heading">
-                <span>所有单集共用，保存后生效；替换内容留空表示删除违禁词。</span>
-                <el-button :icon="Plus" text type="primary" @click="addDialogueReplacementRule">添加规则</el-button>
-              </div>
-              <div v-if="!globalConfigDraft.dialogueReplacementRules.length" class="empty-note">暂无替换规则</div>
-              <div v-else class="dialogue-rule-list">
-                <div v-for="rule in globalConfigDraft.dialogueReplacementRules" :key="rule.id" class="dialogue-rule-row">
-                  <el-input v-model="rule.forbidden" placeholder="违禁词" clearable />
-                  <el-input v-model="rule.replacement" placeholder="替换内容，可留空" clearable />
-                  <el-button :icon="Delete" text type="danger" aria-label="删除替换规则" @click="removeDialogueReplacementRule(rule.id)" />
-                </div>
-              </div>
-            </div>
-          </el-form-item>
-          <el-form-item label="评分备注前缀">
-            <div class="dialogue-rule-config">
-              <div class="dialogue-rule-heading">
-                <span>一级分类与二级选项用于评分备注的快捷前缀。</span>
-                <el-button :icon="Plus" text type="primary" @click="addReviewNotePrefixOption">添加选项</el-button>
-              </div>
-              <div v-if="!globalConfigDraft.reviewNotePrefixOptions.length" class="empty-note">暂无前缀选项</div>
-              <div v-else class="dialogue-rule-list">
-                <div v-for="option in globalConfigDraft.reviewNotePrefixOptions" :key="option.id" class="dialogue-rule-row">
-                  <el-input v-model="option.category" placeholder="一级分类" clearable />
-                  <el-input v-model="option.label" placeholder="二级选项" clearable />
-                  <el-button :icon="Delete" text type="danger" aria-label="删除评分备注前缀" @click="removeReviewNotePrefixOption(option.id)" />
-                </div>
-              </div>
-            </div>
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <el-button @click="resetGlobalDialog">重置</el-button>
-          <el-button type="primary" @click="saveGlobalDialog">保存</el-button>
-        </template>
-      </el-dialog>
+      <GlobalConfigDialog v-model="globalDialogVisible" :config="state.globalConfig" @save="saveGlobalConfig" />
       <el-dialog v-model="detectionDialogVisible" title="人物识别冲突" width="820px" :show-close="false" class="detection-dialog" @closed="cancelActiveDetection">
         <div v-if="detectionConflict" class="detection-compare">
           <div class="detection-compare-row">
@@ -1038,7 +971,7 @@
             </div>
             <div v-else class="batch-shot-footer-actions">
               <el-button
-                :disabled="dialogueView === 'original' && !state.globalConfig.dialogueReplacementRules.length"
+                :disabled="dialogueView === 'original' && !state.globalConfig.dialogueExtraction.replacementRules.length"
                 @click="toggleDialogueReplacement"
               >
                 {{ dialogueView === 'replaced' ? '还原' : '换词' }}
@@ -1108,24 +1041,22 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
+import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
+import { cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight, Check, CircleCheckFilled, Close, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Finished, Folder, Fold, Hide, House, MapLocation, Moon, Notebook, Plus, Refresh, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, WarningFilled } from '@element-plus/icons-vue'
-import { extractDialogueText, normalizeDialogueReplacementRules, replaceDialogueText } from './dialogue'
+import { extractDialogueText, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
-  createDialogueReplacementRule,
   createEpisode,
   createEpisodeGroup,
   createEpisodeProductionData,
   formatEpisodeTitle,
-  createGlobalConfig,
   createId,
   createPromptReview,
-  createReviewNotePrefixOption,
   createSceneAsset,
   createSceneConfig,
   createShot,
-  normalizeReviewNotePrefixOptions,
 } from './defaults'
 import {
   buildDetectedCharacters,
@@ -1138,7 +1069,7 @@ import {
   recommendedSeconds,
 } from './prompt'
 import { normalizeConnectionPunctuationCount, normalizeStoredShotConnection, takeLeadingPunctuationSegments, takeTrailingPunctuationSegments } from './shotContext'
-import type { CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, ReviewNotePrefixOption, SceneAsset, SceneConfig, SceneSpace, SceneTime, SectionKey, Shot, ShotViewMode } from './types'
+import type { CharacterConfig, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotViewMode } from './types'
 import { useAppState } from './useAppState'
 
 type MaterialKind = 'characters' | 'scenes'
@@ -1206,15 +1137,14 @@ type WeeklyReportRange = {
   end: string
 }
 
+const props = defineProps<{
+  initialGlobalConfig: GlobalConfig
+}>()
+
 const EmptyPageHeaderIcon: Component = () => null
-const { state, activeEpisode } = useAppState()
+const { state, activeEpisode } = useAppState(props.initialGlobalConfig)
 const materialDialogVisible = ref(false)
 const globalDialogVisible = ref(false)
-const globalConfigDraft = ref<GlobalConfig>(cloneGlobalConfig(state.globalConfig))
-const durationRangeDraft = ref<[number, number]>([
-  state.globalConfig.recommendedDurationRange.min,
-  state.globalConfig.recommendedDurationRange.max,
-])
 const detectionDialogVisible = ref(false)
 const detectionConflictShotId = ref<string | null>(null)
 const sidebarCollapsed = ref(false)
@@ -1343,7 +1273,7 @@ const dialogueOutputDraft = computed({
 const highlightedDialogueText = computed(() => {
   const text = dialogueOutputDraft.value || ' '
   const replacementTerms = dialogueView.value === 'replaced'
-    ? Array.from(new Set(state.globalConfig.dialogueReplacementRules
+    ? Array.from(new Set(state.globalConfig.dialogueExtraction.replacementRules
       .flatMap((rule) => replaceDialogueText(rule.replacement, []).split('\n'))
       .map((term) => term.trim())
       .filter(Boolean)))
@@ -1364,7 +1294,7 @@ const detectionConflict = computed(() => detectionConflictShot.value?.pendingDet
 const reviewNoteCascaderOptions = computed(() => {
   const categories = new Map<string, Array<{ value: string; label: string }>>()
 
-  state.globalConfig.reviewNotePrefixOptions.forEach((option) => {
+  state.globalConfig.dataCollection.reviewNotePrefixOptions.forEach((option) => {
     const children = categories.get(option.category) ?? []
     children.push({ value: option.label, label: option.label })
     categories.set(option.category, children)
@@ -1606,142 +1536,17 @@ function formatEpisodeSummaryNumber(episode: Episode) {
   return number ? pad2(number) : episode.title
 }
 
-function sectionTitle(key: SectionKey) {
-  return titleFromSections(state.globalConfig.sections, key)
-}
-
-function draftSectionTitle(key: SectionKey) {
-  return titleFromSections(globalConfigDraft.value.sections, key)
-}
-
-function titleFromSections(sections: GlobalConfig['sections'], key: SectionKey) {
-  const fallback: Record<SectionKey, string> = {
-    base: '基础设定',
-    sceneRole: '场景与角色设定',
-    shot: '分镜详情',
-  }
-
-  return sections.find((section) => section.key === key)?.title.trim() || fallback[key]
-}
-
-function cloneGlobalConfig(config: GlobalConfig): GlobalConfig {
-  return JSON.parse(JSON.stringify(config)) as GlobalConfig
-}
-
 function openGlobalDialog() {
-  globalConfigDraft.value = cloneGlobalConfig(state.globalConfig)
-  durationRangeDraft.value = [
-    state.globalConfig.recommendedDurationRange.min,
-    state.globalConfig.recommendedDurationRange.max,
-  ]
   globalDialogVisible.value = true
 }
 
-function saveGlobalDialog() {
-  const dialogueRules = validateDialogueReplacementRules(globalConfigDraft.value.dialogueReplacementRules)
-
-  if (!dialogueRules) {
-    return
-  }
-
-  const reviewNotePrefixOptions = validateReviewNotePrefixOptions(globalConfigDraft.value.reviewNotePrefixOptions)
-
-  if (!reviewNotePrefixOptions) {
-    return
-  }
-
-  const [min, max] = durationRangeDraft.value
-  state.globalConfig = {
-    ...cloneGlobalConfig(globalConfigDraft.value),
-    defaultPointCost: Math.max(0, Number(Number(globalConfigDraft.value.defaultPointCost || 0).toFixed(4))),
-    dialogueReplacementRules: dialogueRules,
-    reviewNotePrefixOptions,
-    recommendedDurationRange: {
-      min: Math.min(min, max),
-      max: Math.max(min, max),
-    },
-  }
-  globalDialogVisible.value = false
-}
-
-function validateDialogueReplacementRules(rules: DialogueReplacementRule[]) {
-  const normalized = rules.map((rule) => ({
-    ...rule,
-    forbidden: rule.forbidden.trim(),
-  }))
-
-  if (normalized.some((rule) => !rule.forbidden)) {
-    ElMessage.warning('违禁词不能为空')
-    return null
-  }
-
-  const forbiddenSet = new Set(normalized.map((rule) => rule.forbidden))
-
-  if (forbiddenSet.size !== normalized.length) {
-    ElMessage.warning('违禁词不能重复')
-    return null
-  }
-
-  return normalized
-}
-
-function addDialogueReplacementRule() {
-  globalConfigDraft.value.dialogueReplacementRules.push(createDialogueReplacementRule())
-}
-
-function removeDialogueReplacementRule(id: string) {
-  globalConfigDraft.value.dialogueReplacementRules = globalConfigDraft.value.dialogueReplacementRules.filter((rule) => rule.id !== id)
-}
-
-function validateReviewNotePrefixOptions(options: ReviewNotePrefixOption[]) {
-  const normalized = options.map((option) => ({
-    ...option,
-    category: option.category.trim(),
-    label: option.label.trim(),
-  }))
-
-  if (normalized.some((option) => !option.category || !option.label)) {
-    ElMessage.warning('评分备注前缀的一级分类和二级选项不能为空')
-    return null
-  }
-
-  const pathSet = new Set(normalized.map((option) => `${option.category}→${option.label}`))
-
-  if (pathSet.size !== normalized.length) {
-    ElMessage.warning('评分备注前缀不能重复')
-    return null
-  }
-
-  return normalized
-}
-
-function addReviewNotePrefixOption() {
-  globalConfigDraft.value.reviewNotePrefixOptions.push(createReviewNotePrefixOption())
-}
-
-function removeReviewNotePrefixOption(id: string) {
-  globalConfigDraft.value.reviewNotePrefixOptions = globalConfigDraft.value.reviewNotePrefixOptions.filter((option) => option.id !== id)
-}
-
-function cancelGlobalDialog() {
-  globalDialogVisible.value = false
+function saveGlobalConfig(config: GlobalConfig) {
+  state.globalConfig = cloneGlobalConfig(config)
 }
 
 function setDarkMode(value: boolean) {
   isDarkMode.value = value
   document.documentElement.classList.toggle('dark', value)
-}
-
-function resetGlobalDialog() {
-  globalConfigDraft.value = createGlobalConfig()
-  durationRangeDraft.value = [
-    globalConfigDraft.value.recommendedDurationRange.min,
-    globalConfigDraft.value.recommendedDurationRange.max,
-  ]
-}
-
-function formatDurationTooltip(value: number) {
-  return value.toFixed(1) + ' 秒'
 }
 
 function isGroupExpanded(id: string) {
@@ -2757,7 +2562,7 @@ function addEpisode() {
     episodeNumber += 1
   }
 
-  const episode = createEpisode(episodeNumber, state.globalConfig.defaultPointCost)
+  const episode = createEpisode(episodeNumber, state.globalConfig.dataCollection.defaultPointCost)
   episode.groupId = targetGroupId
   state.episodes.push(episode)
   state.activeEpisodeId = episode.id
@@ -3098,8 +2903,8 @@ function promptPreviewWarnings(shot: Shot) {
   }
 
   const seconds = recommendedSeconds(text)
-  const min = Math.min(state.globalConfig.recommendedDurationRange.min, state.globalConfig.recommendedDurationRange.max)
-  const max = Math.max(state.globalConfig.recommendedDurationRange.min, state.globalConfig.recommendedDurationRange.max)
+  const min = Math.min(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
+  const max = Math.max(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
 
   if (text && (seconds < min || seconds > max)) {
     warnings.push(`推荐时长 ${formatSeconds(seconds)}，超出安全范围 ${formatSeconds(min)}-${formatSeconds(max)}`)
@@ -3840,7 +3645,7 @@ function organizeEpisodeScriptDraft() {
 function refreshEpisodeScriptDerivedDrafts() {
   batchShotSegments.value = splitBatchShotText(episodeScriptDraft.value)
   dialogueOriginalDraft.value = extractDialogueText(episodeScriptDraft.value)
-  dialogueReplacedDraft.value = extractDialogueText(episodeScriptDraft.value, state.globalConfig.dialogueReplacementRules)
+  dialogueReplacedDraft.value = extractDialogueText(episodeScriptDraft.value, state.globalConfig.dialogueExtraction.replacementRules)
 }
 
 function syncEpisodeScriptDraft() {
@@ -3878,7 +3683,7 @@ function toggleDialogueReplacement() {
     return
   }
 
-  dialogueReplacedDraft.value = replaceDialogueText(dialogueOriginalDraft.value, state.globalConfig.dialogueReplacementRules)
+  dialogueReplacedDraft.value = replaceDialogueText(dialogueOriginalDraft.value, state.globalConfig.dialogueExtraction.replacementRules)
   dialogueView.value = 'replaced'
 }
 
@@ -4106,8 +3911,8 @@ function durationText(text: string) {
 
 function durationState(text: string): { warn: boolean } {
   const seconds = recommendedSeconds(text)
-  const min = Math.min(state.globalConfig.recommendedDurationRange.min, state.globalConfig.recommendedDurationRange.max)
-  const max = Math.max(state.globalConfig.recommendedDurationRange.min, state.globalConfig.recommendedDurationRange.max)
+  const min = Math.min(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
+  const max = Math.max(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
 
   if (!text.trim()) {
     return { warn: false }
@@ -4226,35 +4031,26 @@ async function importEpisode(event: Event) {
   }
 
   const batches: Array<{
-    fileName: string
     groups: unknown
     episodes: Episode[]
-    hasDialogueRules: boolean
-    dialogueRules: unknown
-    hasReviewNotePrefixOptions: boolean
-    reviewNotePrefixOptions: unknown
+    globalConfig: GlobalConfig | null
   }> = []
 
   for (const file of files) {
     try {
       const payload = JSON.parse(await file.text()) as Partial<ExportPayload> & { episodes?: Episode[] }
       const episodes = Array.isArray(payload.episodes) ? payload.episodes : payload.episode ? [payload.episode] : []
-      const globalSnapshot = payload.globalConfigSnapshot as Partial<GlobalConfig> | undefined
-      const hasDialogueRules = Boolean(globalSnapshot && Object.prototype.hasOwnProperty.call(globalSnapshot, 'dialogueReplacementRules'))
-      const hasReviewNotePrefixOptions = Boolean(globalSnapshot && Object.prototype.hasOwnProperty.call(globalSnapshot, 'reviewNotePrefixOptions'))
+      const storedVersion = typeof payload.version === 'number' && Number.isInteger(payload.version) ? payload.version : 1
+      const globalConfig = normalizeGlobalConfigSnapshot(payload.globalConfigSnapshot, storedVersion, state.globalConfig)
 
       if (!episodes.length) {
         throw new Error('invalid episode')
       }
 
       batches.push({
-        fileName: file.name,
         groups: payload.episodeGroups,
         episodes,
-        hasDialogueRules,
-        dialogueRules: globalSnapshot?.dialogueReplacementRules,
-        hasReviewNotePrefixOptions,
-        reviewNotePrefixOptions: globalSnapshot?.reviewNotePrefixOptions,
+        globalConfig,
       })
     } catch {
       ElMessage.error(`导入失败：${file.name} 格式不正确或缺少单集数据`)
@@ -4271,8 +4067,7 @@ async function importEpisode(event: Event) {
     return
   }
 
-  applyImportedDialogueRules(batches, importMode)
-  applyImportedReviewNotePrefixOptions(batches, importMode)
+  applyImportedGlobalConfigs(batches, importMode)
 
   if (importMode === 'replace') {
     state.episodeGroups = []
@@ -4329,7 +4124,7 @@ async function importEpisode(event: Event) {
   })
 
   if (!state.episodes.length) {
-    const episode = createEpisode(1, state.globalConfig.defaultPointCost)
+    const episode = createEpisode(1, state.globalConfig.dataCollection.defaultPointCost)
     state.episodes = [episode]
     selectEpisode(episode)
   }
@@ -4341,50 +4136,25 @@ async function importEpisode(event: Event) {
   }
 }
 
-function applyImportedDialogueRules(
-  batches: Array<{ hasDialogueRules: boolean; dialogueRules: unknown }>,
+function applyImportedGlobalConfigs(
+  batches: Array<{ globalConfig: GlobalConfig | null }>,
   importMode: ImportMode,
 ) {
-  const batchesWithRules = batches.filter((batch) => batch.hasDialogueRules)
+  const importedConfigs = batches.map((batch) => batch.globalConfig).filter((config): config is GlobalConfig => Boolean(config))
 
-  if (!batchesWithRules.length) {
+  if (!importedConfigs.length) {
     return
   }
 
   if (importMode === 'replace') {
-    const lastBatch = batchesWithRules[batchesWithRules.length - 1]
-    state.globalConfig.dialogueReplacementRules = normalizeDialogueReplacementRules(lastBatch.dialogueRules)
+    state.globalConfig = cloneGlobalConfig(importedConfigs[importedConfigs.length - 1])
     return
   }
 
-  const importedRules = batchesWithRules.flatMap((batch) => normalizeDialogueReplacementRules(batch.dialogueRules))
-  state.globalConfig.dialogueReplacementRules = normalizeDialogueReplacementRules([
-    ...state.globalConfig.dialogueReplacementRules,
-    ...importedRules,
-  ])
-}
-
-function applyImportedReviewNotePrefixOptions(
-  batches: Array<{ hasReviewNotePrefixOptions: boolean; reviewNotePrefixOptions: unknown }>,
-  importMode: ImportMode,
-) {
-  const batchesWithOptions = batches.filter((batch) => batch.hasReviewNotePrefixOptions)
-
-  if (!batchesWithOptions.length) {
-    return
-  }
-
-  if (importMode === 'replace') {
-    const lastBatch = batchesWithOptions[batchesWithOptions.length - 1]
-    state.globalConfig.reviewNotePrefixOptions = normalizeReviewNotePrefixOptions(lastBatch.reviewNotePrefixOptions)
-    return
-  }
-
-  const importedOptions = batchesWithOptions.flatMap((batch) => normalizeReviewNotePrefixOptions(batch.reviewNotePrefixOptions))
-  state.globalConfig.reviewNotePrefixOptions = normalizeReviewNotePrefixOptions([
-    ...state.globalConfig.reviewNotePrefixOptions,
-    ...importedOptions,
-  ])
+  state.globalConfig = importedConfigs.reduce(
+    (current, imported) => mergeGlobalConfigs(current, imported),
+    cloneGlobalConfig(state.globalConfig),
+  )
 }
 
 async function selectImportMode(): Promise<ImportMode | null> {

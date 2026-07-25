@@ -2,14 +2,6 @@ export type CompletionStatus = 'incomplete' | 'complete'
 export type ShotViewMode = 'expanded' | 'collapse-completed' | 'hide-completed'
 export type SceneTime = '白天' | '深夜'
 export type SceneSpace = '室内' | '室外'
-export type SectionKey = 'base' | 'sceneRole' | 'shot'
-
-export interface SectionConfig {
-  key: SectionKey
-  title: string
-  order: number
-  enabled: boolean
-}
 
 export interface DurationRange {
   min: number
@@ -28,15 +20,35 @@ export interface ReviewNotePrefixOption {
   label: string
 }
 
-export interface GlobalConfig {
-  baseSetting: string
-  baseSettingSuffix: string
+export interface PromptProfile {
+  id: string
+  name: string
+  basePrefix: string
+  baseSuffix: string
+  sceneRolePrefix: string
   sceneRoleSuffix: string
+  shotPrefix: string
+}
+
+export interface PromptConfig {
+  activeProfileId: string
+  profiles: PromptProfile[]
+}
+
+export interface DataCollectionConfig {
   recommendedDurationRange: DurationRange
   defaultPointCost: number
-  dialogueReplacementRules: DialogueReplacementRule[]
   reviewNotePrefixOptions: ReviewNotePrefixOption[]
-  sections: SectionConfig[]
+}
+
+export interface DialogueExtractionConfig {
+  replacementRules: DialogueReplacementRule[]
+}
+
+export interface GlobalConfig {
+  prompt: PromptConfig
+  dataCollection: DataCollectionConfig
+  dialogueExtraction: DialogueExtractionConfig
 }
 
 export interface SceneConfig {

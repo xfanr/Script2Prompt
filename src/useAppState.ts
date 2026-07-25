@@ -1,8 +1,8 @@
 import { computed, reactive, watch } from 'vue'
-import { normalizeDialogueReplacementRules } from './dialogue'
-import { APP_VERSION, createDefaultReviewNotePrefixOptions, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createReviewNotePrefixOption, createSceneAsset, createSceneConfig, DEFAULT_POINT_COST, defaultBaseSettingSuffix, normalizeReviewNotePrefixOptions, STORAGE_KEY } from './defaults'
+import { cloneGlobalConfig, migrateLegacyGlobalConfig, normalizeGlobalConfig } from './config'
+import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, createSceneConfig, STORAGE_KEY } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
-import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, ReviewNotePrefixOption, SceneAsset, SceneConfig, ShotViewMode } from './types'
+import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
 
 const shotViewModes: ShotViewMode[] = ['expanded', 'collapse-completed', 'hide-completed']
 
@@ -103,30 +103,11 @@ function normalizeEpisodeProductionData(data: unknown): EpisodeProductionData {
   }
 }
 
-function migrateReviewNotePrefixOptionsV2(options: ReviewNotePrefixOption[]) {
-  const migrated = options.slice()
-
-  insertReviewNotePrefixOption(migrated, '模型失误', '渲染定位图', '动作')
-  insertReviewNotePrefixOption(migrated, '抽卡失误', '内容过多', '引用错乱')
-
-  return migrated
-}
-
-function insertReviewNotePrefixOption(options: ReviewNotePrefixOption[], category: string, label: string, afterLabel: string) {
-  if (options.some((option) => option.category === category && option.label === label)) {
-    return
-  }
-
-  const anchorIndex = options.findIndex((option) => option.category === category && option.label === afterLabel)
-  const insertIndex = anchorIndex >= 0 ? anchorIndex + 1 : options.length
-  options.splice(insertIndex, 0, createReviewNotePrefixOption(category, label))
-}
-
-function loadState(): AppState {
+function loadState(defaultGlobalConfig: GlobalConfig): AppState {
   const raw = localStorage.getItem(STORAGE_KEY)
 
   if (!raw) {
-    return createInitialState()
+    return createPersistedInitialState(defaultGlobalConfig)
   }
 
   try {
@@ -134,28 +115,23 @@ function loadState(): AppState {
     const storedVersion = parsed.version
 
     if (!Number.isInteger(storedVersion) || storedVersion < 1 || storedVersion > APP_VERSION || !Array.isArray(parsed.episodes) || !parsed.globalConfig) {
-      return createInitialState()
+      return createPersistedInitialState(defaultGlobalConfig)
     }
 
-    const legacyGlobalConfig = parsed.globalConfig as GlobalConfig & { autoCollapseCompletedShots?: boolean }
+    const legacyGlobalConfig = parsed.globalConfig as unknown as { autoCollapseCompletedShots?: boolean }
     parsed.shotViewMode = shotViewModes.includes(parsed.shotViewMode)
       ? parsed.shotViewMode
       : legacyGlobalConfig.autoCollapseCompletedShots === false ? 'expanded' : 'collapse-completed'
     delete legacyGlobalConfig.autoCollapseCompletedShots
-    parsed.globalConfig.baseSettingSuffix ??= defaultBaseSettingSuffix
-    parsed.globalConfig.recommendedDurationRange ??= { min: 4, max: 21 }
-    parsed.globalConfig.recommendedDurationRange.min ??= 4
-    parsed.globalConfig.recommendedDurationRange.max ??= 21
-    parsed.globalConfig.defaultPointCost = typeof parsed.globalConfig.defaultPointCost === 'number' && Number.isFinite(parsed.globalConfig.defaultPointCost)
-      ? Math.max(0, Number(parsed.globalConfig.defaultPointCost.toFixed(4)))
-      : DEFAULT_POINT_COST
-    parsed.globalConfig.dialogueReplacementRules = normalizeDialogueReplacementRules(parsed.globalConfig.dialogueReplacementRules)
-    const reviewNotePrefixOptions = Array.isArray(parsed.globalConfig.reviewNotePrefixOptions)
-      ? normalizeReviewNotePrefixOptions(parsed.globalConfig.reviewNotePrefixOptions)
-      : createDefaultReviewNotePrefixOptions()
-    parsed.globalConfig.reviewNotePrefixOptions = storedVersion < 2
-      ? migrateReviewNotePrefixOptionsV2(reviewNotePrefixOptions)
-      : reviewNotePrefixOptions
+    const normalizedGlobalConfig = storedVersion < 3
+      ? migrateLegacyGlobalConfig(parsed.globalConfig, storedVersion, defaultGlobalConfig)
+      : normalizeGlobalConfig(parsed.globalConfig)
+    const shouldPersistNormalizedState = (
+      storedVersion < APP_VERSION
+      || !normalizedGlobalConfig
+      || JSON.stringify(parsed.globalConfig) !== JSON.stringify(normalizedGlobalConfig)
+    )
+    parsed.globalConfig = normalizedGlobalConfig ?? cloneGlobalConfig(defaultGlobalConfig)
     parsed.version = APP_VERSION
     parsed.episodeGroups ??= []
     parsed.episodeGroups.forEach((group) => {
@@ -194,23 +170,29 @@ function loadState(): AppState {
     })
 
     if (!parsed.episodes.length) {
-      const episode = createEpisode(1, parsed.globalConfig.defaultPointCost)
+      const episode = createEpisode(1, parsed.globalConfig.dataCollection.defaultPointCost)
       parsed.episodes = [episode]
       parsed.activeEpisodeId = episode.id
     }
 
-    if (storedVersion < APP_VERSION) {
+    if (shouldPersistNormalizedState) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed))
     }
 
     return parsed
   } catch {
-    return createInitialState()
+    return createPersistedInitialState(defaultGlobalConfig)
   }
 }
 
-export function useAppState() {
-  const state = reactive<AppState>(loadState())
+function createPersistedInitialState(defaultGlobalConfig: GlobalConfig) {
+  const initialState = createInitialState(defaultGlobalConfig)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(initialState))
+  return initialState
+}
+
+export function useAppState(defaultGlobalConfig: GlobalConfig) {
+  const state = reactive<AppState>(loadState(defaultGlobalConfig))
   let isSaving = false
 
   const activeEpisode = computed(() => {

@@ -1,34 +1,7 @@
 import type { AppState, CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, ReviewNotePrefixOption, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
-export const APP_VERSION = 2
-export const DEFAULT_POINT_COST = 0.0051
-
-export const defaultBaseSetting = `纪实高清电影。光线通透均匀，高光不过曝，暗部保留完整细节，带轻微柔光质感。采用浅景深。禁止使用远景、全景镜头。
-音频仅保留同期声，无背景音乐。
-禁止出现任何字幕、文字叠加、纯画面。`
-
-export const defaultSceneRoleSuffix =
-  '所有角色采用生活化写实表演，包含眨眼频次变化等微动作；杜绝死鱼眼、站桩式表演。'
-
-export const defaultBaseSettingSuffix =
-  '禁止生成角色同款分身或双胞胎效果。'
-
-export const defaultReviewNotePrefixPaths = [
-  '模型失误→读音',
-  '模型失误→穿模',
-  '模型失误→位置',
-  '模型失误→动作',
-  '模型失误→渲染定位图',
-  '模型失误→角色ID漂移',
-  '模型失误→角色多胞胎',
-  '抽卡失误→引用缺失',
-  '抽卡失误→引用冗余',
-  '抽卡失误→引用错乱',
-  '抽卡失误→内容过多',
-  '抽卡失误→参考图错误',
-  '剧本失误→前后矛盾',
-]
+export const APP_VERSION = 3
 
 export function createId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -37,23 +10,6 @@ export function createId(prefix: string) {
 
 export function cloneCharacters(characters: CharacterConfig[]) {
   return characters.map((character) => ({ ...character }))
-}
-
-export function createGlobalConfig(): GlobalConfig {
-  return {
-    baseSetting: defaultBaseSetting,
-    baseSettingSuffix: defaultBaseSettingSuffix,
-    sceneRoleSuffix: defaultSceneRoleSuffix,
-    recommendedDurationRange: { min: 4, max: 21 },
-    defaultPointCost: DEFAULT_POINT_COST,
-    dialogueReplacementRules: [],
-    reviewNotePrefixOptions: createDefaultReviewNotePrefixOptions(),
-    sections: [
-      { key: 'base', title: '基础设定', order: 1, enabled: true },
-      { key: 'sceneRole', title: '场景与角色设定', order: 2, enabled: true },
-      { key: 'shot', title: '分镜详情', order: 3, enabled: true },
-    ],
-  }
 }
 
 export function createSceneAsset(name = '', time: SceneTime = '白天', space: SceneSpace = '室内'): SceneAsset {
@@ -88,13 +44,6 @@ export function createReviewNotePrefixOption(category = '', label = ''): ReviewN
     category,
     label,
   }
-}
-
-export function createDefaultReviewNotePrefixOptions(): ReviewNotePrefixOption[] {
-  return defaultReviewNotePrefixPaths.map((path) => {
-    const [category, label] = path.split('→')
-    return createReviewNotePrefixOption(category, label)
-  })
 }
 
 export function normalizeReviewNotePrefixOptions(options: unknown): ReviewNotePrefixOption[] {
@@ -193,7 +142,7 @@ export function formatEpisodeTitle(index: number) {
   return `第 ${String(normalizedIndex).padStart(2, '0')} 集`
 }
 
-export function createEpisode(index = 1, pointCost = DEFAULT_POINT_COST): Episode {
+export function createEpisode(index = 1, pointCost = 0): Episode {
   return {
     id: createId('episode'),
     title: formatEpisodeTitle(index),
@@ -208,9 +157,9 @@ export function createEpisode(index = 1, pointCost = DEFAULT_POINT_COST): Episod
   }
 }
 
-export function createInitialState(): AppState {
-  const globalConfig = createGlobalConfig()
-  const episode = createEpisode(1, globalConfig.defaultPointCost)
+export function createInitialState(defaultGlobalConfig: GlobalConfig): AppState {
+  const globalConfig = JSON.parse(JSON.stringify(defaultGlobalConfig)) as GlobalConfig
+  const episode = createEpisode(1, globalConfig.dataCollection.defaultPointCost)
 
   return {
     version: APP_VERSION,

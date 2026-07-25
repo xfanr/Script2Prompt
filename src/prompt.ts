@@ -1,13 +1,11 @@
 import { createCharacterConfig } from './defaults'
+import { activePromptProfile } from './config'
 import type {
   CharacterConfig,
   DetectedCharacter,
   GlobalConfig,
-  SectionKey,
   Shot,
 } from './types'
-
-const chineseNumbers = ['一', '二', '三', '四', '五', '六', '七', '八', '九']
 
 type CharacterMatchCandidate = {
   name: string
@@ -92,37 +90,30 @@ export function mergeDetectedCharacters(
 }
 
 export function composePrompt(globalConfig: GlobalConfig, shot: Shot) {
-  const sectionContent: Record<SectionKey, string> = {
-    base: composeBaseSection(globalConfig, shot),
-    sceneRole: composeSceneRoleSection(globalConfig, shot),
-    shot: shot.text.trim(),
-  }
+  const profile = activePromptProfile(globalConfig)
+  const characterCount = shot.characters.filter((character) => character.name.trim()).length
+  const sections = [
+    ['一、基础设定', joinPromptBlocks([
+      profile.basePrefix,
+      characterCount > 2 ? profile.baseSuffix : '',
+    ])],
+    ['二、场景与角色设定', joinPromptBlocks([
+      profile.sceneRolePrefix,
+      composeSceneRoleSection(shot),
+      profile.sceneRoleSuffix,
+    ])],
+    ['三、分镜详情', joinPromptBlocks([
+      profile.shotPrefix,
+      shot.text,
+    ])],
+  ]
 
-  return globalConfig.sections
-    .filter((section) => section.enabled)
-    .slice()
-    .sort((a, b) => a.order - b.order)
-    .map((section, index) => {
-      const number = chineseNumbers[index] ?? String(index + 1)
-      const title = section.title.trim() || '未命名章节'
-      return `${number}、${title}\n${sectionContent[section.key]}`
-    })
+  return sections
+    .map(([title, content]) => `${title}\n${content}`)
     .join('\n\n')
 }
 
-function composeBaseSection(globalConfig: GlobalConfig, shot: Shot) {
-  let content = globalConfig.baseSetting.trim()
-
-  const characterCount = shot.characters.filter((character) => character.name.trim()).length
-
-  if (characterCount > 2 && globalConfig.baseSettingSuffix.trim()) {
-    content += globalConfig.baseSettingSuffix.trim()
-  }
-
-  return content
-}
-
-function composeSceneRoleSection(globalConfig: GlobalConfig, shot: Shot) {
+function composeSceneRoleSection(shot: Shot) {
   const lines: string[] = []
 
   shot.scenes
@@ -158,11 +149,11 @@ function composeSceneRoleSection(globalConfig: GlobalConfig, shot: Shot) {
       lines.push(`${parts.join('，')}。`)
     })
 
-  if (globalConfig.sceneRoleSuffix.trim()) {
-    lines.push(globalConfig.sceneRoleSuffix.trim())
-  }
-
   return lines.join('\n')
+}
+
+function joinPromptBlocks(blocks: string[]) {
+  return blocks.map((block) => block.trim()).filter(Boolean).join('\n')
 }
 
 function removeDialogueContent(text: string, names: string[]) {
