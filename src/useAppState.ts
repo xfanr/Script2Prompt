@@ -2,6 +2,7 @@ import { computed, reactive, watch } from 'vue'
 import { cloneGlobalConfig, migrateLegacyGlobalConfig, normalizeGlobalConfig } from './config'
 import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, createSceneConfig, STORAGE_KEY } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
+import { compactShotUnitNumbers, normalizeShotUnitNumber } from './shotNumber'
 import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
 
 const shotViewModes: ShotViewMode[] = ['expanded', 'collapse-completed', 'hide-completed']
@@ -26,7 +27,7 @@ function normalizeSceneAsset(scene: unknown): SceneAsset | null {
   return createSceneAsset(
     name,
     value.time === '深夜' ? '深夜' : '白天',
-    value.space === '室外' ? '室外' : '室内',
+    value.space === '无' ? '无' : value.space === '室外' ? '室外' : '室内',
   )
 }
 
@@ -46,7 +47,9 @@ function normalizeShotScene(scene: SceneConfig, assets: SceneAsset[]): SceneConf
     ...scene,
     name: scene.name ?? '',
     time: scene.time ?? asset?.time ?? '白天',
-    space: scene.space ?? asset?.space ?? '室内',
+    space: scene.space === '无' || scene.space === '室外' || scene.space === '室内'
+      ? scene.space
+      : asset?.space ?? '室内',
     statusText: typeof scene.statusText === 'string' ? scene.statusText : '',
   }
 }
@@ -151,6 +154,7 @@ function loadState(defaultGlobalConfig: GlobalConfig): AppState {
       episode.scriptText = typeof episode.scriptText === 'string' ? episode.scriptText : ''
       episode.shots?.forEach((shot, index, shots) => {
         shot.remark = typeof shot.remark === 'string' ? shot.remark : ''
+        shot.unitNumber = normalizeShotUnitNumber(shot.unitNumber)
         Object.assign(shot, normalizeStoredShotConnection(
           shot.connectPreviousCount,
           shot.connectPrevious,
@@ -167,6 +171,7 @@ function loadState(defaultGlobalConfig: GlobalConfig): AppState {
         })
         shot.review = normalizePromptReview(shot.review)
       })
+      compactShotUnitNumbers(episode.shots ?? [])
     })
 
     if (!parsed.episodes.length) {

@@ -1,7 +1,7 @@
 export type CompletionStatus = 'incomplete' | 'complete'
 export type ShotViewMode = 'expanded' | 'collapse-completed' | 'hide-completed'
 export type SceneTime = '白天' | '深夜'
-export type SceneSpace = '室内' | '室外'
+export type SceneSpace = '室内' | '室外' | '无'
 
 export interface DurationRange {
   min: number
@@ -111,6 +111,7 @@ export interface Shot {
   id: string
   text: string
   remark: string
+  unitNumber: number
   connectPrevious: boolean
   connectPreviousCount: number
   connectNext: boolean

@@ -119,7 +119,13 @@ function composeSceneRoleSection(shot: Shot) {
   shot.scenes
     .filter((scene) => scene.name.trim())
     .forEach((scene) => {
-      const parts = [scene.time, scene.space, scene.name.trim()]
+      const parts: string[] = [scene.time]
+
+      if (scene.space !== '无') {
+        parts.push(scene.space)
+      }
+
+      parts.push(scene.name.trim())
 
       if (scene.statusText?.trim()) {
         parts.push(scene.statusText.trim())

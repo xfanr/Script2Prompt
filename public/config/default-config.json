@@ -9,17 +9,17 @@
         "basePrefix": "纪实高清电影。光线通透均匀，高光不过曝，暗部保留完整细节，带轻微柔光质感。采用浅景深。禁止使用远景、全景镜头。\n音频仅保留同期声，无背景音乐。\n禁止出现任何字幕、文字叠加、纯画面。",
         "baseSuffix": "禁止生成角色同款分身或双胞胎效果。",
         "sceneRolePrefix": "",
-        "sceneRoleSuffix": "所有角色采用生活化写实表演，包含眨眼频次变化等微动作；杜绝死鱼眼、站桩式表演。",
+        "sceneRoleSuffix": "所有角色采用生活化写实表演，包含眨眼频次变化等微动作，杜绝死鱼眼。",
         "shotPrefix": ""
       },
       {
         "id": "prompt-slot-2",
         "name": "国漫",
-        "basePrefix": "纪实高清电影。光线通透均匀，高光不过曝，暗部保留完整细节，带轻微柔光质感。采用浅景深。禁止使用远景、全景镜头。\n音频仅保留同期声，无背景音乐。\n禁止出现任何字幕、文字叠加、纯画面。",
+        "basePrefix": "国漫 3D 建模画风。光线通透均匀，高光不过曝，暗部保留完整细节。采用浅景深。\n音频仅保留同期声，无背景音乐。\n禁止出现任何字幕、文字叠加、纯画面。",
         "baseSuffix": "禁止生成角色同款分身或双胞胎效果。",
         "sceneRolePrefix": "",
-        "sceneRoleSuffix": "所有角色采用生活化写实表演，包含眨眼频次变化等微动作；杜绝死鱼眼、站桩式表演。",
-        "shotPrefix": ""
+        "sceneRoleSuffix": "所有角色采用生活化写实表演，包含眨眼频次变化等微动作，杜绝死鱼眼。",
+        "shotPrefix": "（首个镜头禁止使用远景或全景）"
       },
       {
         "id": "prompt-slot-3",
@@ -27,7 +27,7 @@
         "basePrefix": "纪实高清电影。光线通透均匀，高光不过曝，暗部保留完整细节，带轻微柔光质感。采用浅景深。禁止使用远景、全景镜头。\n音频仅保留同期声，无背景音乐。\n禁止出现任何字幕、文字叠加、纯画面。",
         "baseSuffix": "禁止生成角色同款分身或双胞胎效果。",
         "sceneRolePrefix": "",
-        "sceneRoleSuffix": "所有角色采用生活化写实表演，包含眨眼频次变化等微动作；杜绝死鱼眼、站桩式表演。",
+        "sceneRoleSuffix": "所有角色采用生活化写实表演，包含眨眼频次变化等微动作，杜绝死鱼眼。",
         "shotPrefix": ""
       }
     ]
@@ -37,7 +37,7 @@
       "min": 4,
       "max": 21
     },
-    "defaultPointCost": 0.0051,
+    "defaultPointCost": 0.0063,
     "reviewNotePrefixOptions": [
       {
         "id": "review-model-pronunciation",
@@ -107,6 +107,42 @@
     ]
   },
   "dialogueExtraction": {
-    "replacementRules": []
+    "replacementRules": [
+      {
+        "id": "dialogue-rule-mrgfouqa-54qhh1",
+        "forbidden": "死",
+        "replacement": "S"
+      },
+      {
+        "id": "dialogue-rule-mrgfoyuy-wyeh64",
+        "forbidden": "报警",
+        "replacement": "报帽子"
+      },
+      {
+        "id": "dialogue-rule-mrgfpakw-3co15a",
+        "forbidden": "警察",
+        "replacement": "帽子"
+      },
+      {
+        "id": "dialogue-rule-mrgfphac-6xybcz",
+        "forbidden": "走私",
+        "replacement": "交易"
+      },
+      {
+        "id": "dialogue-rule-mrnc6mzz-zw3b9x",
+        "forbidden": "老子",
+        "replacement": "我"
+      },
+      {
+        "id": "dialogue-rule-mrnc9ohz-yvl724",
+        "forbidden": "国家",
+        "replacement": ""
+      },
+      {
+        "id": "dialogue-rule-mrncb4vr-sdbonj",
+        "forbidden": "法",
+        "replacement": "F"
+      }
+    ]
   }
 }
