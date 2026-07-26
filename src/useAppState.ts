@@ -1,5 +1,5 @@
 import { computed, reactive, watch } from 'vue'
-import { cloneGlobalConfig, migrateLegacyGlobalConfig, normalizeGlobalConfig } from './config'
+import { activePromptProfile, cloneGlobalConfig, migrateLegacyGlobalConfig, normalizeGlobalConfig } from './config'
 import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, createSceneConfig, STORAGE_KEY } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
 import { compactShotUnitNumbers, normalizeShotUnitNumber } from './shotNumber'
@@ -140,6 +140,7 @@ function loadState(defaultGlobalConfig: GlobalConfig): AppState {
     parsed.episodeGroups.forEach((group) => {
       group.starred ??= false
       group.archived ??= false
+      group.promptProfileId = activePromptProfile(parsed.globalConfig, group.promptProfileId).id
     })
 
     const groupIds = new Set(parsed.episodeGroups.map((group) => group.id))

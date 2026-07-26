@@ -89,8 +89,8 @@ export function mergeDetectedCharacters(
   return next
 }
 
-export function composePrompt(globalConfig: GlobalConfig, shot: Shot) {
-  const profile = activePromptProfile(globalConfig)
+export function composePrompt(globalConfig: GlobalConfig, shot: Shot, promptProfileId?: string) {
+  const profile = activePromptProfile(globalConfig, promptProfileId)
   const characterCount = shot.characters.filter((character) => character.name.trim()).length
   const sections = [
     ['一、基础设定', joinPromptBlocks([

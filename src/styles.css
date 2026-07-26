@@ -715,7 +715,7 @@ html.dark .episode-panel {
   min-width: 0;
   flex: 1 1 auto;
   align-items: center;
-  gap: 8px;
+  gap: 0;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-color: var(--el-border-color) var(--el-fill-color-light);
@@ -741,6 +741,15 @@ html.dark .episode-panel {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
+}
+
+.asset-tags .el-dropdown + .el-dropdown::before {
+  width: 1px;
+  height: 14px;
+  flex: 0 0 1px;
+  margin: 0 16px;
+  background: var(--el-border-color);
+  content: "";
 }
 
 .asset-link-button.el-button {
@@ -1521,9 +1530,34 @@ html.dark .episode-panel {
 
 .group-production-cards {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 14px;
+}
+
+.group-prompt-profile-card {
+  align-items: stretch;
+}
+
+.group-prompt-profile-title {
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.group-prompt-profile-name {
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 28px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-prompt-profile-selector {
+  width: 100%;
+  margin-top: auto;
 }
 
 .episode-card-controls {
@@ -1849,12 +1883,6 @@ html.dark .episode-panel {
   width: min(280px, 100%);
 }
 
-.prompt-profile-state {
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
 .dialogue-rule-config {
   display: flex;
   width: 100%;
@@ -2025,6 +2053,12 @@ html.dark .episode-panel {
   flex: 1 1 auto;
   overflow-y: auto;
   padding-right: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.episode-script-material-form::-webkit-scrollbar {
+  display: none;
 }
 
 .episode-script-material-form .el-form-item:last-child {
@@ -2064,22 +2098,16 @@ html.dark .episode-panel {
   border: 1px solid var(--el-border-color-lighter);
   border-radius: var(--el-border-radius-base);
   background: var(--el-fill-color-lighter);
-  scrollbar-color: var(--el-border-color) transparent;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.episode-script-current-materials-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .episode-script-current-material-row {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  align-items: start;
-  gap: 8px;
-}
-
-.episode-script-current-material-label {
-  padding-top: 3px;
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-  line-height: 20px;
+  min-width: 0;
 }
 
 .episode-script-current-material-tags {
@@ -2091,6 +2119,13 @@ html.dark .episode-panel {
 
 .episode-script-current-material-tags .el-tag {
   max-width: 100%;
+}
+
+.episode-script-current-material-tags .el-tag__content {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
 }
 
 .episode-script-current-material-tag-text {

@@ -23,8 +23,9 @@ export function cloneGlobalConfig(config: GlobalConfig): GlobalConfig {
   return JSON.parse(JSON.stringify(config)) as GlobalConfig
 }
 
-export function activePromptProfile(config: GlobalConfig): PromptProfile {
-  return config.prompt.profiles.find((profile) => profile.id === config.prompt.activeProfileId)
+export function activePromptProfile(config: GlobalConfig, profileId = config.prompt.activeProfileId): PromptProfile {
+  return config.prompt.profiles.find((profile) => profile.id === profileId)
+    ?? config.prompt.profiles.find((profile) => profile.id === config.prompt.activeProfileId)
     ?? config.prompt.profiles[0]
 }
 

@@ -107,7 +107,6 @@
             size="small"
             aria-label="提示词方案"
           />
-          <span class="prompt-profile-state">{{ profileStateText }}</span>
         </div>
         <div class="global-config-footer-actions">
           <el-button :loading="isResetting" @click="resetFromServer">重置</el-button>
@@ -149,11 +148,7 @@ const promptProfileOptions = computed(() => draft.value.prompt.profiles.map((pro
   label: profile.name,
   value: profile.id,
 })))
-const currentEffectiveProfileId = computed(() => props.config.prompt.activeProfileId)
 const isDirty = computed(() => JSON.stringify(draft.value) !== initialSignature.value)
-const profileStateText = computed(() => selectedProfileId.value === currentEffectiveProfileId.value
-  ? '当前生效方案'
-  : '保存后生效')
 const durationRangeDraft = computed<[number, number]>({
   get: (): [number, number] => [
     draft.value.dataCollection.recommendedDurationRange.min,
@@ -168,12 +163,6 @@ const durationRangeDraft = computed<[number, number]>({
 watch(() => props.modelValue, (visible) => {
   if (visible) {
     initializeDraft(props.config)
-  }
-})
-
-watch(selectedProfileId, (profileId) => {
-  if (draft.value.prompt.profiles.some((profile) => profile.id === profileId)) {
-    draft.value.prompt.activeProfileId = profileId
   }
 })
 

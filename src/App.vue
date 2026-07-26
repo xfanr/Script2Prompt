@@ -250,13 +250,13 @@
             <template #content>
               <div class="stage-page-actions">
                 <el-button-group class="stage-action-group">
-                  <el-button round size="default" type="primary" @click="openEpisodeScriptDialog('materials')">素材</el-button>
-                  <el-button size="default" type="primary" @click="openEpisodeScriptDialog('shots')">分镜</el-button>
-                  <el-button round size="default" type="primary" @click="openEpisodeScriptDialog('dialogue')">台词</el-button>
+                  <el-button round size="default" type="primary" plain @click="openEpisodeScriptDialog('materials')">素材</el-button>
+                  <el-button size="default" type="primary" plain @click="openEpisodeScriptDialog('shots')">分镜</el-button>
+                  <el-button round size="default" type="primary" plain @click="openEpisodeScriptDialog('dialogue')">台词</el-button>
                 </el-button-group>
                 <el-button-group class="stage-action-group">
-                  <el-button round size="default" type="primary" :plain="!areAllShotsUsingPositionReference" @click="toggleAllPositionReferences">全定位</el-button>
-                  <el-button round size="default" type="primary" :plain="!areAllShotsComplete" @click="toggleAllShotsCompletion">全完成</el-button>
+                  <el-button round size="default" type="primary" text :bg="areAllShotsUsingPositionReference" @click="toggleAllPositionReferences">全定位</el-button>
+                  <el-button round size="default" type="primary" text :bg="areAllShotsComplete" @click="toggleAllShotsCompletion">全完成</el-button>
                 </el-button-group>
               </div>
             </template>
@@ -279,7 +279,7 @@
                     @command="(command) => handleMaterialCommand(command, 'characters', item)"
                   >
                     <el-button class="asset-link-button" link :type="isCharacterUsed(item) ? 'success' : 'info'">
-                      <span class="asset-link-text">【{{ item }}】</span>
+                      <span class="asset-link-text">{{ item }}</span>
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
@@ -295,7 +295,7 @@
                     @command="(command) => handleMaterialCommand(command, 'scenes', item.name)"
                   >
                     <el-button class="asset-link-button" link :type="isSceneUsed(item.name) ? 'success' : 'info'">
-                      <span class="asset-link-text">【{{ item.time }}，{{ item.space }}，{{ item.name }}】</span>
+                      <span class="asset-link-text">{{ sceneAssetLabel(item) }}</span>
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
@@ -849,6 +849,17 @@
               <span>总制作天数 {{ groupProductionSummary.productionDays }}</span>
             </div>
           </section>
+          <section class="episode-summary-card group-prompt-profile-card">
+            <div class="group-prompt-profile-title">提示词方案</div>
+            <div class="group-prompt-profile-name">{{ groupPromptProfile.name }}</div>
+            <el-segmented
+              v-model="groupPromptProfileId"
+              class="group-prompt-profile-selector"
+              :options="promptProfileOptions"
+              size="small"
+              aria-label="提示词方案"
+            />
+          </section>
         </div>
         <el-table :data="groupSummaryTableRows" max-height="430" empty-text="暂无单集" scrollbar-always-on :row-class-name="groupSummaryRowClass">
           <el-table-column prop="title" label="标题" min-width="130" fixed="left" show-overflow-tooltip />
@@ -906,7 +917,7 @@
                     <el-input
                       v-model="materialCharacterDraft"
                       clearable
-                      placeholder="可输入多个人物名称，用逗号、顿号、分号或换行分割"
+                      placeholder="输入单个或多个人物名称"
                       @keyup.enter="continueFromEpisodeScriptMaterials"
                     />
                   </el-form-item>
@@ -960,7 +971,6 @@
                   <div class="episode-script-current-materials-scroll">
                     <template v-if="activeEpisode">
                       <div v-if="activeEpisode.characters.length" class="episode-script-current-material-row">
-                        <span class="episode-script-current-material-label">人物</span>
                         <div class="episode-script-current-material-tags">
                           <el-tag v-for="character in activeEpisode.characters" :key="character" size="small" effect="plain">
                             <span class="episode-script-current-material-tag-text">{{ character }}</span>
@@ -968,7 +978,6 @@
                         </div>
                       </div>
                       <div v-if="activeEpisode.scenes.length" class="episode-script-current-material-row">
-                        <span class="episode-script-current-material-label">场景</span>
                         <div class="episode-script-current-material-tags">
                           <el-tag v-for="scene in activeEpisode.scenes" :key="scene.name" size="small" type="info" effect="plain">
                             <span class="episode-script-current-material-tag-text">{{ sceneAssetLabel(scene) }}</span>
@@ -1162,9 +1171,9 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Component } from 'vue'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
-import { cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
+import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Bicycle, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Finished, Folder, Fold, Hide, Moon, Notebook, Plus, Refresh, School, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Finished, Folder, Fold, Hide, Location, Moon, Notebook, Plus, Position, Refresh, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
@@ -1300,8 +1309,8 @@ const materialSceneTimeOptions: MaterialSegmentedOption<SceneTime>[] = [
   { label: '深夜', value: '深夜', icon: Moon },
 ]
 const materialSceneSpaceOptions: MaterialSegmentedOption<SceneSpace>[] = [
-  { label: '室内', value: '室内', icon: School },
-  { label: '室外', value: '室外', icon: Bicycle },
+  { label: '室内', value: '室内', icon: Location },
+  { label: '室外', value: '室外', icon: Position },
   { label: '无', value: '无', icon: CloseBold },
 ]
 const themeModeOptions = [
@@ -1454,6 +1463,23 @@ const activeGroupSummary = computed(() => state.episodeGroups.find((group) => gr
 const groupSummaryEpisodes = computed(() => activeGroupSummaryId.value === 'ungrouped'
   ? sortedUngroupedEpisodes.value
   : activeGroupSummaryId.value ? episodesForGroup(activeGroupSummaryId.value) : [])
+const promptProfileOptions = computed(() => state.globalConfig.prompt.profiles.map((profile) => ({
+  label: profile.name,
+  value: profile.id,
+})))
+const groupPromptProfileId = computed<string>({
+  get: () => activePromptProfile(state.globalConfig, activeGroupSummary.value?.promptProfileId).id,
+  set: (profileId) => {
+    const normalizedProfileId = activePromptProfile(state.globalConfig, profileId).id
+
+    if (activeGroupSummary.value) {
+      activeGroupSummary.value.promptProfileId = normalizedProfileId
+    } else if (activeGroupSummaryId.value === 'ungrouped') {
+      state.globalConfig.prompt.activeProfileId = normalizedProfileId
+    }
+  },
+})
+const groupPromptProfile = computed(() => activePromptProfile(state.globalConfig, groupPromptProfileId.value))
 const reviewSummaryTitle = computed(() => {
   const episode = reviewSummaryEpisode.value
 
@@ -1503,7 +1529,7 @@ const materialDialogTitle = computed(() => {
   return editingMaterial.value?.kind === 'characters' ? '修改人物素材' : '修改场景素材'
 })
 const materialDialogConfirmText = computed(() => materialDialogMode.value === 'add' ? '添加' : '保存')
-const materialCharacterPlaceholder = computed(() => materialDialogMode.value === 'add' ? '可输入多个人物名称，用逗号、顿号、分号或换行分割' : '请输入人物名称')
+const materialCharacterPlaceholder = computed(() => materialDialogMode.value === 'add' ? '输入单个或多个人物名称' : '请输入人物名称')
 const shouldShowMaterialCharacters = computed(() => materialDialogMode.value === 'add' || editingMaterial.value?.kind === 'characters')
 const shouldShowMaterialScenes = computed(() => materialDialogMode.value === 'add' || editingMaterial.value?.kind === 'scenes')
 const groupSummarySubtitle = computed(() => {
@@ -1688,8 +1714,29 @@ function openGlobalDialog() {
   globalDialogVisible.value = true
 }
 
+function mapPromptProfileId(
+  profileId: unknown,
+  sourceConfig: GlobalConfig,
+  targetConfig: GlobalConfig,
+) {
+  const sourceProfile = activePromptProfile(sourceConfig, typeof profileId === 'string' ? profileId : undefined)
+  const sourceIndex = sourceConfig.prompt.profiles.findIndex((profile) => profile.id === sourceProfile.id)
+  return targetConfig.prompt.profiles.find((profile) => profile.name === sourceProfile.name)?.id
+    ?? targetConfig.prompt.profiles[sourceIndex]?.id
+    ?? activePromptProfile(targetConfig).id
+}
+
+function remapGroupPromptProfiles(sourceConfig: GlobalConfig, targetConfig: GlobalConfig) {
+  state.episodeGroups.forEach((group) => {
+    group.promptProfileId = mapPromptProfileId(group.promptProfileId, sourceConfig, targetConfig)
+  })
+}
+
 function saveGlobalConfig(config: GlobalConfig) {
-  state.globalConfig = cloneGlobalConfig(config)
+  const previousConfig = state.globalConfig
+  const nextConfig = cloneGlobalConfig(config)
+  remapGroupPromptProfiles(previousConfig, nextConfig)
+  state.globalConfig = nextConfig
 }
 
 function setDarkMode(value: boolean) {
@@ -2095,7 +2142,7 @@ function cancelGroupRename(group: { title: string }) {
 }
 
 function addEpisodeGroup() {
-  const group = createEpisodeGroup()
+  const group = createEpisodeGroup(state.globalConfig.prompt.activeProfileId)
   state.episodeGroups.push(group)
   selectedEpisodeGroupId.value = group.id
   expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, group.id]))
@@ -3987,7 +4034,9 @@ function applyEpisodeScriptShots() {
 }
 
 function promptFor(shot: Shot) {
-  return composePrompt(state.globalConfig, { ...shot, text: effectiveShotText(shot) })
+  const group = state.episodeGroups.find((item) => item.id === activeEpisode.value?.groupId)
+  const profileId = group?.promptProfileId ?? state.globalConfig.prompt.activeProfileId
+  return composePrompt(state.globalConfig, { ...shot, text: effectiveShotText(shot) }, profileId)
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
@@ -4353,7 +4402,11 @@ async function importEpisode(event: Event) {
   const existingEpisodeSignatures = new Set(state.episodes.map((episode) => episodeComparableSignature(episode)))
 
   batches.forEach((batch) => {
-    const importedGroups = normalizeImportedEpisodeGroups(batch.groups)
+    const importedGroups = normalizeImportedEpisodeGroups(
+      batch.groups,
+      batch.globalConfig ?? state.globalConfig,
+      state.globalConfig,
+    )
     const groupIdMap = new Map(importedGroups.map((group) => [group.sourceId, group.group.id]))
     const importedEpisodes = batch.episodes.map((episode) => normalizeImportedEpisode(episode, groupIdMap))
     const episodesToImport = importMode === 'replace'
@@ -4548,7 +4601,11 @@ function normalizeImportedShotScenes(scenes: unknown, assets: SceneAsset[]): Sce
   return normalized.length ? normalized : [createSceneConfig()]
 }
 
-function normalizeImportedEpisodeGroups(groups: unknown): Array<{ sourceId: string; group: EpisodeGroup }> {
+function normalizeImportedEpisodeGroups(
+  groups: unknown,
+  sourceConfig: GlobalConfig,
+  targetConfig: GlobalConfig,
+): Array<{ sourceId: string; group: EpisodeGroup }> {
   if (!Array.isArray(groups)) {
     return []
   }
@@ -4574,6 +4631,7 @@ function normalizeImportedEpisodeGroups(groups: unknown): Array<{ sourceId: stri
           title,
           starred: Boolean(value.starred),
           archived: Boolean(value.archived),
+          promptProfileId: mapPromptProfileId(value.promptProfileId, sourceConfig, targetConfig),
         },
       }
     })

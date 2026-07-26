@@ -132,6 +132,7 @@ export interface EpisodeGroup {
   title: string
   starred: boolean
   archived: boolean
+  promptProfileId: string
 }
 
 export interface Episode {
