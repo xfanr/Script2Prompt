@@ -119,11 +119,12 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
 import { Delete, Plus } from '@element-plus/icons-vue'
 import { cloneGlobalConfig, loadRuntimeDefaultConfig, normalizeGlobalConfig } from '../config'
 import { createDialogueReplacementRule, createReviewNotePrefixOption } from '../defaults'
 import type { GlobalConfig } from '../types'
+import { notify } from '../notification'
 
 type GlobalConfigTab = 'prompt' | 'data' | 'dialogue'
 
@@ -208,13 +209,13 @@ function validateDraft() {
   })
 
   if (rules.some((rule) => !rule.forbidden)) {
-    ElMessage.warning('违禁词不能为空')
+    notify.warning('违禁词不能为空')
     activeTab.value = 'dialogue'
     return null
   }
 
   if (new Set(rules.map((rule) => rule.forbidden)).size !== rules.length) {
-    ElMessage.warning('违禁词不能重复')
+    notify.warning('违禁词不能重复')
     activeTab.value = 'dialogue'
     return null
   }
@@ -226,13 +227,13 @@ function validateDraft() {
   })
 
   if (options.some((option) => !option.category || !option.label)) {
-    ElMessage.warning('评分备注前缀的一级分类和二级选项不能为空')
+    notify.warning('评分备注前缀的一级分类和二级选项不能为空')
     activeTab.value = 'data'
     return null
   }
 
   if (new Set(options.map((option) => `${option.category}→${option.label}`)).size !== options.length) {
-    ElMessage.warning('评分备注前缀不能重复')
+    notify.warning('评分备注前缀不能重复')
     activeTab.value = 'data'
     return null
   }
@@ -240,7 +241,7 @@ function validateDraft() {
   const normalized = normalizeGlobalConfig(draft.value)
 
   if (!normalized) {
-    ElMessage.warning('全局配置包含无效内容')
+    notify.warning('全局配置包含无效内容')
     return null
   }
 
@@ -265,9 +266,9 @@ async function resetFromServer() {
     draft.value = cloneGlobalConfig(config)
     selectedProfileId.value = config.prompt.activeProfileId
     activeTab.value = 'prompt'
-    ElMessage.success('已载入服务器初始配置，保存后生效')
+    notify.success('已载入服务器初始配置，保存后生效')
   } catch {
-    ElMessage.error('服务器初始配置读取失败，当前草稿未改变')
+    notify.error('服务器初始配置读取失败，当前草稿未改变')
   } finally {
     isResetting.value = false
   }

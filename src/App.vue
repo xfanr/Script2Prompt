@@ -1,5 +1,5 @@
 <template>
-  <el-config-provider :message="{ placement: 'bottom' }">
+  <el-config-provider>
     <div class="app-shell">
       <input ref="fileInputRef" class="file-input" type="file" accept="application/json,.json" multiple @change="importEpisode" />
 
@@ -1172,7 +1172,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Component 
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
 import { ArrowRight, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Finished, Folder, Fold, Hide, Location, Moon, Notebook, Plus, Position, Refresh, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import {
@@ -1201,6 +1201,7 @@ import { normalizeConnectionPunctuationCount, normalizeStoredShotConnection, tak
 import { compactShotUnitNumbers, formatShotNumber, normalizeShotUnitNumber } from './shotNumber'
 import type { CharacterConfig, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotViewMode } from './types'
 import { useAppState } from './useAppState'
+import { notify } from './notification'
 
 type MaterialKind = 'characters' | 'scenes'
 type StatusSyncScope = 'following' | 'all'
@@ -2096,12 +2097,12 @@ function finishEpisodeRename(episode: Episode) {
   const isPendingEpisode = pendingEpisode.value?.id === episode.id
 
   if (!editingEpisodeNumber.value || !Number.isSafeInteger(episodeNumber) || episodeNumber <= 0) {
-    ElMessage.warning('请输入有效集数')
+    notify.warning('请输入有效集数')
     return
   }
 
   if (isEpisodeNumberUsed(episode.groupId, episodeNumber, episode.id)) {
-    ElMessage.warning(`当前分组已存在${formatEpisodeTitle(episodeNumber)}`)
+    notify.warning(`当前分组已存在${formatEpisodeTitle(episodeNumber)}`)
     return
   }
 
@@ -2486,11 +2487,11 @@ function cloneEpisodeMaterials(sourceEpisodeId: string) {
   targetEpisode.scenes.push(...scenes)
 
   if (added && skipped) {
-    ElMessage.success(`已克隆 ${added} 项素材，跳过 ${skipped} 个重复项`)
+    notify.success(`已克隆 ${added} 项素材，跳过 ${skipped} 个重复项`)
   } else if (added) {
-    ElMessage.success(`已克隆 ${added} 项素材`)
+    notify.success(`已克隆 ${added} 项素材`)
   } else {
-    ElMessage.info('该集素材均已存在')
+    notify.info('该集素材均已存在')
   }
 }
 
@@ -2663,12 +2664,12 @@ function commitMaterialEdit() {
     const nextName = materialCharacterDraft.value.trim()
 
     if (!nextName) {
-      ElMessage.warning('请填写人物名称')
+      notify.warning('请填写人物名称')
       return false
     }
 
     if (nextName !== editing.value && episode.characters.includes(nextName)) {
-      ElMessage.warning('人物素材已存在')
+      notify.warning('人物素材已存在')
       return false
     }
 
@@ -2680,12 +2681,12 @@ function commitMaterialEdit() {
   const nextName = draft?.name.trim() ?? ''
 
   if (!draft || !nextName) {
-    ElMessage.warning('请填写场景名称')
+    notify.warning('请填写场景名称')
     return false
   }
 
   if (nextName !== editing.value && episode.scenes.some((scene) => scene.name === nextName)) {
-    ElMessage.warning('场景素材已存在')
+    notify.warning('场景素材已存在')
     return false
   }
 
@@ -2766,7 +2767,7 @@ function applySceneToAllShots(value: string) {
     const preservedStatus = shot.scenes.find((scene) => scene.name === value)?.statusText ?? shot.scenes[0]?.statusText ?? ''
     shot.scenes = [createSceneConfig(sceneAsset.name, sceneAsset.time, sceneAsset.space, preservedStatus)]
   })
-  ElMessage.success('已应用到本集全部分镜')
+  notify.success('已应用到本集全部分镜')
 }
 
 function applySceneToUnit(value: string, unitNumber: number) {
@@ -2789,9 +2790,9 @@ function applySceneToUnit(value: string, unitNumber: number) {
   })
 
   if (count) {
-    ElMessage.success(`已应用到单元${unitNumber}的 ${count} 条分镜`)
+    notify.success(`已应用到单元${unitNumber}的 ${count} 条分镜`)
   } else {
-    ElMessage.info(`单元${unitNumber}暂无分镜`)
+    notify.info(`单元${unitNumber}暂无分镜`)
   }
 }
 
@@ -2818,7 +2819,7 @@ function syncSceneStatus(sourceShot: Shot, source: SceneConfig, scope: StatusSyn
       }
     })
   })
-  ElMessage.success(scope === 'following' ? `已向下同步 ${count} 个场景状态` : `已同步 ${count} 个场景状态`)
+  notify.success(scope === 'following' ? `已向下同步 ${count} 个场景状态` : `已同步 ${count} 个场景状态`)
 }
 
 function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: StatusSyncScope) {
@@ -2844,7 +2845,7 @@ function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: S
       }
     })
   })
-  ElMessage.success(scope === 'following' ? `已向下同步 ${count} 个人物状态` : `已同步 ${count} 个人物状态`)
+  notify.success(scope === 'following' ? `已向下同步 ${count} 个人物状态` : `已同步 ${count} 个人物状态`)
 }
 
 function addEpisode() {
@@ -2864,7 +2865,7 @@ function addEpisode() {
 
 async function deleteEpisodeById(id: string) {
   if (state.episodes.length === 1) {
-    ElMessage.warning('至少保留一集')
+    notify.warning('至少保留一集')
     return
   }
 
@@ -3017,7 +3018,7 @@ function deleteShot(id: string) {
   }
 
   if (activeEpisode.value.shots.length === 1) {
-    ElMessage.warning('至少保留一条分镜')
+    notify.warning('至少保留一条分镜')
     return
   }
 
@@ -3026,7 +3027,7 @@ function deleteShot(id: string) {
   normalizeEpisodeShotConnections(activeEpisode.value)
 }
 
-function addMaterialDrafts(notify = true): MaterialAddResult {
+function addMaterialDrafts(showNotification = true): MaterialAddResult {
   const episode = activeEpisode.value
 
   if (!episode) {
@@ -3038,13 +3039,13 @@ function addMaterialDrafts(notify = true): MaterialAddResult {
   const added = characterResult.added + sceneResult.added
   const skipped = characterResult.skipped + sceneResult.skipped
 
-  if (notify) {
+  if (showNotification) {
     if (added && skipped) {
-      ElMessage.success(`已添加 ${added} 项，跳过 ${skipped} 个重复项`)
+      notify.success(`已添加 ${added} 项，跳过 ${skipped} 个重复项`)
     } else if (added) {
-      ElMessage.success(`已添加 ${added} 项`)
+      notify.success(`已添加 ${added} 项`)
     } else if (skipped) {
-      ElMessage.info('输入的素材已存在')
+      notify.info('输入的素材已存在')
     }
   }
 
@@ -3166,7 +3167,7 @@ function addCharacterToShot(shot: Shot) {
   const available = activeEpisode.value?.characters.filter((name) => !shot.characters.some((character) => character.name === name)) ?? []
 
   if (!available.length) {
-    ElMessage.info('没有可添加的人物，或人物已全部加入')
+    notify.info('没有可添加的人物，或人物已全部加入')
     return
   }
 
@@ -3459,7 +3460,7 @@ function saveShotRemark(shot: Shot) {
   shot.remark = remark
   editingShotRemarkId.value = null
   shotRemarkDraft.value = ''
-  ElMessage.success(remark ? '已保存分镜备注' : '已删除分镜备注')
+  notify.success(remark ? '已保存分镜备注' : '已删除分镜备注')
 }
 
 function cancelShotRemarkEdit() {
@@ -3470,7 +3471,7 @@ function cancelShotRemarkEdit() {
 function deleteShotRemark(shot: Shot) {
   shot.remark = ''
   cancelShotRemarkEdit()
-  ElMessage.success('已删除分镜备注')
+  notify.success('已删除分镜备注')
 }
 
 function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConflict?: boolean } = {}) {
@@ -3487,7 +3488,7 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
   if (!detected.length) {
     shot.pendingDetection = null
     if (!options.silent) {
-      ElMessage.info('未识别到本集人物')
+      notify.info('未识别到本集人物')
     }
     return false
   }
@@ -3502,7 +3503,7 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
     shot.characters = buildDetectedCharacters(detected)
     shot.pendingDetection = null
     if (!options.silent) {
-      ElMessage.success('已识别并添加人物配置')
+      notify.success('已识别并添加人物配置')
     }
     return true
   }
@@ -3512,7 +3513,7 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
 
   if (sameNames(currentNames, replaceNames) && !voiceSuggestions.length) {
     if (!options.silent) {
-      ElMessage.success('人物配置已匹配')
+      notify.success('人物配置已匹配')
     }
     return true
   }
@@ -3578,7 +3579,7 @@ function mergeActiveDetection() {
   }
 
   shot.characters = mergeDetectedCharacters(shot.characters, shot.pendingDetection.detected, true)
-  ElMessage.success('已合并人物配置')
+  notify.success('已合并人物配置')
   shot.pendingDetection = null
   detectionConflictShotId.value = null
   detectionDialogVisible.value = false
@@ -3597,7 +3598,7 @@ function replaceActiveDetection() {
   }
 
   shot.characters = buildDetectedCharacters(shot.pendingDetection.detected)
-  ElMessage.success('已替换人物配置')
+  notify.success('已替换人物配置')
   shot.pendingDetection = null
   detectionConflictShotId.value = null
   detectionDialogVisible.value = false
@@ -3840,7 +3841,7 @@ function clearReviewDialog() {
   }
 
   shot.review = normalizePromptReview(reviewDraft.value)
-  ElMessage.success('已清空评分')
+  notify.success('已清空评分')
 }
 
 function openReviewDialog(shot: Shot) {
@@ -3877,14 +3878,14 @@ function saveReviewDialog() {
   const drawCount = currentReviewDrawCount()
 
   if (!drawCount) {
-    ElMessage.warning('请填写抽卡次数')
+    notify.warning('请填写抽卡次数')
     return
   }
 
   const noSubtitleCount = currentReviewNoSubtitleCount(drawCount)
 
   if (noSubtitleCount === null) {
-    ElMessage.warning('请填写无字幕次数')
+    notify.warning('请填写无字幕次数')
     return
   }
 
@@ -3894,13 +3895,13 @@ function saveReviewDialog() {
   const normalizedReview = normalizePromptReview(reviewDraft.value)
 
   if (isReviewDefault(normalizedReview)) {
-    ElMessage.warning('请至少填写一项评分内容')
+    notify.warning('请至少填写一项评分内容')
     return
   }
 
   shot.review = normalizedReview
   reviewDialogVisible.value = false
-  ElMessage.success('已保存评分')
+  notify.success('已保存评分')
 }
 
 function openReviewSummary(episode = activeEpisode.value) {
@@ -3949,7 +3950,7 @@ function organizeEpisodeScriptDraft() {
     .trim()
     .replace(/__SHOT_REMARK_(\d+)__/g, (_match, index: string) => `--- #${protectedRemarks[Number(index)]}#`)
   syncEpisodeScriptDraft()
-  ElMessage.success('已整理剧本文字')
+  notify.success('已整理剧本文字')
 }
 
 function refreshEpisodeScriptDerivedDrafts() {
@@ -3973,7 +3974,7 @@ function refreshBatchShotSegments() {
   batchShotSegments.value = splitBatchShotText(episodeScriptDraft.value)
 
   if (!batchShotSegments.value.length) {
-    ElMessage.warning('没有识别到可用分镜')
+    notify.warning('没有识别到可用分镜')
     return false
   }
 
@@ -4001,18 +4002,18 @@ function toggleDialogueReplacement() {
 
 async function copyExtractedDialogue() {
   if (!dialogueOutputDraft.value.trim()) {
-    ElMessage.warning('没有可复制的台词')
+    notify.warning('没有可复制的台词')
     return
   }
 
   const copied = await copyText(dialogueOutputDraft.value)
 
   if (!copied) {
-    ElMessage.error('复制失败，请手动选择文本复制')
+    notify.error('复制失败，请手动选择文本复制')
     return
   }
 
-  ElMessage.success('已复制台词')
+  notify.success('已复制台词')
   episodeScriptDialogVisible.value = false
 }
 
@@ -4030,7 +4031,7 @@ function applyEpisodeScriptShots() {
   const syncedCount = syncEpisodeShots(episode, batchShotSegments.value, sceneDrafts)
   episodeScriptDialogVisible.value = false
   batchShotSegments.value = []
-  ElMessage.success(isUpdate ? `已更新为 ${syncedCount} 条分镜` : `已添加 ${syncedCount} 条分镜`)
+  notify.success(isUpdate ? `已更新为 ${syncedCount} 条分镜` : `已添加 ${syncedCount} 条分镜`)
 }
 
 function promptFor(shot: Shot) {
@@ -4134,44 +4135,44 @@ async function copyPrompt(shot: Shot) {
     const message = `已复制 ${shotCopyLabel(shot)} 提示词`
 
     if (status.type === 'warning') {
-      ElMessage.warning(message)
+      notify.warning(message)
     } else {
-      ElMessage.success(message)
+      notify.success(message)
     }
 
     return
   }
 
-  ElMessage.error('复制失败，请手动选择文本复制')
+  notify.error('复制失败，请手动选择文本复制')
 }
 
 async function copyWeeklyReport(value: Date | string | null = weeklyReportWeek.value) {
   const report = buildWeeklyReport(value ?? weeklyReportWeek.value)
 
   if (!report) {
-    ElMessage.info('选中周内暂无制作记录')
+    notify.info('选中周内暂无制作记录')
     return
   }
 
   const copied = await copyText(report)
 
   if (copied) {
-    ElMessage.success('已复制周报')
+    notify.success('已复制周报')
     return
   }
 
-  ElMessage.error('复制失败，请手动选择文本复制')
+  notify.error('复制失败，请手动选择文本复制')
 }
 
 async function copyShotDetail(shot: Shot) {
   const copied = await copyText(effectiveShotText(shot))
 
   if (copied) {
-    ElMessage.success('已复制分镜详情')
+    notify.success('已复制分镜详情')
     return
   }
 
-  ElMessage.error('复制失败，请手动选择文本复制')
+  notify.error('复制失败，请手动选择文本复制')
 }
 
 async function copyText(text: string) {
@@ -4266,12 +4267,12 @@ async function exportAllEpisodes() {
     const result = await saveJson(filename, exportPayload())
 
     if (result === 'saved') {
-      ElMessage.success('已保存备份')
+      notify.success('已保存备份')
     } else if (result === 'downloaded') {
-      ElMessage.warning('当前浏览器或站点不支持选择保存位置，已改为默认下载')
+      notify.warning('当前浏览器或站点不支持选择保存位置，已改为默认下载')
     }
   } catch {
-    ElMessage.error('导出失败')
+    notify.error('导出失败')
   }
 }
 
@@ -4374,7 +4375,7 @@ async function importEpisode(event: Event) {
         globalConfig,
       })
     } catch {
-      ElMessage.error(`导入失败：${file.name} 格式不正确或缺少单集数据`)
+      notify.error(`导入失败：${file.name} 格式不正确或缺少单集数据`)
     }
   }
 
@@ -4455,9 +4456,9 @@ async function importEpisode(event: Event) {
   }
 
   if (importedCount) {
-    ElMessage.success(`已导入 ${importedCount} 个剧本`)
+    notify.success(`已导入 ${importedCount} 个剧本`)
   } else {
-    ElMessage.info('没有可导入的新剧本')
+    notify.info('没有可导入的新剧本')
   }
 }
 
