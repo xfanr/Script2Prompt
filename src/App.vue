@@ -255,7 +255,16 @@
                   <el-button round size="default" type="primary" plain @click="openEpisodeScriptDialog('dialogue')">台词</el-button>
                 </el-button-group>
                 <el-button-group class="stage-action-group">
-                  <el-button round size="default" type="primary" text :bg="areAllShotsUsingPositionReference" @click="toggleAllPositionReferences">全定位</el-button>
+                  <el-button
+                    round
+                    size="default"
+                    type="primary"
+                    text
+                    :bg="allShotsPositionReferenceMode !== 'none'"
+                    @click="cycleAllPositionReferenceMode"
+                  >
+                    全定位
+                  </el-button>
                   <el-button round size="default" type="primary" text :bg="areAllShotsComplete" @click="toggleAllShotsCompletion">全完成</el-button>
                 </el-button-group>
               </div>
@@ -307,7 +316,7 @@
                           :command="{ action: 'apply-unit', unitNumber }"
                           :icon="Finished"
                         >
-                          单元{{ unitNumber }}
+                          {{ formatUnitLabel(unitNumber) }}
                         </el-dropdown-item>
                         <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
                       </el-dropdown-menu>
@@ -401,31 +410,29 @@
               <div v-if="!isShotCollapsed(shot)" class="shot-grid">
                 <section class="shot-cell script-cell">
                   <div class="cell-title script-title">
-                    <div class="script-title-left">
-                      <span>分镜详情</span>
-                      <div class="script-title-actions">
-                        <el-slider
-                          class="shot-connection-slider"
-                          :model-value="shotConnectionValue(shot, index)"
-                          :min="-8"
-                          :max="8"
-                          :step="1"
-                          range
-                          :show-stops="false"
-                          :marks="shotConnectionMarks"
-                          size="small"
-                          :disabled="activeEpisode.shots.length === 1"
-                          :format-tooltip="formatShotConnectionTooltip"
-                          aria-label="承上启下截取标点数，左滑块承上，右滑块启下"
-                          @update:model-value="updateShotConnectionValue(shot, index, $event)"
-                        />
-                        <el-button text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
-                        <el-button text type="primary" @click="copyShotDetail(shot)">复制</el-button>
-                      </div>
+                    <span class="script-title-label">分镜详情</span>
+                    <div class="script-title-actions">
+                      <el-slider
+                        class="shot-connection-slider"
+                        :model-value="shotConnectionValue(shot, index)"
+                        :min="-8"
+                        :max="8"
+                        :step="1"
+                        range
+                        :show-stops="false"
+                        :marks="shotConnectionMarks"
+                        size="small"
+                        :disabled="activeEpisode.shots.length === 1"
+                        :format-tooltip="formatShotConnectionTooltip"
+                        aria-label="承上启下截取标点数，左滑块承上，右滑块启下"
+                        @update:model-value="updateShotConnectionValue(shot, index, $event)"
+                      />
+                      <el-button text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
+                      <el-button text type="primary" @click="copyShotDetail(shot)">复制</el-button>
                     </div>
                     <div class="script-title-stats">
                       <el-tag :type="durationState(effectiveShotText(shot)).warn ? 'danger' : 'info'" effect="light" round>
-                        {{ characterCount(effectiveShotText(shot)) }} 字 · 推荐 {{ durationText(effectiveShotText(shot)) }}
+                        {{ characterCount(effectiveShotText(shot)) }} 字 · {{ durationText(effectiveShotText(shot)) }}
                       </el-tag>
                     </div>
                   </div>
@@ -1376,9 +1383,14 @@ const isEpisodeShotUpdateMode = computed(() => Boolean(activeEpisode.value && ha
 const activeEpisodeUnitNumbers = computed(() => Array.from(new Set(
   activeEpisode.value?.shots.map((shot) => normalizeShotUnitNumber(shot.unitNumber)) ?? [],
 )).sort((left, right) => left - right))
-const areAllShotsUsingPositionReference = computed(() => {
+const allShotsPositionReferenceMode = computed<PositionReferenceMode>(() => {
   const shots = activeEpisode.value?.shots ?? []
-  return shots.length > 0 && shots.every((shot) => shot.usePositionReference)
+  if (shots.length === 0) {
+    return 'none'
+  }
+
+  const firstMode = positionReferenceMode(shots[0])
+  return shots.every((shot) => positionReferenceMode(shot) === firstMode) ? firstMode : 'none'
 })
 const areAllShotsComplete = computed(() => {
   const shots = activeEpisode.value?.shots ?? []
@@ -1991,7 +2003,12 @@ function getEpisodeGroupTitle(groupId: string | null) {
 }
 
 function sceneAssetLabel(scene: SceneAsset) {
-  return `${scene.time} · ${scene.space} · ${scene.name}`
+  return [scene.time, scene.space === '无' ? '' : scene.space, scene.name].filter(Boolean).join(' · ')
+}
+
+function formatUnitLabel(unitNumber: number) {
+  const labels = ['一', '二', '三', '四', '五', '六', '七', '八', '九']
+  return `单元${labels[unitNumber - 1] ?? unitNumber}`
 }
 
 function sceneSelectLabel(label: string) {
@@ -2097,7 +2114,7 @@ function finishEpisodeRename(episode: Episode) {
   const isPendingEpisode = pendingEpisode.value?.id === episode.id
 
   if (!editingEpisodeNumber.value || !Number.isSafeInteger(episodeNumber) || episodeNumber <= 0) {
-    notify.warning('请输入有效集数')
+    notify.warning('请输入正整数集号')
     return
   }
 
@@ -2491,7 +2508,7 @@ function cloneEpisodeMaterials(sourceEpisodeId: string) {
   } else if (added) {
     notify.success(`已克隆 ${added} 项素材`)
   } else {
-    notify.info('该集素材均已存在')
+    notify.info('本集素材均已存在')
   }
 }
 
@@ -2568,7 +2585,7 @@ function syncMaterialSceneDraftCount() {
 }
 
 function materialSceneDraftPlaceholder(index: number) {
-  return index < batchShotUnitCount() ? `第 ${index + 1} 单元场景` : '补充场景'
+  return index < batchShotUnitCount() ? `${formatUnitLabel(index + 1)}场景` : '补充场景'
 }
 
 function segmentedOptionLabel(item: unknown) {
@@ -2664,12 +2681,12 @@ function commitMaterialEdit() {
     const nextName = materialCharacterDraft.value.trim()
 
     if (!nextName) {
-      notify.warning('请填写人物名称')
+      notify.warning('请输入人物名称')
       return false
     }
 
     if (nextName !== editing.value && episode.characters.includes(nextName)) {
-      notify.warning('人物素材已存在')
+      notify.warning('本集已存在同名人物素材')
       return false
     }
 
@@ -2681,12 +2698,12 @@ function commitMaterialEdit() {
   const nextName = draft?.name.trim() ?? ''
 
   if (!draft || !nextName) {
-    notify.warning('请填写场景名称')
+    notify.warning('请输入场景名称')
     return false
   }
 
   if (nextName !== editing.value && episode.scenes.some((scene) => scene.name === nextName)) {
-    notify.warning('场景素材已存在')
+    notify.warning('本集已存在同名场景素材')
     return false
   }
 
@@ -2767,7 +2784,7 @@ function applySceneToAllShots(value: string) {
     const preservedStatus = shot.scenes.find((scene) => scene.name === value)?.statusText ?? shot.scenes[0]?.statusText ?? ''
     shot.scenes = [createSceneConfig(sceneAsset.name, sceneAsset.time, sceneAsset.space, preservedStatus)]
   })
-  notify.success('已应用到本集全部分镜')
+  notify.success('已将场景应用到本集全部分镜')
 }
 
 function applySceneToUnit(value: string, unitNumber: number) {
@@ -2790,9 +2807,9 @@ function applySceneToUnit(value: string, unitNumber: number) {
   })
 
   if (count) {
-    notify.success(`已应用到单元${unitNumber}的 ${count} 条分镜`)
+    notify.success(`已将场景应用到${formatUnitLabel(unitNumber)}，共 ${count} 条分镜`)
   } else {
-    notify.info(`单元${unitNumber}暂无分镜`)
+    notify.info(`${formatUnitLabel(unitNumber)}暂无分镜`)
   }
 }
 
@@ -2819,7 +2836,7 @@ function syncSceneStatus(sourceShot: Shot, source: SceneConfig, scope: StatusSyn
       }
     })
   })
-  notify.success(scope === 'following' ? `已向下同步 ${count} 个场景状态` : `已同步 ${count} 个场景状态`)
+  notify.success(scope === 'following' ? `已向下同步场景状态，共 ${count} 项` : `已同步全篇场景状态，共 ${count} 项`)
 }
 
 function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: StatusSyncScope) {
@@ -2845,7 +2862,7 @@ function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: S
       }
     })
   })
-  notify.success(scope === 'following' ? `已向下同步 ${count} 个人物状态` : `已同步 ${count} 个人物状态`)
+  notify.success(scope === 'following' ? `已向下同步人物状态，共 ${count} 项` : `已同步全篇人物状态，共 ${count} 项`)
 }
 
 function addEpisode() {
@@ -2865,7 +2882,7 @@ function addEpisode() {
 
 async function deleteEpisodeById(id: string) {
   if (state.episodes.length === 1) {
-    notify.warning('至少保留一集')
+    notify.warning('至少保留一个单集')
     return
   }
 
@@ -3041,11 +3058,11 @@ function addMaterialDrafts(showNotification = true): MaterialAddResult {
 
   if (showNotification) {
     if (added && skipped) {
-      notify.success(`已添加 ${added} 项，跳过 ${skipped} 个重复项`)
+      notify.success(`已添加 ${added} 项素材，跳过 ${skipped} 个重复项`)
     } else if (added) {
-      notify.success(`已添加 ${added} 项`)
+      notify.success(`已添加 ${added} 项素材`)
     } else if (skipped) {
-      notify.info('输入的素材已存在')
+      notify.info('输入的素材均已存在')
     }
   }
 
@@ -3167,7 +3184,7 @@ function addCharacterToShot(shot: Shot) {
   const available = activeEpisode.value?.characters.filter((name) => !shot.characters.some((character) => character.name === name)) ?? []
 
   if (!available.length) {
-    notify.info('没有可添加的人物，或人物已全部加入')
+    notify.info('暂无可添加的人物素材')
     return
   }
 
@@ -3334,11 +3351,17 @@ function setPositionReferenceMode(shot: Shot, value: string | number | boolean |
   shot.useReverseAngle = value === 'reverse'
 }
 
-function toggleAllPositionReferences() {
+function cycleAllPositionReferenceMode() {
   const shots = activeEpisode.value?.shots ?? []
-  const nextValue = !areAllShotsUsingPositionReference.value
+  const currentMode = allShotsPositionReferenceMode.value
+  const nextMode: PositionReferenceMode = currentMode === 'none'
+    ? 'position'
+    : currentMode === 'position'
+      ? 'reverse'
+      : 'none'
+
   shots.forEach((shot) => {
-    shot.usePositionReference = nextValue
+    setPositionReferenceMode(shot, nextMode)
   })
 }
 
@@ -3513,7 +3536,7 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
 
   if (sameNames(currentNames, replaceNames) && !voiceSuggestions.length) {
     if (!options.silent) {
-      notify.success('人物配置已匹配')
+      notify.success('人物配置与识别结果一致')
     }
     return true
   }
@@ -3878,14 +3901,14 @@ function saveReviewDialog() {
   const drawCount = currentReviewDrawCount()
 
   if (!drawCount) {
-    notify.warning('请填写抽卡次数')
+    notify.warning('请输入抽卡次数')
     return
   }
 
   const noSubtitleCount = currentReviewNoSubtitleCount(drawCount)
 
   if (noSubtitleCount === null) {
-    notify.warning('请填写无字幕次数')
+    notify.warning('请输入无字幕次数')
     return
   }
 
@@ -3974,7 +3997,7 @@ function refreshBatchShotSegments() {
   batchShotSegments.value = splitBatchShotText(episodeScriptDraft.value)
 
   if (!batchShotSegments.value.length) {
-    notify.warning('没有识别到可用分镜')
+    notify.warning('未识别到可用分镜')
     return false
   }
 
@@ -4002,7 +4025,7 @@ function toggleDialogueReplacement() {
 
 async function copyExtractedDialogue() {
   if (!dialogueOutputDraft.value.trim()) {
-    notify.warning('没有可复制的台词')
+    notify.warning('暂无可复制的台词')
     return
   }
 
@@ -4135,7 +4158,7 @@ async function copyPrompt(shot: Shot) {
     const message = `已复制 ${shotCopyLabel(shot)} 提示词`
 
     if (status.type === 'warning') {
-      notify.warning(message)
+      notify.warning(`${message}，但存在预览警告`)
     } else {
       notify.success(message)
     }
@@ -4150,7 +4173,7 @@ async function copyWeeklyReport(value: Date | string | null = weeklyReportWeek.v
   const report = buildWeeklyReport(value ?? weeklyReportWeek.value)
 
   if (!report) {
-    notify.info('选中周内暂无制作记录')
+    notify.info('所选周暂无制作记录')
     return
   }
 
@@ -4269,10 +4292,10 @@ async function exportAllEpisodes() {
     if (result === 'saved') {
       notify.success('已保存备份')
     } else if (result === 'downloaded') {
-      notify.warning('当前浏览器或站点不支持选择保存位置，已改为默认下载')
+      notify.warning('无法选择保存位置，已改为默认下载')
     }
   } catch {
-    notify.error('导出失败')
+    notify.error('备份导出失败')
   }
 }
 
@@ -4375,7 +4398,7 @@ async function importEpisode(event: Event) {
         globalConfig,
       })
     } catch {
-      notify.error(`导入失败：${file.name} 格式不正确或缺少单集数据`)
+      notify.error(`导入失败：文件“${file.name}”格式错误或缺少单集数据`)
     }
   }
 
@@ -4456,9 +4479,9 @@ async function importEpisode(event: Event) {
   }
 
   if (importedCount) {
-    notify.success(`已导入 ${importedCount} 个剧本`)
+    notify.success(`已导入 ${importedCount} 个单集`)
   } else {
-    notify.info('没有可导入的新剧本')
+    notify.info('暂无可导入的新单集')
   }
 }
 

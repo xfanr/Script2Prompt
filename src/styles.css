@@ -1044,24 +1044,27 @@ html.dark .episode-panel {
 }
 
 .script-title {
-  display: flex;
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) 120px;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
-.script-title-left {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 12px;
+.script-title-label {
+  width: 80px;
+  white-space: nowrap;
 }
 
 .script-title-actions {
   display: inline-flex;
-  flex: 0 0 auto;
+  min-width: 0;
   align-items: center;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.script-title-actions .el-button + .el-button {
+  margin-left: 0;
 }
 
 .shot-connection-slider {
@@ -1075,10 +1078,13 @@ html.dark .episode-panel {
 
 .script-title-stats {
   display: inline-flex;
-  flex: 0 0 auto;
+  width: 120px;
+  justify-content: flex-end;
 }
 
 .script-title-stats .el-tag {
+  width: 100%;
+  justify-content: center;
   font-weight: 900;
 }
 

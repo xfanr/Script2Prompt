@@ -227,13 +227,13 @@ function validateDraft() {
   })
 
   if (options.some((option) => !option.category || !option.label)) {
-    notify.warning('评分备注前缀的一级分类和二级选项不能为空')
+    notify.warning('评分备注前缀的分类与选项不能为空')
     activeTab.value = 'data'
     return null
   }
 
   if (new Set(options.map((option) => `${option.category}→${option.label}`)).size !== options.length) {
-    notify.warning('评分备注前缀不能重复')
+    notify.warning('评分备注前缀的分类与选项组合不能重复')
     activeTab.value = 'data'
     return null
   }
@@ -241,7 +241,7 @@ function validateDraft() {
   const normalized = normalizeGlobalConfig(draft.value)
 
   if (!normalized) {
-    notify.warning('全局配置包含无效内容')
+    notify.warning('全局配置中存在无效内容')
     return null
   }
 
