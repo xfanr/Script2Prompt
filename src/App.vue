@@ -314,7 +314,7 @@
                           v-for="unitNumber in activeEpisodeUnitNumbers"
                           :key="unitNumber"
                           :command="{ action: 'apply-unit', unitNumber }"
-                          :icon="Finished"
+                          :icon="RefreshLeft"
                         >
                           {{ formatUnitLabel(unitNumber) }}
                         </el-dropdown-item>
@@ -338,7 +338,13 @@
 
               <div class="shot-meta">
                 <div class="shot-index-area" :class="{ 'has-remark': hasShotRemark(shot) }">
-                  <span class="shot-index">{{ formatShotNumber(activeEpisode, index) }}</span>
+                  <span
+                    class="shot-index"
+                    title="双击复制分镜编号"
+                    @dblclick.stop.prevent="copyShotNumber(shot)"
+                  >
+                    {{ formatShotNumber(activeEpisode, index) }}
+                  </span>
                   <template v-if="editingShotRemarkId === shot.id">
                     <el-input
                       v-model="shotRemarkDraft"
@@ -410,25 +416,12 @@
               <div v-if="!isShotCollapsed(shot)" class="shot-grid">
                 <section class="shot-cell script-cell">
                   <div class="cell-title script-title">
-                    <span class="script-title-label">分镜详情</span>
-                    <div class="script-title-actions">
-                      <el-slider
-                        class="shot-connection-slider"
-                        :model-value="shotConnectionValue(shot, index)"
-                        :min="-8"
-                        :max="8"
-                        :step="1"
-                        range
-                        :show-stops="false"
-                        :marks="shotConnectionMarks"
-                        size="small"
-                        :disabled="activeEpisode.shots.length === 1"
-                        :format-tooltip="formatShotConnectionTooltip"
-                        aria-label="承上启下截取标点数，左滑块承上，右滑块启下"
-                        @update:model-value="updateShotConnectionValue(shot, index, $event)"
-                      />
-                      <el-button text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
-                      <el-button text type="primary" @click="copyShotDetail(shot)">复制</el-button>
+                    <div class="script-title-main">
+                      <span class="script-title-label">分镜详情</span>
+                      <div class="script-title-actions">
+                        <el-button :icon="Search" text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
+                        <el-button :icon="CopyDocument" text type="primary" @click="copyShotDetail(shot)">复制</el-button>
+                      </div>
                     </div>
                     <div class="script-title-stats">
                       <el-tag :type="durationState(effectiveShotText(shot)).warn ? 'danger' : 'info'" effect="light" round>
@@ -436,24 +429,43 @@
                       </el-tag>
                     </div>
                   </div>
-                  <div class="script-input-wrap">
-                    <div v-if="connectedPreviousText(shot, index)" class="script-context-line is-previous" aria-readonly="true">
-                      <span class="script-context-text">{{ connectedPreviousText(shot, index) }}</span>
+                  <div class="script-editor-layout">
+                    <div class="script-input-wrap">
+                      <div v-if="connectedPreviousText(shot, index)" class="script-context-line is-previous" aria-readonly="true">
+                        <span class="script-context-text">{{ connectedPreviousText(shot, index) }}</span>
+                      </div>
+                      <div class="script-textarea-stack">
+                        <div :ref="(element) => setScriptHighlightRef(shot.id, element)" class="script-highlight-layer" v-html="highlightedShotText(shot)"></div>
+                        <el-input
+                          :ref="(input) => setScriptInputRef(shot.id, input)"
+                          v-model="shot.text"
+                          type="textarea"
+                          :rows="9"
+                          resize="vertical"
+                          placeholder="输入或粘贴 40-120 字分段剧本。系统会匹配本集人物，并识别对白格式。"
+                        />
+                      </div>
+                      <div v-if="connectedNextText(shot, index)" class="script-context-line is-next" aria-readonly="true">
+                        <span class="script-context-text">{{ connectedNextText(shot, index) }}</span>
+                      </div>
                     </div>
-                    <div class="script-textarea-stack">
-                      <div :ref="(element) => setScriptHighlightRef(shot.id, element)" class="script-highlight-layer" v-html="highlightedShotText(shot)"></div>
-                      <el-input
-                        :ref="(input) => setScriptInputRef(shot.id, input)"
-                        v-model="shot.text"
-                        type="textarea"
-                        :rows="9"
-                        resize="vertical"
-                        placeholder="输入或粘贴 40-120 字分段剧本。系统会匹配本集人物，并识别对白格式。"
-                      />
-                    </div>
-                    <div v-if="connectedNextText(shot, index)" class="script-context-line is-next" aria-readonly="true">
-                      <span class="script-context-text">{{ connectedNextText(shot, index) }}</span>
-                    </div>
+                    <el-slider
+                      class="shot-connection-slider"
+                      :model-value="shotConnectionValue(shot, index)"
+                      :min="-12"
+                      :max="12"
+                      :step="1"
+                      range
+                      vertical
+                      height="100%"
+                      :show-stops="false"
+                      :marks="shotConnectionMarks"
+                      size="small"
+                      :disabled="activeEpisode.shots.length === 1"
+                      :format-tooltip="formatShotConnectionTooltip"
+                      aria-label="承上启下截取标点数，上滑块承上，下滑块启下"
+                      @update:model-value="updateShotConnectionValue(shot, index, $event)"
+                    />
                   </div>
                 </section>
 
@@ -566,7 +578,7 @@
                 <section class="shot-cell preview-cell">
                   <div class="cell-title preview-title">
                     <span class="preview-title-label">
-                      完整提示词预览
+                      完整提示词
                       <el-tooltip :content="promptPreviewStatus(shot).htmlMessage" placement="top" raw-content>
                         <el-icon
                           class="prompt-preview-status"
@@ -1180,7 +1192,7 @@ import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Finished, Folder, Fold, Hide, Location, Moon, Notebook, Plus, Position, Refresh, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Folder, Fold, Hide, Location, Moon, Notebook, Plus, Position, Refresh, RefreshLeft, Search, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
@@ -1373,9 +1385,11 @@ const reviewRateTexts = ['拉完了', 'NPC', '人上人', '顶级', '夯']
 const reviewNoteCascaderProps = { expandTrigger: 'hover' as const }
 const isTodayMonday = new Date().getDay() === 1
 const shotConnectionMarks = {
-  [-3]: '',
+  [-8]: '',
+  [-4]: '',
   0: '',
-  3: '',
+  4: '',
+  8: '',
 }
 
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
@@ -3405,8 +3419,8 @@ function shotConnectionValue(shot: Shot, index: number) {
   )
 
   return [
-    connection.connectPrevious ? -connection.connectPreviousCount : 0,
-    connection.connectNext ? connection.connectNextCount : 0,
+    connection.connectNext ? -connection.connectNextCount : 0,
+    connection.connectPrevious ? connection.connectPreviousCount : 0,
   ]
 }
 
@@ -3415,14 +3429,14 @@ function updateShotConnectionValue(shot: Shot, index: number, value: unknown) {
     return
   }
 
-  const previousValue = Number(value[0])
-  const nextValue = Number(value[1])
+  const nextValue = Number(value[0])
+  const previousValue = Number(value[1])
   const lastIndex = (activeEpisode.value?.shots.length ?? 0) - 1
-  const connectPreviousCount = index > 0 && Number.isFinite(previousValue) && previousValue < 0
-    ? normalizeConnectionPunctuationCount(Math.abs(previousValue))
+  const connectPreviousCount = index > 0 && Number.isFinite(previousValue) && previousValue > 0
+    ? normalizeConnectionPunctuationCount(previousValue)
     : 0
-  const connectNextCount = index < lastIndex && Number.isFinite(nextValue) && nextValue > 0
-    ? normalizeConnectionPunctuationCount(nextValue)
+  const connectNextCount = index < lastIndex && Number.isFinite(nextValue) && nextValue < 0
+    ? normalizeConnectionPunctuationCount(Math.abs(nextValue))
     : 0
   Object.assign(shot, {
     connectPrevious: connectPreviousCount > 0,
@@ -3434,11 +3448,11 @@ function updateShotConnectionValue(shot: Shot, index: number, value: unknown) {
 
 function formatShotConnectionTooltip(value: number) {
   if (value < 0) {
-    return `承上 ${Math.abs(value)}`
+    return `启下 ${Math.abs(value)}`
   }
 
   if (value > 0) {
-    return `启下 ${value}`
+    return `承上 ${value}`
   }
 
   return '不衔接'
@@ -4109,6 +4123,18 @@ function shotCopyLabel(shot: Shot) {
   const episode = activeEpisode.value
   const index = episode?.shots.findIndex((item) => item.id === shot.id) ?? -1
   return episode && index >= 0 ? formatShotNumber(episode, index) : '当前'
+}
+
+async function copyShotNumber(shot: Shot) {
+  const label = shotCopyLabel(shot)
+  const copied = await copyText(label)
+
+  if (copied) {
+    notify.success(`已复制分镜编号 ${label}`)
+    return
+  }
+
+  notify.error('复制失败，请手动选择文本复制')
 }
 
 function isBlankShotCopyTarget(target: EventTarget | null) {

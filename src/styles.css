@@ -949,6 +949,8 @@ html.dark .episode-panel {
   font-size: 18px;
   font-weight: 900;
   line-height: 24px;
+  cursor: copy;
+  user-select: none;
 }
 
 .shot-index-area {
@@ -1044,22 +1046,29 @@ html.dark .episode-panel {
 }
 
 .script-title {
-  display: grid;
-  grid-template-columns: 80px minmax(0, 1fr) 120px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.script-title-main {
+  display: inline-flex;
+  min-width: 0;
+  flex: 1 1 auto;
   align-items: center;
   gap: 8px;
 }
 
 .script-title-label {
-  width: 80px;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
 .script-title-actions {
   display: inline-flex;
-  min-width: 0;
+  flex: 0 0 auto;
   align-items: center;
-  justify-content: flex-start;
   gap: 8px;
 }
 
@@ -1067,25 +1076,40 @@ html.dark .episode-panel {
   margin-left: 0;
 }
 
-.shot-connection-slider {
-  width: 148px;
-  flex: 0 0 148px;
-}
-
-.shot-connection-slider .el-slider__runway {
-  margin: 8px 0;
-}
-
 .script-title-stats {
   display: inline-flex;
+  flex: 0 0 auto;
   width: 120px;
-  justify-content: flex-end;
 }
 
 .script-title-stats .el-tag {
   width: 100%;
   justify-content: center;
   font-weight: 900;
+}
+
+.script-editor-layout {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.shot-connection-slider.el-slider.is-vertical {
+  box-sizing: border-box;
+  width: 36px;
+  min-height: 0;
+  flex: 0 0 36px;
+  padding-block: 10px;
+}
+
+.shot-connection-slider .el-slider__runway {
+  margin: 0 auto;
+}
+
+.shot-connection-slider .el-slider__marks-text {
+  display: none;
 }
 
 .preview-title {
