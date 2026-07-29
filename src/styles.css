@@ -920,8 +920,17 @@ html.dark .episode-panel {
   transition: flex-basis 0.5s ease, height 0.5s ease, opacity 0.2s ease;
 }
 
+.shot-row.is-even-unit {
+  background: linear-gradient(90deg, var(--el-color-primary-light-9) 0%, var(--el-fill-color-lighter) 5%, transparent 20%);
+  box-shadow: inset 2px 0 0 var(--el-color-primary-light-5);
+}
+
 .shot-row + .shot-row {
   border-top: 2px dashed var(--el-border-color);
+}
+
+.shot-row + .shot-row.is-same-unit-as-previous {
+  border-top: 1px dashed var(--el-border-color);
 }
 
 .shot-row.is-collapsed-complete {
@@ -2359,6 +2368,11 @@ html.dark .episode-panel {
   color: var(--el-text-color-regular);
   font-size: 13px;
   overflow: hidden;
+}
+
+.batch-shot-preview-item.is-even-unit {
+  background: linear-gradient(90deg, var(--el-color-primary-light-9) 0%, var(--el-fill-color-lighter) 5%, transparent 20%);
+  box-shadow: inset 2px 0 0 var(--el-color-primary-light-5);
 }
 
 .batch-shot-preview-head {

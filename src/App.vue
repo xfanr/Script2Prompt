@@ -332,7 +332,15 @@
               :key="shot.id"
               v-show="!isShotHidden(shot)"
               class="shot-row"
-              :class="{ 'is-complete': shot.status === 'complete', 'is-collapsed-complete': isShotCollapsed(shot) }"
+              :class="{
+                'is-complete': shot.status === 'complete',
+                'is-collapsed-complete': isShotCollapsed(shot),
+                'is-even-unit': normalizeShotUnitNumber(shot.unitNumber) % 2 === 0,
+                'is-same-unit-as-previous':
+                  index > 0 &&
+                  normalizeShotUnitNumber(activeEpisode.shots[index - 1].unitNumber) ===
+                    normalizeShotUnitNumber(shot.unitNumber),
+              }"
               @dblclick="copyPromptFromShotBlank($event, shot)"
             >
 
@@ -1045,7 +1053,10 @@
                     v-for="(segment, index) in batchShotSegments"
                     :key="`${segment.unitNumber}-${index}-${segment.text.length}-${segment.remark}`"
                     class="batch-shot-preview-item"
-                    :class="{ warn: durationState(segment.text).warn }"
+                    :class="{
+                      warn: durationState(segment.text).warn,
+                      'is-even-unit': normalizeShotUnitNumber(segment.unitNumber) % 2 === 0,
+                    }"
                   >
                     <div class="batch-shot-preview-head">
                       <div class="batch-shot-heading">
