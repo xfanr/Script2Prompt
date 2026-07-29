@@ -921,7 +921,7 @@ html.dark .episode-panel {
 }
 
 .shot-row.is-even-unit {
-  background: linear-gradient(90deg, var(--el-color-primary-light-9) 0%, var(--el-fill-color-lighter) 5%, transparent 20%);
+  background: linear-gradient(90deg, var(--el-color-primary-light-9) 0%, transparent 10%);
   box-shadow: inset 2px 0 0 var(--el-color-primary-light-5);
 }
 
@@ -2371,7 +2371,7 @@ html.dark .episode-panel {
 }
 
 .batch-shot-preview-item.is-even-unit {
-  background: linear-gradient(90deg, var(--el-color-primary-light-9) 0%, var(--el-fill-color-lighter) 5%, transparent 20%);
+  background: linear-gradient(90deg, var(--el-color-primary-light-9) 0%, var(--el-fill-color) 10%);
   box-shadow: inset 2px 0 0 var(--el-color-primary-light-5);
 }
 
