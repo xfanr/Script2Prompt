@@ -35,10 +35,10 @@
               <div class="episode-header">
                 <span>剧本管理</span>
                 <el-button-group class="episode-actions">
-                  <el-button :icon="Plus" round title="添加单集" aria-label="添加单集" @click="addEpisode" />
+                  <el-button :icon="Plus" round title="新建单集" aria-label="新建单集" @click="addEpisode" />
                   <el-button :icon="Folder" title="新建分组" aria-label="新建分组" @click="addEpisodeGroup" />
                   <el-button :icon="Upload" title="导入备份" aria-label="导入备份" @click="triggerImport" />
-                  <el-button :icon="Download" round title="保存备份" aria-label="保存备份" @click="exportAllEpisodes" />
+                  <el-button :icon="Download" round title="导出备份" aria-label="导出备份" @click="exportAllEpisodes" />
                 </el-button-group>
               </div>
               <el-scrollbar class="episode-scrollbar">
@@ -62,7 +62,7 @@
                       >
                         <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
                           <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
-                            <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="集数" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
+                            <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="输入集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
                             <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename(episode)" />
                             <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelEpisodeRename(episode)" />
                           </div>
@@ -95,7 +95,7 @@
                             <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
                             <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
                             <div v-if="editingGroupId === group.id" class="rename-inline" @click.stop @keydown.stop>
-                              <el-input v-model="group.title" class="episode-title-input" placeholder="分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
+                              <el-input v-model="group.title" class="episode-title-input" placeholder="输入分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
                               <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishGroupRename" />
                               <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelGroupRename(group)" />
                             </div>
@@ -123,7 +123,7 @@
                           >
                             <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
                               <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
-                                <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="集数" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
+                                <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="输入集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
                                 <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename(episode)" />
                                 <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelEpisodeRename(episode)" />
                               </div>
@@ -151,7 +151,7 @@
                         <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
                         <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
                         <div v-if="editingGroupId === group.id" class="rename-inline" @click.stop @keydown.stop>
-                          <el-input v-model="group.title" class="episode-title-input" placeholder="分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
+                          <el-input v-model="group.title" class="episode-title-input" placeholder="输入分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
                           <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishGroupRename" />
                           <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelGroupRename(group)" />
                         </div>
@@ -180,7 +180,7 @@
                       >
                         <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
                           <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
-                            <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="集数" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
+                            <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="输入集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
                             <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename(episode)" />
                             <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelEpisodeRename(episode)" />
                           </div>
@@ -390,8 +390,8 @@
                     :plain="shot.status !== 'complete'"
                     size="small"
                     circle
-                    :title="shot.status === 'complete' ? '完成' : '待办'"
-                    :aria-label="shot.status === 'complete' ? '完成' : '待办'"
+                    :title="shot.status === 'complete' ? '标记为待办' : '标记为完成'"
+                    :aria-label="shot.status === 'complete' ? '标记为待办' : '标记为完成'"
                     @click="setShotStatus(shot, shot.status !== 'complete')"
                   />
                   <el-button
@@ -401,13 +401,16 @@
                     :plain="!isShotReviewed(shot)"
                     size="small"
                     circle
-                    :title="isShotReviewed(shot) ? '已评' : '待评'"
-                    :aria-label="isShotReviewed(shot) ? '已评' : '待评'"
+                    :title="isShotReviewed(shot) ? '编辑评分' : '填写评分'"
+                    :aria-label="isShotReviewed(shot) ? '编辑评分' : '填写评分'"
                     @click="openReviewDialog(shot)"
                   />
-                  <el-popconfirm title="确认删除这条分镜？" confirm-button-text="删除" cancel-button-text="取消" @confirm="deleteShot(shot.id)">
+                  <el-popconfirm title="确认删除这条分镜？" @confirm="deleteShot(shot.id)">
+                    <template #actions="{ confirm }">
+                      <el-button size="small" type="danger" @click="confirm($event)">删除</el-button>
+                    </template>
                     <template #reference>
-                      <el-button :icon="Delete" type="danger" size="small" circle title="删除" aria-label="删除" />
+                      <el-button :icon="Delete" type="danger" size="small" circle title="删除分镜" aria-label="删除分镜" />
                     </template>
                   </el-popconfirm>
                 </div>
@@ -442,7 +445,7 @@
                           type="textarea"
                           :rows="9"
                           resize="vertical"
-                          placeholder="输入或粘贴 40-120 字分段剧本。系统会匹配本集人物，并识别对白格式。"
+                          placeholder="输入或粘贴分镜正文，建议控制在 40～120 字。点击“识别”可匹配本集人物。"
                         />
                       </div>
                       <div v-if="connectedNextText(shot, index)" class="script-context-line is-next" aria-readonly="true">
@@ -475,7 +478,7 @@
                       <span>场景配置</span>
                       <el-button :icon="Plus" text type="primary" @click="addSceneToShot(shot)">添加场景</el-button>
                     </div>
-                    <div v-if="!shot.scenes.length" class="empty-note">暂无场景项</div>
+                    <div v-if="!shot.scenes.length" class="empty-note">暂无场景配置</div>
                     <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line">
                       <el-select v-model="scene.name" placeholder="选择场景" filterable @change="syncSceneFromAsset(scene)">
                         <template #label="{ label }">
@@ -486,14 +489,13 @@
                       <el-input
                         v-model="scene.statusText"
                         class="scene-status-input"
-                        placeholder="状态内容"
+                        placeholder="输入场景状态"
                       >
                         <template #suffix>
                           <el-icon v-if="!scene.name.trim()" class="scene-status-suffix-icon is-disabled" title="请先选择场景" aria-label="请先选择场景"><Refresh /></el-icon>
-                          <el-popconfirm v-else title="确认同步同名场景状态？">
-                            <template #actions="{ confirm, cancel }">
-                              <el-button size="small" text @click="cancel($event)">取消</el-button>
-                              <el-button size="small" @click="syncSceneStatus(shot, scene, 'following'); confirm($event)">向下</el-button>
+                          <el-popconfirm v-else title="请选择同名场景状态的同步范围">
+                            <template #actions="{ confirm }">
+                              <el-button size="small" @click="syncSceneStatus(shot, scene, 'unit'); confirm($event)">本单元</el-button>
                               <el-button size="small" type="primary" @click="syncSceneStatus(shot, scene, 'all'); confirm($event)">全部</el-button>
                             </template>
                             <template #reference>
@@ -502,7 +504,10 @@
                           </el-popconfirm>
                         </template>
                       </el-input>
-                      <el-popconfirm title="确认删除这个场景配置？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeSceneFromShot(shot, scene.id)">
+                      <el-popconfirm title="确认删除这条场景配置？" @confirm="removeSceneFromShot(shot, scene.id)">
+                        <template #actions="{ confirm }">
+                          <el-button size="small" type="danger" @click="confirm($event)">删除</el-button>
+                        </template>
                         <template #reference>
                           <el-button :icon="Close" circle text />
                         </template>
@@ -532,7 +537,7 @@
                       <el-button :icon="Plus" text type="primary" @click="addCharacterToShot(shot)">添加人物</el-button>
                     </div>
                     <div class="character-config-list">
-                      <div v-if="!shot.characters.length" class="empty-note">暂无人物项</div>
+                      <div v-if="!shot.characters.length" class="empty-note">暂无人物配置</div>
                       <div v-for="character in shot.characters" :key="character.id" class="config-line character-line">
                       <div class="character-identity-controls">
                         <el-select v-model="character.name" placeholder="选择人物" filterable>
@@ -549,14 +554,13 @@
                       <el-input
                         v-model="character.statusText"
                         class="character-status-input"
-                        placeholder="状态内容"
+                        placeholder="输入人物状态"
                       >
                         <template #suffix>
                           <el-icon v-if="!character.name.trim()" class="status-sync-suffix-icon is-disabled" title="请先选择人物" aria-label="请先选择人物"><Refresh /></el-icon>
-                          <el-popconfirm v-else title="确认同步同名人物状态？">
-                            <template #actions="{ confirm, cancel }">
-                              <el-button size="small" text @click="cancel($event)">取消</el-button>
-                              <el-button size="small" @click="syncCharacterStatus(shot, character, 'following'); confirm($event)">向下</el-button>
+                          <el-popconfirm v-else title="请选择同名人物状态的同步范围">
+                            <template #actions="{ confirm }">
+                              <el-button size="small" @click="syncCharacterStatus(shot, character, 'unit'); confirm($event)">本单元</el-button>
                               <el-button size="small" type="primary" @click="syncCharacterStatus(shot, character, 'all'); confirm($event)">全部</el-button>
                             </template>
                             <template #reference>
@@ -565,11 +569,14 @@
                           </el-popconfirm>
                         </template>
                       </el-input>
-                      <el-popconfirm title="确认删除这个人物配置？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeCharacterFromShot(shot, character.id)">
-                          <template #reference>
-                            <el-button :icon="Close" circle text />
-                          </template>
-                        </el-popconfirm>
+                      <el-popconfirm title="确认删除这条人物配置？" @confirm="removeCharacterFromShot(shot, character.id)">
+                        <template #actions="{ confirm }">
+                          <el-button size="small" type="danger" @click="confirm($event)">删除</el-button>
+                        </template>
+                        <template #reference>
+                          <el-button :icon="Close" circle text />
+                        </template>
+                      </el-popconfirm>
                       </div>
                     </div>
                   </div>
@@ -607,14 +614,14 @@
       <el-dialog v-model="detectionDialogVisible" title="人物识别冲突" width="820px" :show-close="false" class="detection-dialog" @closed="cancelActiveDetection">
         <div v-if="detectionConflict" class="detection-compare">
           <div class="detection-compare-row">
-            <span>当前已有</span>
+            <span>当前配置</span>
             <div>
               <el-tag v-for="name in detectionConflict.currentNames" :key="`current-${name}`" effect="plain" type="info">{{ name }}</el-tag>
               <span v-if="!detectionConflict.currentNames.length" class="empty-note">无</span>
             </div>
           </div>
           <div class="detection-compare-row">
-            <span>本次识别</span>
+            <span>识别结果</span>
             <div>
               <el-tag v-for="name in detectionConflict.replaceNames" :key="`replace-${name}`" :type="detectionConflict.voiceSuggestions.includes(name) ? 'warning' : 'primary'" effect="light">
                 {{ name }}{{ detectionConflict.voiceSuggestions.includes(name) ? ' · 音色' : '' }}
@@ -639,13 +646,13 @@
           </div>
         </div>
         <template #footer>
-          <el-button :disabled="!detectionMergeChanged()" @click="mergeActiveDetection">合并</el-button>
-          <el-button type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换</el-button>
+          <el-button :disabled="!detectionMergeChanged()" @click="mergeActiveDetection">合并人物</el-button>
+          <el-button type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换人物</el-button>
         </template>
       </el-dialog>
       <el-dialog v-model="reviewDialogVisible" :title="reviewDialogTitle" width="820px" :show-close="false" class="review-dialog" @closed="activeReviewShot = null">
         <el-form class="dialog-form-width-limit review-form" label-position="top">
-          <el-form-item label="评分">
+          <el-form-item label="自动评分">
             <el-rate
               :model-value="reviewDraft.rating"
               disabled
@@ -668,14 +675,14 @@
                 :max="8"
                 :step="1"
                 :controls="false"
-                placeholder="填写"
+                placeholder="输入次数"
                 aria-label="自定义抽卡次数"
                 @input="updateReviewCustomDrawCount"
                 @blur="finalizeReviewDrawCountInput"
               />
             </div>
           </el-form-item>
-          <el-form-item label="无字幕">
+          <el-form-item label="无字幕次数">
             <div class="review-choice-field">
               <el-radio-group v-model="reviewSubtitleMode" @change="selectReviewSubtitleMode">
                 <el-radio-button value="subtitled">全有 0</el-radio-button>
@@ -689,7 +696,7 @@
                 :max="reviewDrawCountValue"
                 :step="1"
                 :controls="false"
-                placeholder="填写"
+                placeholder="输入次数"
                 aria-label="自定义无字幕次数"
                 @input="updateReviewCustomSubtitleCount"
               />
@@ -703,7 +710,7 @@
                   :options="reviewNoteCascaderOptions"
                   :props="reviewNoteCascaderProps"
                   separator=" → "
-                  placeholder="选择失误类型"
+                  placeholder="选择备注前缀"
                   clearable
                   @change="updateReviewNotePrefix"
                 />
@@ -744,7 +751,7 @@
               <template #suffix>%</template>
             </el-statistic>
             <div class="episode-statistic-detail">
-              <span>无字幕数 {{ reviewSummary.noSubtitleTotal }}</span>
+              <span>无字幕次数 {{ reviewSummary.noSubtitleTotal }}</span>
               <span>总抽卡数 {{ reviewSummary.drawTotal }}</span>
             </div>
           </section>
@@ -793,7 +800,7 @@
           </section>
         </div>
         <el-table :data="reviewSummaryRows" max-height="430" empty-text="暂无分镜">
-          <el-table-column prop="index" label="序号" width="112" />
+          <el-table-column prop="index" label="分镜编号" width="112" />
           <el-table-column label="状态" width="96">
             <template #default="{ row }">
               <el-tag :type="row.reviewed ? 'warning' : 'info'" effect="light">{{ row.reviewed ? '已评分' : '未评分' }}</el-tag>
@@ -802,10 +809,10 @@
           <el-table-column label="评分" width="110">
             <template #default="{ row }">{{ row.ratingText }}</template>
           </el-table-column>
-          <el-table-column label="抽卡" width="86">
+          <el-table-column label="抽卡次数" width="86">
             <template #default="{ row }">{{ row.drawCount }} 次</template>
           </el-table-column>
-          <el-table-column label="无字幕" width="96">
+          <el-table-column label="无字幕次数" width="96">
             <template #default="{ row }">
               <el-tag :type="row.noSubtitleCount === row.drawCount ? 'success' : 'danger'" effect="light">
                 {{ row.noSubtitleCount }}/{{ row.drawCount }}
@@ -849,7 +856,7 @@
               <template #suffix>%</template>
             </el-statistic>
             <div class="episode-statistic-detail">
-              <span>无字幕数 {{ groupSummaryStats.noSubtitleTotal }}</span>
+              <span>无字幕次数 {{ groupSummaryStats.noSubtitleTotal }}</span>
               <span>总抽卡数 {{ groupSummaryStats.drawTotal }}</span>
             </div>
           </section>
@@ -863,7 +870,7 @@
             </div>
           </section>
           <section class="episode-summary-card">
-            <el-statistic title="制作时间" :value="0" :formatter="formatGroupProductionDateRange" />
+            <el-statistic title="制作周期" :value="0" :formatter="formatGroupProductionDateRange" />
             <div class="episode-statistic-detail">
               <span>总制作天数 {{ groupProductionSummary.productionDays }}</span>
             </div>
@@ -881,18 +888,18 @@
           </section>
         </div>
         <el-table :data="groupSummaryTableRows" max-height="430" empty-text="暂无单集" scrollbar-always-on :row-class-name="groupSummaryRowClass">
-          <el-table-column prop="title" label="标题" min-width="130" fixed="left" show-overflow-tooltip />
+          <el-table-column prop="title" label="单集" min-width="130" fixed="left" show-overflow-tooltip />
           <el-table-column prop="averageText" label="平均分" width="90" />
-          <el-table-column prop="total" label="总分镜" width="86" />
-          <el-table-column prop="drawTotal" label="总抽卡" width="86" />
-          <el-table-column prop="averageDrawRate" label="平均抽卡率" width="110" />
+          <el-table-column prop="total" label="总分镜数" width="86" />
+          <el-table-column prop="drawTotal" label="总抽卡次数" width="86" />
+          <el-table-column prop="averageDrawRate" label="抽卡成功率" width="110" />
           <el-table-column prop="noSubtitleRate" label="无字幕率" width="94" />
-          <el-table-column prop="pointUsageText" label="积分" width="92" />
-          <el-table-column prop="totalCost" label="总费用" width="98" />
+          <el-table-column prop="pointUsageText" label="积分消耗" width="92" />
+          <el-table-column prop="totalCost" label="总成本" width="98" />
           <el-table-column prop="productionDate" label="制作日期" width="116" />
           <el-table-column label="操作" width="84" fixed="right" align="center" header-align="center">
             <template #default="{ row }">
-              <el-button v-if="!row.isSummary" text type="primary" @click="openReviewSummary(row.episode)">打开</el-button>
+              <el-button v-if="!row.isSummary" text type="primary" @click="openReviewSummary(row.episode)">查看</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -912,7 +919,7 @@
                   type="textarea"
                   :rows="16"
                   resize="none"
-                  placeholder="粘贴或输入本集完整剧本文字；使用 === 划分单元，使用 --- 划分分镜"
+                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，使用“---”划分分镜"
                   @input="syncEpisodeScriptDraft"
                 />
               </div>
@@ -926,7 +933,7 @@
                         <el-dropdown-item v-for="episode in materialCloneSourceEpisodes" :key="episode.id" :command="episode.id">
                           克隆 {{ episode.title }}
                         </el-dropdown-item>
-                        <el-dropdown-item v-if="!materialCloneSourceEpisodes.length" disabled>暂无可克隆集数</el-dropdown-item>
+                        <el-dropdown-item v-if="!materialCloneSourceEpisodes.length" disabled>暂无可克隆的单集</el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
@@ -1025,7 +1032,7 @@
                   type="textarea"
                   :rows="16"
                   resize="none"
-                  placeholder="粘贴或输入本集完整剧本文字；使用 === 划分单元，使用 --- 划分分镜"
+                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，使用“---”划分分镜"
                   @input="syncEpisodeScriptDraft"
                 />
               </div>
@@ -1049,7 +1056,7 @@
                     </div>
                     <p>{{ segment.text }}</p>
                   </div>
-                  <div v-if="!batchShotSegments.length" class="episode-script-empty empty-note">使用 === 划分单元、使用 --- 划分分镜后，将在这里显示识别结果。</div>
+                  <div v-if="!batchShotSegments.length" class="episode-script-empty empty-note">使用“===”划分单元、“---”划分分镜后，将在此显示识别结果。</div>
                 </div>
               </div>
             </div>
@@ -1067,14 +1074,14 @@
                   type="textarea"
                   :rows="16"
                   resize="none"
-                  placeholder="粘贴或输入包含人物名和冒号的剧本文字"
+                  placeholder="粘贴或输入包含人物名称及冒号的剧本文字"
                   @input="syncEpisodeScriptDraft"
                 />
               </div>
               <div class="dialogue-result-panel">
                 <div class="episode-script-panel-title">
-                  <span>台词结果</span>
-                  <el-tag size="small" type="info" effect="light">{{ dialogueView === 'replaced' ? '已替换' : '原文' }}</el-tag>
+                  <span>提取结果</span>
+                  <el-tag size="small" type="info" effect="light">{{ dialogueView === 'replaced' ? '结果' : '原文' }}</el-tag>
                 </div>
                 <div class="dialogue-result-stack" :class="{ 'is-readonly': dialogueView === 'replaced' }">
                   <div :ref="setDialogueHighlightRef" class="dialogue-line-highlight-layer" aria-hidden="true" v-html="highlightedDialogueText"></div>
@@ -1086,7 +1093,7 @@
                     :rows="16"
                     resize="none"
                     :readonly="dialogueView === 'replaced'"
-                    placeholder="未提取到台词"
+                    placeholder="暂无提取结果"
                   />
                 </div>
               </div>
@@ -1102,11 +1109,12 @@
             <div v-else-if="episodeScriptActiveTab === 'shots'" class="batch-shot-footer-actions">
               <el-popconfirm
                 v-if="isEpisodeShotUpdateMode"
-                title="当前分镜已有配置，确认更新分镜？"
-                confirm-button-text="更新"
-                cancel-button-text="取消"
+                title="将按识别结果更新分镜列表，并按顺序保留对应配置。确认继续？"
                 @confirm="applyEpisodeScriptShots"
               >
+                <template #actions="{ confirm }">
+                  <el-button size="small" type="primary" @click="confirm($event)">更新</el-button>
+                </template>
                 <template #reference>
                   <el-button type="primary">确认更新</el-button>
                 </template>
@@ -1118,9 +1126,9 @@
                 :disabled="dialogueView === 'original' && !state.globalConfig.dialogueExtraction.replacementRules.length"
                 @click="toggleDialogueReplacement"
               >
-                {{ dialogueView === 'replaced' ? '还原' : '换词' }}
+                {{ dialogueView === 'replaced' ? '原文' : '替换' }}
               </el-button>
-              <el-button type="primary" :disabled="!dialogueOutputDraft.trim()" @click="copyExtractedDialogue">提取台词</el-button>
+              <el-button type="primary" :disabled="!dialogueOutputDraft.trim()" @click="copyExtractedDialogue">复制台词</el-button>
             </div>
           </div>
         </template>
@@ -1223,7 +1231,7 @@ import { useAppState } from './useAppState'
 import { notify } from './notification'
 
 type MaterialKind = 'characters' | 'scenes'
-type StatusSyncScope = 'following' | 'all'
+type StatusSyncScope = 'unit' | 'all'
 type PositionReferenceMode = 'none' | 'position' | 'reverse'
 type MaterialSceneDraft = {
   name: string
@@ -1373,7 +1381,7 @@ const shotRemarkDraft = ref('')
 const reviewDraft = ref<PromptReview>(createPromptReview())
 const reviewDrawCountMode = ref<ReviewDrawCountMode>('')
 const reviewCustomDrawCount = ref<number | undefined>()
-const reviewSubtitleMode = ref<ReviewSubtitleMode>('subtitled')
+const reviewSubtitleMode = ref<ReviewSubtitleMode>('subtitle-free')
 const reviewCustomSubtitleCount = ref<number | undefined>()
 const reviewNotePrefixPath = ref<string[]>([])
 const episodeScriptDraft = ref('')
@@ -2424,9 +2432,9 @@ async function handleGroupCommand(command: string, groupId: string) {
 
       if (warning) {
         try {
-          await ElMessageBox.confirm(warning, '确认归档', {
+          await ElMessageBox.confirm(warning, '归档分组', {
             type: 'warning',
-            confirmButtonText: '继续归档',
+            confirmButtonText: '仍要归档',
             cancelButtonText: '取消',
           })
         } catch {
@@ -2456,7 +2464,7 @@ async function handleGroupCommand(command: string, groupId: string) {
   }
 
   try {
-    await ElMessageBox.confirm('删除分组后，组内剧本会移至未分组。', '删除分组', {
+    await ElMessageBox.confirm('删除分组后，组内单集将移至“未分组”。', '删除分组', {
       type: 'warning',
       confirmButtonText: '删除',
       cancelButtonText: '取消',
@@ -2482,11 +2490,11 @@ function archiveGroupWarningMessage(groupId: string) {
   const unreviewedEpisodes = episodes.filter((episode) => episode.shots.some((shot) => !isShotReviewed(shot)))
   const missingDateEpisodes = episodes.filter((episode) => !normalizeDateString(episode.productionData.productionDate))
   const lines = [
-    unreviewedEpisodes.length ? `存在未评分分镜的集数：${archiveEpisodeList(unreviewedEpisodes)}` : '',
-    missingDateEpisodes.length ? `未填写制作日期的集数：${archiveEpisodeList(missingDateEpisodes)}` : '',
+    unreviewedEpisodes.length ? `未完成评分：${archiveEpisodeList(unreviewedEpisodes)}` : '',
+    missingDateEpisodes.length ? `未填写制作日期：${archiveEpisodeList(missingDateEpisodes)}` : '',
   ].filter(Boolean)
 
-  return lines.length ? `${lines.join('\n')}\n\n确认仍要归档这个分组吗？` : ''
+  return lines.length ? `以下单集尚未完成：\n${lines.join('\n')}\n\n仍要归档该分组吗？` : ''
 }
 
 function archiveEpisodeList(episodes: Episode[]) {
@@ -2771,8 +2779,8 @@ function renameSceneMaterial(oldName: string, nextScene: MaterialSceneDraft) {
 async function confirmRemoveMaterial(kind: MaterialKind, value: string) {
   try {
     await ElMessageBox.confirm(
-      kind === 'characters' ? '确认删除这个人物素材？' : '确认删除这个场景素材？',
-      '删除基础素材',
+      kind === 'characters' ? '确认删除这条人物素材？' : '确认删除这条场景素材？',
+      kind === 'characters' ? '删除人物素材' : '删除场景素材',
       {
         type: 'warning',
         confirmButtonText: '删除',
@@ -2835,13 +2843,11 @@ function syncSceneStatus(sourceShot: Shot, source: SceneConfig, scope: StatusSyn
     return
   }
 
-  const sourceIndex = episode.shots.findIndex((shot) => shot.id === sourceShot.id)
-  if (scope === 'following' && sourceIndex < 0) {
-    return
-  }
-
+  const sourceUnitNumber = normalizeShotUnitNumber(sourceShot.unitNumber)
   let count = 0
-  const targetShots = scope === 'following' ? episode.shots.slice(sourceIndex + 1) : episode.shots
+  const targetShots = scope === 'unit'
+    ? episode.shots.filter((shot) => normalizeShotUnitNumber(shot.unitNumber) === sourceUnitNumber)
+    : episode.shots
   targetShots.forEach((shot) => {
     shot.scenes.forEach((scene) => {
       if (scene.name === name) {
@@ -2850,7 +2856,7 @@ function syncSceneStatus(sourceShot: Shot, source: SceneConfig, scope: StatusSyn
       }
     })
   })
-  notify.success(scope === 'following' ? `已向下同步场景状态，共 ${count} 项` : `已同步全篇场景状态，共 ${count} 项`)
+  notify.success(scope === 'unit' ? `已同步本单元场景状态，共 ${count} 项` : `已同步全篇场景状态，共 ${count} 项`)
 }
 
 function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: StatusSyncScope) {
@@ -2861,13 +2867,11 @@ function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: S
     return
   }
 
-  const sourceIndex = episode.shots.findIndex((shot) => shot.id === sourceShot.id)
-  if (scope === 'following' && sourceIndex < 0) {
-    return
-  }
-
+  const sourceUnitNumber = normalizeShotUnitNumber(sourceShot.unitNumber)
   let count = 0
-  const targetShots = scope === 'following' ? episode.shots.slice(sourceIndex + 1) : episode.shots
+  const targetShots = scope === 'unit'
+    ? episode.shots.filter((shot) => normalizeShotUnitNumber(shot.unitNumber) === sourceUnitNumber)
+    : episode.shots
   targetShots.forEach((shot) => {
     shot.characters.forEach((character) => {
       if (character.name === name) {
@@ -2876,7 +2880,7 @@ function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: S
       }
     })
   })
-  notify.success(scope === 'following' ? `已向下同步人物状态，共 ${count} 项` : `已同步全篇人物状态，共 ${count} 项`)
+  notify.success(scope === 'unit' ? `已同步本单元人物状态，共 ${count} 项` : `已同步全篇人物状态，共 ${count} 项`)
 }
 
 function addEpisode() {
@@ -2907,7 +2911,7 @@ async function deleteEpisodeById(id: string) {
   }
 
   try {
-    await ElMessageBox.confirm(`确认删除「${episode.title}」？`, '删除单集', {
+    await ElMessageBox.confirm(`确认删除“${episode.title}”？`, '删除单集', {
       type: 'warning',
       confirmButtonText: '删除',
       cancelButtonText: '取消',
@@ -3235,11 +3239,11 @@ function promptPreviewWarnings(shot: Shot) {
   }
 
   if (isVoiceOverflow(shot)) {
-    warnings.push('音色超过 3 个')
+    warnings.push('音色人物超过 3 人')
   }
 
   if (configuredCharacters.length > 3 && !shot.usePositionReference) {
-    warnings.push('多角色建议勾选位置参考')
+    warnings.push('多角色建议启用位置参考')
   }
 
   const seconds = recommendedSeconds(text)
@@ -3247,7 +3251,7 @@ function promptPreviewWarnings(shot: Shot) {
   const max = Math.max(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
 
   if (text && (seconds < min || seconds > max)) {
-    warnings.push(`推荐时长 ${formatSeconds(seconds)}，超出安全范围 ${formatSeconds(min)}-${formatSeconds(max)}`)
+    warnings.push(`推荐时长 ${formatSeconds(seconds)}，超出推荐范围 ${formatSeconds(min)}～${formatSeconds(max)}`)
   }
 
   return warnings
@@ -3863,7 +3867,7 @@ function resetReviewDraft() {
   reviewDraft.value = createPromptReview()
   reviewDrawCountMode.value = ''
   reviewCustomDrawCount.value = undefined
-  reviewSubtitleMode.value = 'subtitled'
+  reviewSubtitleMode.value = 'subtitle-free'
   reviewCustomSubtitleCount.value = undefined
   reviewNotePrefixPath.value = []
 }
@@ -3884,15 +3888,18 @@ function clearReviewDialog() {
 function openReviewDialog(shot: Shot) {
   activeReviewShot.value = shot
   reviewDraft.value = { ...normalizePromptReview(shot.review) }
-  reviewDrawCountMode.value = isReviewDefault(reviewDraft.value)
+  const isDefaultReview = isReviewDefault(reviewDraft.value)
+  reviewDrawCountMode.value = isDefaultReview
     ? ''
     : reviewDraft.value.drawCount === 1
     ? 'one'
     : reviewDraft.value.drawCount === 2
       ? 'two'
       : reviewDraft.value.drawCount === 3 ? 'three' : reviewDraft.value.drawCount === 4 ? 'four' : ''
-  reviewCustomDrawCount.value = reviewDrawCountMode.value ? undefined : isReviewDefault(reviewDraft.value) ? undefined : reviewDraft.value.drawCount
-  reviewSubtitleMode.value = reviewDraft.value.noSubtitleCount === 0
+  reviewCustomDrawCount.value = reviewDrawCountMode.value || isDefaultReview ? undefined : reviewDraft.value.drawCount
+  reviewSubtitleMode.value = isDefaultReview
+    ? 'subtitle-free'
+    : reviewDraft.value.noSubtitleCount === 0
     ? 'subtitled'
     : reviewDraft.value.noSubtitleCount === reviewDraft.value.drawCount
       ? 'subtitle-free'
@@ -4534,7 +4541,7 @@ function applyImportedGlobalConfigs(
 
 async function selectImportMode(): Promise<ImportMode | null> {
   try {
-    await ElMessageBox.confirm('请选择导入方式。全部替换会删除当前所有旧数据；新旧合并会跳过完全相同的单集。', '导入数据', {
+    await ElMessageBox.confirm('“全部替换”会清除现有分组和单集；“新旧合并”会跳过内容完全相同的单集。', '选择导入方式', {
       type: 'warning',
       confirmButtonText: '全部替换',
       cancelButtonText: '新旧合并',

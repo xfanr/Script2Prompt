@@ -35,14 +35,14 @@
       <el-tab-pane label="数据收集" name="data">
         <div class="global-config-scroll-pane">
           <el-form class="global-config-form" label-position="top">
-            <el-form-item label="安全时长">
+            <el-form-item label="推荐时长范围">
               <div class="duration-range-config slider-range-config">
                 <span>{{ durationRangeDraft[0].toFixed(1) }}</span>
                 <el-slider v-model="durationRangeDraft" range :min="3" :max="25" :step="0.5" :format-tooltip="formatDurationTooltip" />
                 <span>{{ durationRangeDraft[1].toFixed(1) }}</span>
               </div>
             </el-form-item>
-            <el-form-item label="新建单集默认成本">
+            <el-form-item label="新建单集默认积分成本">
               <el-input-number
                 v-model="draft.dataCollection.defaultPointCost"
                 class="global-config-number-input"
@@ -55,14 +55,14 @@
             <el-form-item label="评分备注前缀">
               <div class="dialogue-rule-config">
                 <div class="dialogue-rule-heading">
-                  <span>一级分类与二级选项用于评分备注的快捷前缀。</span>
+                  <span>分类与选项将组合为评分备注前缀。</span>
                   <el-button :icon="Plus" text type="primary" @click="addReviewNotePrefixOption">添加选项</el-button>
                 </div>
-                <div v-if="!draft.dataCollection.reviewNotePrefixOptions.length" class="empty-note">暂无前缀选项</div>
+                <div v-if="!draft.dataCollection.reviewNotePrefixOptions.length" class="empty-note">暂无评分备注前缀</div>
                 <div v-else class="dialogue-rule-list">
                   <div v-for="option in draft.dataCollection.reviewNotePrefixOptions" :key="option.id" class="dialogue-rule-row">
-                    <el-input v-model="option.category" placeholder="一级分类" clearable />
-                    <el-input v-model="option.label" placeholder="二级选项" clearable />
+                    <el-input v-model="option.category" placeholder="输入一级分类" clearable />
+                    <el-input v-model="option.label" placeholder="输入二级选项" clearable />
                     <el-button :icon="Delete" text type="danger" aria-label="删除评分备注前缀" @click="removeReviewNotePrefixOption(option.id)" />
                   </div>
                 </div>
@@ -75,17 +75,17 @@
       <el-tab-pane label="提取台词" name="dialogue">
         <div class="global-config-scroll-pane">
           <el-form class="global-config-form" label-position="top">
-            <el-form-item label="台词违禁词替换">
+            <el-form-item label="台词替换规则">
               <div class="dialogue-rule-config">
                 <div class="dialogue-rule-heading">
-                  <span>所有单集共用，保存后生效；替换内容留空表示删除违禁词。</span>
+                  <span>所有单集共用，保存后生效；替换内容留空时删除对应词语。</span>
                   <el-button :icon="Plus" text type="primary" @click="addDialogueReplacementRule">添加规则</el-button>
                 </div>
                 <div v-if="!draft.dialogueExtraction.replacementRules.length" class="empty-note">暂无替换规则</div>
                 <div v-else class="dialogue-rule-list">
                   <div v-for="rule in draft.dialogueExtraction.replacementRules" :key="rule.id" class="dialogue-rule-row">
-                    <el-input v-model="rule.forbidden" placeholder="违禁词" clearable />
-                    <el-input v-model="rule.replacement" placeholder="替换内容，可留空" clearable />
+                    <el-input v-model="rule.forbidden" placeholder="输入待替换词语" clearable />
+                    <el-input v-model="rule.replacement" placeholder="输入替换内容，可留空" clearable />
                     <el-button :icon="Delete" text type="danger" aria-label="删除替换规则" @click="removeDialogueReplacementRule(rule.id)" />
                   </div>
                 </div>
@@ -109,7 +109,7 @@
           />
         </div>
         <div class="global-config-footer-actions">
-          <el-button :loading="isResetting" @click="resetFromServer">重置</el-button>
+          <el-button :loading="isResetting" @click="resetFromServer">恢复初始配置</el-button>
           <el-button type="primary" @click="save">保存</el-button>
         </div>
       </div>
@@ -250,7 +250,7 @@ function validateDraft() {
 
 async function resetFromServer() {
   try {
-    await ElMessageBox.confirm('将从服务器重新读取默认配置并替换当前弹窗草稿，仍需点击保存才会生效。', '重置全局配置', {
+    await ElMessageBox.confirm('将重新读取服务器初始配置并替换当前草稿；点击“保存”后生效。', '重置全局配置', {
       type: 'warning',
       confirmButtonText: '重置',
       cancelButtonText: '取消',
@@ -288,9 +288,9 @@ async function canDiscardChanges() {
   }
 
   try {
-    await ElMessageBox.confirm('存在未保存的全局配置修改，确认放弃？', '放弃修改', {
+    await ElMessageBox.confirm('全局配置尚未保存，确认放弃修改？', '放弃修改', {
       type: 'warning',
-      confirmButtonText: '放弃',
+      confirmButtonText: '放弃修改',
       cancelButtonText: '继续编辑',
     })
     return true
