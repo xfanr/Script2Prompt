@@ -5,7 +5,7 @@ import { normalizeStoredShotConnection } from './shotContext'
 import { compactShotUnitNumbers, normalizeShotUnitNumber } from './shotNumber'
 import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
 
-const shotViewModes: ShotViewMode[] = ['expanded', 'collapse-completed', 'hide-completed']
+const shotViewModes: ShotViewMode[] = ['expanded', 'collapse-completed', 'single-expanded']
 
 function normalizeSceneAsset(scene: unknown): SceneAsset | null {
   if (typeof scene === 'string') {
@@ -122,15 +122,22 @@ function loadState(defaultGlobalConfig: GlobalConfig): AppState {
     }
 
     const legacyGlobalConfig = parsed.globalConfig as unknown as { autoCollapseCompletedShots?: boolean }
-    parsed.shotViewMode = shotViewModes.includes(parsed.shotViewMode)
-      ? parsed.shotViewMode
-      : legacyGlobalConfig.autoCollapseCompletedShots === false ? 'expanded' : 'collapse-completed'
+    const storedShotViewMode = parsed.shotViewMode as unknown
+    parsed.shotViewMode = storedShotViewMode === 'hide-completed'
+      ? 'collapse-completed'
+      : shotViewModes.includes(storedShotViewMode as ShotViewMode)
+        ? storedShotViewMode as ShotViewMode
+        : legacyGlobalConfig.autoCollapseCompletedShots === false ? 'expanded' : 'collapse-completed'
+    parsed.singleExpandedShotId = typeof parsed.singleExpandedShotId === 'string'
+      ? parsed.singleExpandedShotId
+      : null
     delete legacyGlobalConfig.autoCollapseCompletedShots
     const normalizedGlobalConfig = storedVersion < 3
       ? migrateLegacyGlobalConfig(parsed.globalConfig, storedVersion, defaultGlobalConfig)
       : normalizeGlobalConfig(parsed.globalConfig)
-    const shouldPersistNormalizedState = (
+    let shouldPersistNormalizedState = (
       storedVersion < APP_VERSION
+      || storedShotViewMode !== parsed.shotViewMode
       || !normalizedGlobalConfig
       || JSON.stringify(parsed.globalConfig) !== JSON.stringify(normalizedGlobalConfig)
     )
@@ -179,6 +186,21 @@ function loadState(defaultGlobalConfig: GlobalConfig): AppState {
       const episode = createEpisode(1, parsed.globalConfig.dataCollection.defaultPointCost)
       parsed.episodes = [episode]
       parsed.activeEpisodeId = episode.id
+    }
+
+    const activeEpisode = parsed.episodes.find((episode) => episode.id === parsed.activeEpisodeId)
+    const hasSelectedShot = Boolean(
+      parsed.singleExpandedShotId
+      && activeEpisode?.shots.some((shot) => shot.id === parsed.singleExpandedShotId),
+    )
+
+    if (!hasSelectedShot) {
+      shouldPersistNormalizedState ||= parsed.singleExpandedShotId !== null || parsed.shotViewMode === 'single-expanded'
+      parsed.singleExpandedShotId = null
+
+      if (parsed.shotViewMode === 'single-expanded') {
+        parsed.shotViewMode = 'collapse-completed'
+      }
     }
 
     if (shouldPersistNormalizedState) {

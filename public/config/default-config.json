@@ -40,32 +40,32 @@
     "defaultPointCost": 0.0063,
     "reviewNotePrefixOptions": [
       {
-        "id": "review-model-pronunciation",
+        "id": "review-model-scene",
         "category": "模型失误",
-        "label": "读音"
+        "label": "场景异常"
       },
       {
-        "id": "review-model-clipping",
+        "id": "review-model-reference-image-rendering",
         "category": "模型失误",
-        "label": "穿模"
+        "label": "渲染参考图"
       },
       {
-        "id": "review-model-position",
+        "id": "review-model-character-position",
         "category": "模型失误",
-        "label": "位置"
+        "label": "角色位置异常"
       },
       {
-        "id": "review-model-action",
+        "id": "review-model-character-action",
         "category": "模型失误",
-        "label": "动作"
+        "label": "角色动作异常"
       },
       {
-        "id": "review-model-position-render",
+        "id": "review-model-character-dialogue",
         "category": "模型失误",
-        "label": "渲染定位图"
+        "label": "角色台词异常"
       },
       {
-        "id": "review-model-character-id",
+        "id": "review-model-character-id-drift",
         "category": "模型失误",
         "label": "角色ID漂移"
       },
@@ -73,6 +73,11 @@
         "id": "review-model-character-clone",
         "category": "模型失误",
         "label": "角色多胞胎"
+      },
+      {
+        "id": "review-model-prop",
+        "category": "模型失误",
+        "label": "道具异常"
       },
       {
         "id": "review-draw-reference-missing",

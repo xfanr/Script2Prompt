@@ -1,5 +1,5 @@
 export type CompletionStatus = 'incomplete' | 'complete'
-export type ShotViewMode = 'expanded' | 'collapse-completed' | 'hide-completed'
+export type ShotViewMode = 'expanded' | 'collapse-completed' | 'single-expanded'
 export type SceneTime = '白天' | '深夜'
 export type SceneSpace = '室内' | '室外' | '无'
 
@@ -151,6 +151,7 @@ export interface Episode {
 export interface AppState {
   version: number
   shotViewMode: ShotViewMode
+  singleExpandedShotId: string | null
   globalConfig: GlobalConfig
   episodeGroups: EpisodeGroup[]
   episodes: Episode[]

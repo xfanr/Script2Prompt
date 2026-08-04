@@ -270,9 +270,51 @@
               </div>
             </template>
             <template #extra>
-              <el-segmented v-model="state.shotViewMode" :options="shotViewModeOptions" size="small" class="shot-view-segmented" aria-label="分镜展开模式">
+              <el-segmented :model-value="state.shotViewMode" :options="shotViewModeOptions" size="small" class="shot-view-segmented" aria-label="分镜展开模式" @change="handleShotViewModeChange">
                 <template #default="{ item }">
-                  <el-icon :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
+                  <el-popover
+                    v-if="isSingleExpandedOption(item)"
+                    :visible="singleShotMenuVisible"
+                    placement="bottom-start"
+                    :width="128"
+                    popper-class="single-shot-menu-popper"
+                  >
+                    <template #reference>
+                      <span
+                        class="single-shot-menu-trigger"
+                        role="button"
+                        tabindex="0"
+                        title="单条展开"
+                        aria-label="选择单条展开的分镜"
+                        aria-haspopup="listbox"
+                        :aria-expanded="singleShotMenuVisible"
+                        @mouseenter="openSingleShotMenu"
+                        @mouseleave="scheduleSingleShotMenuClose"
+                        @click.stop.prevent="activateFirstSingleShot"
+                        @keydown.enter.stop.prevent="activateFirstSingleShot"
+                        @keydown.space.stop.prevent="activateFirstSingleShot"
+                      >
+                        <el-icon><component :is="segmentedOptionIcon(item)" /></el-icon>
+                      </span>
+                    </template>
+                    <el-scrollbar max-height="320px" @mouseenter="openSingleShotMenu" @mouseleave="scheduleSingleShotMenuClose">
+                      <div class="single-shot-menu-list" role="listbox" aria-label="选择要展开的分镜">
+                        <el-button
+                          v-for="(shot, index) in activeEpisode.shots"
+                          :key="shot.id"
+                          text
+                          class="single-shot-menu-item"
+                          :class="{ 'is-active': state.singleExpandedShotId === shot.id }"
+                          role="option"
+                          :aria-selected="state.singleExpandedShotId === shot.id"
+                          @click="selectSingleExpandedShot(shot)"
+                        >
+                          {{ formatShotNumber(activeEpisode, index) }}
+                        </el-button>
+                      </div>
+                    </el-scrollbar>
+                  </el-popover>
+                  <el-icon v-else :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
                     <component :is="segmentedOptionIcon(item)" />
                   </el-icon>
                 </template>
@@ -330,11 +372,11 @@
             <article
               v-for="(shot, index) in activeEpisode.shots"
               :key="shot.id"
-              v-show="!isShotHidden(shot)"
+              :id="shotRowElementId(shot.id)"
               class="shot-row"
               :class="{
                 'is-complete': shot.status === 'complete',
-                'is-collapsed-complete': isShotCollapsed(shot),
+                'is-collapsed': isShotCollapsed(shot),
                 'is-even-unit': normalizeShotUnitNumber(shot.unitNumber) % 2 === 0,
                 'is-same-unit-as-previous':
                   index > 0 &&
@@ -346,13 +388,20 @@
 
               <div class="shot-meta">
                 <div class="shot-index-area" :class="{ 'has-remark': hasShotRemark(shot) }">
-                  <span
-                    class="shot-index"
-                    title="双击复制分镜编号"
-                    @dblclick.stop.prevent="copyShotNumber(shot)"
+                  <el-tooltip
+                    :content="shot.text"
+                    :disabled="!shot.text"
+                    placement="top-start"
+                    popper-class="shot-detail-tooltip"
                   >
-                    {{ formatShotNumber(activeEpisode, index) }}
-                  </span>
+                    <span
+                      class="shot-index"
+                      @dblclick.stop.prevent="copyShotNumber(shot)"
+                    >
+                      <span class="shot-order">{{ index + 1 }}</span>
+                      <span class="shot-number">{{ formatShotNumber(activeEpisode, index) }}</span>
+                    </span>
+                  </el-tooltip>
                   <template v-if="editingShotRemarkId === shot.id">
                     <el-input
                       v-model="shotRemarkDraft"
@@ -1211,7 +1260,7 @@ import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Folder, Fold, Hide, Location, Moon, Notebook, Plus, Position, Refresh, RefreshLeft, Search, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Folder, Fold, Location, Moon, Notebook, Plus, Position, Refresh, RefreshLeft, Search, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, View, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
@@ -1343,6 +1392,8 @@ const editingGroupOriginalTitle = ref('')
 const expandedGroupIds = ref<string[]>(['ungrouped'])
 const openEpisodeMenuId = ref<string | null>(null)
 const openGroupMenuId = ref<string | null>(null)
+const singleShotMenuVisible = ref(false)
+let singleShotMenuCloseTimer: number | null = null
 const materialSceneTimeOptions: MaterialSegmentedOption<SceneTime>[] = [
   { label: '白天', value: '白天', icon: Sunny },
   { label: '深夜', value: '深夜', icon: Moon },
@@ -1357,9 +1408,9 @@ const themeModeOptions = [
   { label: '深色模式', value: true, icon: Moon },
 ]
 const shotViewModeOptions: MaterialSegmentedOption<ShotViewMode>[] = [
-  { label: '全部展开', value: 'expanded', icon: Expand },
+  { label: '单条展开', value: 'single-expanded', icon: View },
   { label: '完成折叠', value: 'collapse-completed', icon: Fold },
-  { label: '完成隐藏', value: 'hide-completed', icon: Hide },
+  { label: '全部展开', value: 'expanded', icon: Expand },
 ]
 const positionReferenceModeOptions: MaterialSegmentedOption<PositionReferenceMode>[] = [
   { label: '常规视角', value: 'none', icon: User },
@@ -2324,6 +2375,29 @@ watch(
 )
 
 watch(
+  () => state.activeEpisodeId,
+  (episodeId, previousEpisodeId) => {
+    if (episodeId !== previousEpisodeId) {
+      resetSingleExpandedView()
+    }
+  },
+)
+
+watch(
+  () => activeEpisode.value?.shots.map((shot) => shot.id).join('\u0000') ?? '',
+  () => {
+    if (state.singleExpandedShotId && !isCurrentEpisodeShot(state.singleExpandedShotId)) {
+      resetSingleExpandedView()
+      return
+    }
+
+    if (state.shotViewMode === 'single-expanded' && !isCurrentEpisodeShot(state.singleExpandedShotId)) {
+      resetSingleExpandedView()
+    }
+  },
+)
+
+watch(
   [dialogueOutputDraft, dialogueView],
   () => void nextTick(syncDialogueHighlightScroll),
   { flush: 'post' },
@@ -2635,6 +2709,10 @@ function segmentedOptionIcon(item: unknown) {
   }
 
   return Sunny
+}
+
+function isSingleExpandedOption(item: unknown) {
+  return Boolean(item && typeof item === 'object' && 'value' in item && item.value === 'single-expanded')
 }
 
 function isCharacterUsed(name: string) {
@@ -3031,12 +3109,88 @@ function syncEpisodeShots(episode: Episode, segments: BatchShotSegment[], sceneD
   return segments.length
 }
 
-function isShotCollapsed(shot: Shot) {
-  return state.shotViewMode === 'collapse-completed' && shot.status === 'complete'
+function openSingleShotMenu() {
+  cancelSingleShotMenuClose()
+  singleShotMenuVisible.value = true
 }
 
-function isShotHidden(shot: Shot) {
-  return state.shotViewMode === 'hide-completed' && shot.status === 'complete'
+function closeSingleShotMenu() {
+  cancelSingleShotMenuClose()
+  singleShotMenuVisible.value = false
+}
+
+function cancelSingleShotMenuClose() {
+  if (singleShotMenuCloseTimer !== null) {
+    window.clearTimeout(singleShotMenuCloseTimer)
+    singleShotMenuCloseTimer = null
+  }
+}
+
+function scheduleSingleShotMenuClose() {
+  cancelSingleShotMenuClose()
+  singleShotMenuCloseTimer = window.setTimeout(() => {
+    singleShotMenuCloseTimer = null
+    singleShotMenuVisible.value = false
+  }, 80)
+}
+
+function isCurrentEpisodeShot(id: string | null) {
+  return Boolean(id && activeEpisode.value?.shots.some((shot) => shot.id === id))
+}
+
+function resetSingleExpandedView() {
+  closeSingleShotMenu()
+  state.singleExpandedShotId = null
+
+  if (state.shotViewMode === 'single-expanded') {
+    state.shotViewMode = 'collapse-completed'
+  }
+}
+
+function handleShotViewModeChange(value: string | number | boolean | undefined) {
+  if (value === 'single-expanded') {
+    activateFirstSingleShot()
+    return
+  }
+
+  if (value !== 'expanded' && value !== 'collapse-completed') {
+    return
+  }
+
+  closeSingleShotMenu()
+  state.shotViewMode = value
+}
+
+function activateFirstSingleShot() {
+  const firstShot = activeEpisode.value?.shots[0]
+
+  if (firstShot) {
+    selectSingleExpandedShot(firstShot)
+  }
+}
+
+function shotRowElementId(id: string) {
+  return `shot-row-${id}`
+}
+
+function selectSingleExpandedShot(shot: Shot) {
+  if (!isCurrentEpisodeShot(shot.id)) {
+    return
+  }
+
+  state.singleExpandedShotId = shot.id
+  state.shotViewMode = 'single-expanded'
+  void nextTick(() => {
+    document.getElementById(shotRowElementId(shot.id))?.scrollIntoView({ block: 'nearest' })
+  })
+}
+
+function isShotCollapsed(shot: Shot) {
+  if (state.shotViewMode === 'single-expanded') {
+    return shot.id !== state.singleExpandedShotId
+  }
+
+  return state.shotViewMode === 'collapse-completed' && shot.status === 'complete'
 }
 
 function hasModifiedShots(episode: Episode) {
@@ -4118,8 +4272,8 @@ function isShortcutBlocked() {
     || episodeScriptDialogVisible.value
 }
 
-function handleShotCopyShortcut(event: KeyboardEvent) {
-  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || event.isComposing) {
+function handleShotNumberShortcut(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.isComposing) {
     return
   }
 
@@ -4134,7 +4288,36 @@ function handleShotCopyShortcut(event: KeyboardEvent) {
   }
 
   event.preventDefault()
-  void copyPrompt(shot)
+
+  if (event.altKey) {
+    void copyPrompt(shot)
+    return
+  }
+
+  selectSingleExpandedShot(shot)
+}
+
+function isSingleShotMenuTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && Boolean(target.closest('.single-shot-menu-trigger, .single-shot-menu-popper'))
+}
+
+function handleSingleShotMenuPointerDown(event: PointerEvent) {
+  if (singleShotMenuVisible.value && !isSingleShotMenuTarget(event.target)) {
+    closeSingleShotMenu()
+  }
+}
+
+function handleSingleShotMenuFocusIn(event: FocusEvent) {
+  if (singleShotMenuVisible.value && !isSingleShotMenuTarget(event.target)) {
+    closeSingleShotMenu()
+  }
+}
+
+function handleSingleShotMenuKeydown(event: KeyboardEvent) {
+  if (singleShotMenuVisible.value && event.key === 'Escape') {
+    event.preventDefault()
+    closeSingleShotMenu()
+  }
 }
 
 function shotCopyLabel(shot: Shot) {
@@ -4273,11 +4456,18 @@ async function copyText(text: string) {
 }
 
 onMounted(() => {
-  window.addEventListener('keydown', handleShotCopyShortcut)
+  window.addEventListener('keydown', handleShotNumberShortcut)
+  window.addEventListener('keydown', handleSingleShotMenuKeydown)
+  document.addEventListener('pointerdown', handleSingleShotMenuPointerDown)
+  document.addEventListener('focusin', handleSingleShotMenuFocusIn)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleShotCopyShortcut)
+  window.removeEventListener('keydown', handleShotNumberShortcut)
+  window.removeEventListener('keydown', handleSingleShotMenuKeydown)
+  document.removeEventListener('pointerdown', handleSingleShotMenuPointerDown)
+  document.removeEventListener('focusin', handleSingleShotMenuFocusIn)
+  cancelSingleShotMenuClose()
   if (materialSceneTransitionFrame !== null) {
     cancelAnimationFrame(materialSceneTransitionFrame)
   }

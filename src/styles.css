@@ -1,3 +1,19 @@
+@font-face {
+  font-family: "ZSFT-dq";
+  src: url("https://fontsapi.zeoseven.com/dq/bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "ZSFT-dq";
+  src: url("https://fontsapi.zeoseven.com/dq/main.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 html:root {
   --el-color-primary-rgb: 255, 102, 153;
   --el-color-primary: #ff6699;
@@ -686,6 +702,69 @@ html.dark .episode-panel {
   font-size: 16px;
 }
 
+.single-shot-menu-trigger {
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  outline: none;
+}
+
+.single-shot-menu-trigger:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--el-color-primary);
+}
+
+.single-shot-menu-popper.el-popover {
+  min-width: 128px;
+  padding: 6px;
+}
+
+.single-shot-menu-popper .el-scrollbar__wrap {
+  overflow-x: hidden;
+}
+
+.single-shot-menu-popper .el-scrollbar__view {
+  min-width: 0;
+}
+
+.single-shot-menu-popper .el-scrollbar__bar.is-horizontal {
+  display: none;
+}
+
+.single-shot-menu-list {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.single-shot-menu-list .single-shot-menu-item.el-button {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  justify-content: flex-start;
+  margin-left: 0;
+  overflow: hidden;
+  color: var(--el-text-color-regular);
+}
+
+.single-shot-menu-item.el-button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.single-shot-menu-item.el-button:hover,
+.single-shot-menu-item.el-button:focus-visible,
+.single-shot-menu-item.el-button.is-active {
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+}
+
 .position-reference-segmented.el-segmented {
   --shot-view-segment-size: 24px;
 }
@@ -933,7 +1012,7 @@ html.dark .episode-panel {
   border-top: 1px dashed var(--el-border-color);
 }
 
-.shot-row.is-collapsed-complete {
+.shot-row.is-collapsed {
   flex-basis: 64px;
   height: 64px;
 }
@@ -954,12 +1033,35 @@ html.dark .episode-panel {
   align-items: center;
   height: 24px;
   margin-right: 8px;
+  gap: 8px;
   color: var(--el-color-primary);
   font-size: 18px;
   font-weight: 900;
   line-height: 24px;
   cursor: copy;
   user-select: none;
+}
+
+.shot-order {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  color: var(--el-text-color-primary);
+  font-family: "ZSFT-dq", "Microsoft YaHei UI", "Noto Sans SC", "PingFang SC", sans-serif;
+  font-size: 50px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.shot-number {
+  white-space: nowrap;
+}
+
+.shot-detail-tooltip {
+  max-width: min(520px, calc(100vw - 24px));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
 }
 
 .shot-index-area {
@@ -2556,11 +2658,11 @@ html.dark .episode-panel {
   width: 100%;
 }
 
-.shot-row.is-collapsed-complete {
+.shot-row.is-collapsed {
   display: block;
 }
 
-.shot-row.is-collapsed-complete .shot-meta {
+.shot-row.is-collapsed .shot-meta {
   width: 100%;
   min-height: 40px;
   height: 40px;
