@@ -368,7 +368,7 @@
               </div>
             </div>
           </el-page-header>
-          <section class="shot-list">
+          <section ref="shotListRef" class="shot-list">
             <article
               v-for="(shot, index) in activeEpisode.shots"
               :key="shot.id"
@@ -1379,6 +1379,7 @@ const materialSceneDrafts = ref<MaterialSceneDraft[]>(createMaterialSceneDrafts(
 const materialSceneTransitionsReady = ref(false)
 const batchShotSegments = ref<BatchShotSegment[]>([])
 const episodeScriptActiveTab = ref<EpisodeScriptTab>('shots')
+const shotListRef = ref<HTMLElement | null>(null)
 const dialogueView = ref<DialogueView>('original')
 const dialogueOriginalDraft = ref('')
 const dialogueReplacedDraft = ref('')
@@ -2379,6 +2380,11 @@ watch(
   (episodeId, previousEpisodeId) => {
     if (episodeId !== previousEpisodeId) {
       resetSingleExpandedView()
+      void nextTick(() => {
+        if (shotListRef.value) {
+          shotListRef.value.scrollTop = 0
+        }
+      })
     }
   },
 )
