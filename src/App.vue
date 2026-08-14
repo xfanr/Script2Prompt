@@ -386,7 +386,7 @@
               @dblclick="copyPromptFromShotBlank($event, shot)"
             >
 
-              <div class="shot-meta">
+              <div class="shot-meta" @wheel="handleShotTitleWheel">
                 <div class="shot-index-area" :class="{ 'has-remark': hasShotRemark(shot) }">
                   <span
                     class="shot-index"
@@ -441,6 +441,19 @@
                 </div>
                 <div class="shot-tools">
                   <el-button
+                    class="shot-thirty-second-button"
+                    :icon="VideoCamera"
+                    type="primary"
+                    :plain="!shot.thirtySecondMode"
+                    size="small"
+                    circle
+                    :title="shot.thirtySecondMode ? '关闭 30S 模式' : '开启 30S 模式'"
+                    :aria-label="shot.thirtySecondMode ? '关闭 30S 模式' : '开启 30S 模式'"
+                    :aria-pressed="shot.thirtySecondMode"
+                    @click.stop="shot.thirtySecondMode = !shot.thirtySecondMode"
+                  />
+                  <el-divider class="shot-tool-divider" direction="vertical" />
+                  <el-button
                     class="shot-status-button"
                     :icon="Check"
                     type="success"
@@ -484,7 +497,7 @@
                       </div>
                     </div>
                     <div class="script-title-stats">
-                      <el-tag :type="durationState(effectiveShotText(shot)).warn ? 'danger' : 'info'" effect="light" round>
+                      <el-tag :type="durationState(effectiveShotText(shot), shot.thirtySecondMode).warn ? 'danger' : 'info'" effect="light" round>
                         {{ characterCount(effectiveShotText(shot)) }} 字 · {{ durationText(effectiveShotText(shot)) }}
                       </el-tag>
                     </div>
@@ -606,7 +619,7 @@
                             :disabled="isCharacterOptionDisabled(shot, character.id, item)"
                           />
                         </el-select>
-                        <el-checkbox v-model="character.includeVoice" border :class="{ 'is-voice-overflow': isVoiceOverflow(shot) && character.includeVoice }">音色</el-checkbox>
+                        <el-checkbox v-model="character.includeVoice" border :class="{ 'is-voice-overflow': !shot.thirtySecondMode && isVoiceOverflow(shot) && character.includeVoice }">音色</el-checkbox>
                       </div>
                       <el-input
                         v-model="character.statusText"
@@ -1103,7 +1116,7 @@
                     :key="`${segment.unitNumber}-${index}-${segment.text.length}-${segment.remark}`"
                     class="batch-shot-preview-item"
                     :class="{
-                      warn: durationState(segment.text).warn,
+                      warn: durationState(segment.text, isThirtySecondModeRemark(segment.remark)).warn,
                       'is-even-unit': normalizeShotUnitNumber(segment.unitNumber) % 2 === 0,
                     }"
                   >
@@ -1260,7 +1273,7 @@ import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Folder, Fold, Location, Moon, Notebook, Plus, Position, Refresh, RefreshLeft, Search, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, View, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Folder, Fold, Location, Moon, Notebook, Plus, Position, Refresh, RefreshLeft, Search, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, VideoCamera, View, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
@@ -1395,6 +1408,11 @@ const openEpisodeMenuId = ref<string | null>(null)
 const openGroupMenuId = ref<string | null>(null)
 const singleShotMenuVisible = ref(false)
 let singleShotMenuCloseTimer: number | null = null
+const shotTitleWheelThreshold = 24
+const shotTitleWheelIdleMs = 180
+let shotTitleWheelDelta = 0
+let shotTitleWheelConsumed = false
+let shotTitleWheelResetTimer: number | null = null
 const materialSceneTimeOptions: MaterialSegmentedOption<SceneTime>[] = [
   { label: '白天', value: '白天', icon: Sunny },
   { label: '深夜', value: '深夜', icon: Moon },
@@ -3105,6 +3123,9 @@ function syncEpisodeShots(episode: Episode, segments: BatchShotSegment[], sceneD
     const shot = episode.shots[index] ?? createShot(segment.unitNumber)
     shot.text = segment.text
     shot.remark = segment.remark
+    if (isThirtySecondModeRemark(segment.remark)) {
+      shot.thirtySecondMode = true
+    }
     shot.unitNumber = segment.unitNumber
     applyUnitSceneToEmptyShot(episode, shot, segment.unitNumber, sceneDrafts)
     return shot
@@ -3191,6 +3212,109 @@ function selectSingleExpandedShot(shot: Shot) {
   })
 }
 
+function isShotTitleWheelInteractiveTarget(target: EventTarget | null) {
+  if (!(target instanceof Element)) {
+    return false
+  }
+
+  if (target instanceof HTMLElement && target.isContentEditable) {
+    return true
+  }
+
+  return Boolean(target.closest([
+    'input',
+    'textarea',
+    'select',
+    '[contenteditable="true"]',
+    '.el-input',
+    '.el-textarea',
+    '.el-input-number',
+    '.el-select',
+    '.el-slider',
+    '.el-scrollbar__wrap',
+  ].join(',')))
+}
+
+function resetShotTitleWheelGesture() {
+  if (shotTitleWheelResetTimer !== null) {
+    window.clearTimeout(shotTitleWheelResetTimer)
+    shotTitleWheelResetTimer = null
+  }
+
+  shotTitleWheelDelta = 0
+  shotTitleWheelConsumed = false
+}
+
+function scheduleShotTitleWheelReset() {
+  if (shotTitleWheelResetTimer !== null) {
+    window.clearTimeout(shotTitleWheelResetTimer)
+  }
+
+  shotTitleWheelResetTimer = window.setTimeout(() => {
+    shotTitleWheelResetTimer = null
+    shotTitleWheelDelta = 0
+    shotTitleWheelConsumed = false
+  }, shotTitleWheelIdleMs)
+}
+
+function normalizedShotTitleWheelDelta(event: WheelEvent, delta: number) {
+  if (event.deltaMode === 1) {
+    return delta * 16
+  }
+
+  if (event.deltaMode === 2) {
+    return delta * Math.max(shotListRef.value?.clientHeight ?? window.innerHeight, 1)
+  }
+
+  return delta
+}
+
+function handleShotTitleWheel(event: WheelEvent) {
+  if (
+    state.shotViewMode !== 'single-expanded'
+    || event.defaultPrevented
+    || event.ctrlKey
+    || isShotTitleWheelInteractiveTarget(event.target)
+  ) {
+    return
+  }
+
+  const deltaY = normalizedShotTitleWheelDelta(event, event.deltaY)
+  const deltaX = normalizedShotTitleWheelDelta(event, event.deltaX)
+
+  if (!deltaY || Math.abs(deltaY) <= Math.abs(deltaX)) {
+    return
+  }
+
+  event.preventDefault()
+  scheduleShotTitleWheelReset()
+
+  if (shotTitleWheelConsumed) {
+    return
+  }
+
+  shotTitleWheelDelta += deltaY
+
+  if (Math.abs(shotTitleWheelDelta) < shotTitleWheelThreshold) {
+    return
+  }
+
+  shotTitleWheelConsumed = true
+  const shots = activeEpisode.value?.shots ?? []
+  const currentIndex = shots.findIndex((shot) => shot.id === state.singleExpandedShotId)
+
+  if (currentIndex < 0) {
+    return
+  }
+
+  const direction = shotTitleWheelDelta > 0 ? 1 : -1
+  const targetIndex = Math.max(0, Math.min(shots.length - 1, currentIndex + direction))
+
+  if (targetIndex !== currentIndex) {
+    selectSingleExpandedShot(shots[targetIndex])
+  }
+}
+
 function isShotCollapsed(shot: Shot) {
   if (state.shotViewMode === 'single-expanded') {
     return shot.id !== state.singleExpandedShotId
@@ -3203,6 +3327,7 @@ function hasModifiedShots(episode: Episode) {
   return episode.shots.some((shot) => (
     Boolean(shot.text.trim())
     || Boolean(shot.remark.trim())
+    || shot.thirtySecondMode
     || shot.connectPreviousCount > 0
     || shot.connectNextCount > 0
     || hasConfiguredScenes(shot)
@@ -3409,7 +3534,7 @@ function promptPreviewWarnings(shot: Shot) {
     warnings.push('未配置场景')
   }
 
-  if (isVoiceOverflow(shot)) {
+  if (!shot.thirtySecondMode && isVoiceOverflow(shot)) {
     warnings.push('音色人物超过 3 人')
   }
 
@@ -3420,6 +3545,7 @@ function promptPreviewWarnings(shot: Shot) {
   const seconds = recommendedSeconds(text)
   const min = Math.min(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
   const max = Math.max(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
+    * (shot.thirtySecondMode ? 2 : 1)
 
   if (text && (seconds < min || seconds > max)) {
     warnings.push(`推荐时长 ${formatSeconds(seconds)}，超出推荐范围 ${formatSeconds(min)}～${formatSeconds(max)}`)
@@ -3670,6 +3796,9 @@ function startShotRemarkEdit(shot: Shot) {
 function saveShotRemark(shot: Shot) {
   const remark = shotRemarkDraft.value.trim()
   shot.remark = remark
+  if (isThirtySecondModeRemark(remark)) {
+    shot.thirtySecondMode = true
+  }
   editingShotRemarkId.value = null
   shotRemarkDraft.value = ''
   notify.success(remark ? '已保存分镜备注' : '已删除分镜备注')
@@ -4380,6 +4509,13 @@ function copyPromptFromShotBlank(event: MouseEvent, shot: Shot) {
   }
 
   event.preventDefault()
+
+  if (state.shotViewMode === 'single-expanded') {
+    window.getSelection()?.removeAllRanges()
+    selectSingleExpandedShot(shot)
+    void nextTick(() => window.getSelection()?.removeAllRanges())
+  }
+
   void copyPrompt(shot)
 }
 
@@ -4474,6 +4610,7 @@ onUnmounted(() => {
   document.removeEventListener('pointerdown', handleSingleShotMenuPointerDown)
   document.removeEventListener('focusin', handleSingleShotMenuFocusIn)
   cancelSingleShotMenuClose()
+  resetShotTitleWheelGesture()
   if (materialSceneTransitionFrame !== null) {
     cancelAnimationFrame(materialSceneTransitionFrame)
   }
@@ -4494,10 +4631,15 @@ function durationText(text: string) {
   return formatSeconds(recommendedSeconds(text))
 }
 
-function durationState(text: string): { warn: boolean } {
+function isThirtySecondModeRemark(remark: string) {
+  return remark.trim() === '2.5'
+}
+
+function durationState(text: string, thirtySecondMode = false): { warn: boolean } {
   const seconds = recommendedSeconds(text)
   const min = Math.min(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
   const max = Math.max(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
+    * (thirtySecondMode ? 2 : 1)
 
   if (!text.trim()) {
     return { warn: false }
@@ -4804,6 +4946,7 @@ function episodeComparableSignature(episode: Episode) {
     shots: episode.shots.map((shot) => ({
       text: shot.text,
       remark: shot.remark,
+      thirtySecondMode: shot.thirtySecondMode,
       unitNumber: normalizeShotUnitNumber(shot.unitNumber),
       connectPrevious: shot.connectPrevious,
       connectPreviousCount: shot.connectPreviousCount,
@@ -4922,6 +5065,9 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       ...connection,
       id: createId('shot'),
       remark: typeof shot.remark === 'string' ? shot.remark : '',
+      thirtySecondMode: typeof shot.thirtySecondMode === 'boolean'
+        ? shot.thirtySecondMode
+        : typeof shot.remark === 'string' && isThirtySecondModeRemark(shot.remark),
       unitNumber: normalizeShotUnitNumber(shot.unitNumber),
       useReverseAngle: Boolean(shot.useReverseAngle),
       pendingDetection: null,

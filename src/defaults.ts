@@ -1,7 +1,7 @@
 import type { AppState, CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, ReviewNotePrefixOption, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
-export const APP_VERSION = 6
+export const APP_VERSION = 7
 
 export function createId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -114,6 +114,7 @@ export function createShot(unitNumber = 1): Shot {
     id: createId('shot'),
     text: '',
     remark: '',
+    thirtySecondMode: false,
     unitNumber: normalizedUnitNumber,
     connectPrevious: false,
     connectPreviousCount: 0,

@@ -162,6 +162,9 @@ function loadState(defaultGlobalConfig: GlobalConfig): AppState {
       episode.scriptText = typeof episode.scriptText === 'string' ? episode.scriptText : ''
       episode.shots?.forEach((shot, index, shots) => {
         shot.remark = typeof shot.remark === 'string' ? shot.remark : ''
+        shot.thirtySecondMode = typeof shot.thirtySecondMode === 'boolean'
+          ? shot.thirtySecondMode
+          : shot.remark.trim() === '2.5'
         shot.unitNumber = normalizeShotUnitNumber(shot.unitNumber)
         Object.assign(shot, normalizeStoredShotConnection(
           shot.connectPreviousCount,
