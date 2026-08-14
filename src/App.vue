@@ -388,20 +388,20 @@
 
               <div class="shot-meta">
                 <div class="shot-index-area" :class="{ 'has-remark': hasShotRemark(shot) }">
-                  <el-tooltip
-                    :content="shot.text"
-                    :disabled="!shot.text"
-                    placement="top-start"
-                    popper-class="shot-detail-tooltip"
+                  <span
+                    class="shot-index"
+                    @dblclick.stop.prevent="copyShotNumber(shot)"
                   >
-                    <span
-                      class="shot-index"
-                      @dblclick.stop.prevent="copyShotNumber(shot)"
+                    <el-tooltip
+                      :content="shot.text"
+                      :disabled="!shot.text"
+                      placement="top-start"
+                      popper-class="shot-detail-tooltip"
                     >
                       <span class="shot-order">{{ index + 1 }}</span>
-                      <span class="shot-number">{{ formatShotNumber(activeEpisode, index) }}</span>
-                    </span>
-                  </el-tooltip>
+                    </el-tooltip>
+                    <span class="shot-number">{{ formatShotNumber(activeEpisode, index) }}</span>
+                  </span>
                   <template v-if="editingShotRemarkId === shot.id">
                     <el-input
                       v-model="shotRemarkDraft"
