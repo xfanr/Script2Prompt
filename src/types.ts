@@ -111,6 +111,7 @@ export interface Shot {
   id: string
   text: string
   remark: string
+  thirtySecondMode: boolean
   unitNumber: number
   connectPrevious: boolean
   connectPreviousCount: number

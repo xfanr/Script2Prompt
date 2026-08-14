@@ -1057,6 +1057,11 @@ html.dark .episode-panel {
   white-space: nowrap;
 }
 
+.shot-thirty-second-button.el-button {
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+
 .shot-detail-tooltip {
   max-width: min(520px, calc(100vw - 24px));
   white-space: pre-wrap;
@@ -1127,9 +1132,15 @@ html.dark .episode-panel {
   margin-left: 0;
 }
 
+.shot-tools .shot-tool-divider.el-divider--vertical {
+  height: 20px;
+  margin: 0 2px;
+  border-left-color: var(--el-border-color);
+}
+
 .shot-grid {
   display: grid;
-  grid-template-columns: minmax(300px, 1.05fr) minmax(300px, 0.95fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(300px, 1.05fr) minmax(300px, 1fr) minmax(300px, 0.95fr);
   gap: 30px;
   height: calc(100% - 48px);
   min-height: 0;
