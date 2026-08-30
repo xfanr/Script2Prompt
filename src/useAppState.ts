@@ -3,6 +3,7 @@ import { activePromptProfile, cloneGlobalConfig, migrateLegacyGlobalConfig, norm
 import { APP_VERSION, createEpisode, createEpisodeProductionData, createInitialState, createPromptReview, createSceneAsset, createSceneConfig, STORAGE_KEY } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
 import { compactShotUnitNumbers, normalizeShotUnitNumber } from './shotNumber'
+import { reconcileTimingSegments } from './timing'
 import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
 
 const shotViewModes: ShotViewMode[] = ['expanded', 'collapse-completed', 'single-expanded']
@@ -166,6 +167,7 @@ function loadState(defaultGlobalConfig: GlobalConfig): AppState {
       episode.productionData = normalizeEpisodeProductionData(episode.productionData)
       episode.scriptText = typeof episode.scriptText === 'string' ? episode.scriptText : ''
       episode.shots?.forEach((shot, index, shots) => {
+        shot.text = typeof shot.text === 'string' ? shot.text : ''
         shot.remark = typeof shot.remark === 'string' ? shot.remark : ''
         const hadStoredThirtySecondMode = typeof shot.thirtySecondMode === 'boolean'
         shot.thirtySecondMode = hadStoredThirtySecondMode ? shot.thirtySecondMode : false
@@ -193,6 +195,13 @@ function loadState(defaultGlobalConfig: GlobalConfig): AppState {
         shot.characters.forEach((character) => {
           character.statusText ??= ''
         })
+        const storedTimingSegments = JSON.stringify(shot.timingSegments)
+        shot.timingSegments = reconcileTimingSegments(
+          shot.text,
+          [...episode.characters, ...shot.characters.map((character) => character.name)],
+          shot.timingSegments,
+        )
+        shouldPersistNormalizedState ||= storedTimingSegments !== JSON.stringify(shot.timingSegments)
         shot.review = normalizePromptReview(shot.review)
       })
       compactShotUnitNumbers(episode.shots ?? [])

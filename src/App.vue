@@ -486,9 +486,20 @@
                       </div>
                     </div>
                     <div class="script-title-stats">
-                      <el-tag :type="durationState(effectiveShotText(shot), shot.thirtySecondMode).warn ? 'danger' : 'info'" effect="light" round>
-                        {{ characterCount(effectiveShotText(shot)) }} 字 · {{ durationText(effectiveShotText(shot)) }}
-                      </el-tag>
+                      <el-tooltip placement="top" popper-class="timing-summary-tooltip">
+                        <template #content>
+                          <div class="timing-summary-lines">
+                            <span>台词发音 {{ formatTimingSeconds(shotTimingAnalysis(shot).dialogueArticulationSeconds) }}</span>
+                            <span>标点停顿 {{ formatTimingSeconds(shotTimingAnalysis(shot).punctuationSeconds) }}</span>
+                            <span>异步动作 {{ formatTimingSeconds(shotTimingAnalysis(shot).asyncActionSeconds) }}</span>
+                            <span>同步动作 {{ shotTimingAnalysis(shot).synchronousActionCount }} 段 · 0 秒</span>
+                            <span class="timing-summary-hint">悬停查看片段，右键调整计时</span>
+                          </div>
+                        </template>
+                        <el-tag :type="shotDurationState(shot).warn ? 'danger' : 'info'" effect="light" round>
+                          {{ shotTimingAnalysis(shot).dialogueCharacters }} / {{ shotTimingAnalysis(shot).totalCharacters }} 字 · {{ formatTimingSeconds(shotTimingAnalysis(shot).totalSeconds) }}
+                        </el-tag>
+                      </el-tooltip>
                     </div>
                   </div>
                   <div class="script-editor-layout">
@@ -496,7 +507,12 @@
                       <div v-if="connectedPreviousText(shot, index)" class="script-context-line is-previous" aria-readonly="true">
                         <span class="script-context-text">{{ connectedPreviousText(shot, index) }}</span>
                       </div>
-                      <div class="script-textarea-stack">
+                      <div
+                        class="script-textarea-stack"
+                        @mousemove="handleTimingHighlightPointerMove($event, shot)"
+                        @mouseleave="clearHoveredTimingHighlight"
+                        @contextmenu="openTimingPopoverFromContextMenu($event, shot)"
+                      >
                         <div :ref="(element) => setScriptHighlightRef(shot.id, element)" class="script-highlight-layer" v-html="highlightedShotText(shot)"></div>
                         <el-input
                           :ref="(input) => setScriptInputRef(shot.id, input)"
@@ -505,6 +521,7 @@
                           :rows="9"
                           resize="vertical"
                           placeholder="输入或粘贴分镜正文，建议控制在 40～120 字。点击“识别”可匹配本集人物。"
+                          @input="syncShotTimingSegments(shot)"
                         />
                       </div>
                       <div v-if="connectedNextText(shot, index)" class="script-context-line is-next" aria-readonly="true">
@@ -553,7 +570,7 @@
                     <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line">
                       <el-select v-model="scene.name" placeholder="选择场景" filterable @change="syncSceneFromAsset(scene)">
                         <template #label="{ label }">
-                          {{ sceneSelectLabel(label) }}
+                          {{ scene.name || label }}
                         </template>
                         <el-option v-for="item in activeEpisode.scenes" :key="item.name" :label="sceneAssetLabel(item)" :value="item.name" />
                       </el-select>
@@ -677,6 +694,67 @@
               </div>
             </article>
           </section>
+          <span ref="timingPopoverAnchorRef" class="timing-popover-anchor" :style="timingPopoverAnchorStyle" aria-hidden="true"></span>
+          <el-popover
+            :visible="timingPopoverVisible"
+            :virtual-ref="timingPopoverAnchorRef"
+            virtual-triggering
+            placement="bottom-start"
+            :width="activeTimingSegment?.kind === 'action' ? 322 : 286"
+            popper-class="timing-config-popover"
+          >
+            <div
+              v-if="activeTimingSegment"
+              class="timing-config-panel"
+            >
+              <template v-if="activeTimingSegment.kind === 'dialogue'">
+                <div class="timing-config-heading">
+                  <span>台词语速</span>
+                  <em>{{ activeTimingSegment.sourceText }}</em>
+                </div>
+                <el-segmented
+                  :model-value="activeTimingSegment.speechRate"
+                  :options="speechRateOptions"
+                  block
+                  @change="updateActiveSpeechRate"
+                />
+              </template>
+              <template v-else>
+                <div class="timing-config-heading">
+                  <span>动作计时</span>
+                  <em>{{ activeTimingSegment.sourceText }}</em>
+                </div>
+                <el-segmented
+                  :model-value="activeTimingSegment.mode"
+                  :options="actionTimingModeOptions"
+                  block
+                  @change="updateActiveActionMode"
+                />
+                <template v-if="activeTimingSegment.mode === 'async'">
+                  <div class="timing-config-row">
+                    <span>镜头数</span>
+                    <el-segmented
+                      :model-value="activeTimingSegment.shotCount"
+                      :options="actionShotCountOptions"
+                      @change="updateActiveShotCount"
+                    />
+                  </div>
+                  <div class="timing-config-row">
+                    <span>单镜时长</span>
+                    <el-segmented
+                      :model-value="activeTimingSegment.secondsPerShot"
+                      :options="actionSecondsPerShotOptions"
+                      @change="updateActiveSecondsPerShot"
+                    />
+                  </div>
+                  <div class="timing-config-result">
+                    {{ activeTimingSegment.shotCount }} 镜 × {{ activeTimingSegment.secondsPerShot }} 秒 = {{ activeTimingSegment.shotCount * activeTimingSegment.secondsPerShot }} 秒
+                  </div>
+                </template>
+                <div v-else class="timing-config-result is-sync">与下一段台词同步 · 0 秒</div>
+              </template>
+            </div>
+          </el-popover>
         </main>
       </div>
     </div>
@@ -1117,7 +1195,7 @@
                     :key="`${segment.unitNumber}-${index}-${segment.text.length}-${segment.remark}-${segment.thirtySecondMode}`"
                     class="batch-shot-preview-item"
                     :class="{
-                      warn: durationState(segment.text, segment.thirtySecondMode).warn,
+                      warn: batchDurationState(segment.text, segment.thirtySecondMode).warn,
                       'is-even-unit': normalizeShotUnitNumber(segment.unitNumber) % 2 === 0,
                     }"
                   >
@@ -1127,7 +1205,7 @@
                         <span v-if="segment.thirtySecondMode" class="batch-shot-remark">30S</span>
                         <span v-if="segment.remark" class="batch-shot-remark" :title="segment.remark">{{ segment.remark }}</span>
                       </div>
-                      <span class="batch-shot-stat">{{ batchShotMatchedCharacterCount(segment.text) }} 人 · {{ characterCount(segment.text) }} 字 · {{ durationText(segment.text) }}</span>
+                      <span class="batch-shot-stat">{{ batchShotMatchedCharacterCount(segment.text) }} 人 · {{ batchTimingAnalysis(segment.text).dialogueCharacters }} / {{ batchTimingAnalysis(segment.text).totalCharacters }} 字 · {{ formatTimingSeconds(batchTimingAnalysis(segment.text).totalSeconds) }}</span>
                     </div>
                     <p>{{ segment.text }}</p>
                   </div>
@@ -1294,14 +1372,19 @@ import {
   composePrompt,
   countNonPunctuationCharacters,
   detectCharacters,
-  formatSeconds,
   mergeDetectedCharacters,
   normalizeCharacterNameForMatch,
-  recommendedSeconds,
 } from './prompt'
 import { normalizeConnectionPunctuationCount, normalizeStoredShotConnection, takeLeadingPunctuationSegments, takeTrailingPunctuationSegments } from './shotContext'
 import { compactShotUnitNumbers, formatShotNumber, normalizeShotUnitNumber } from './shotNumber'
-import type { CharacterConfig, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotViewMode } from './types'
+import {
+  analyzeTimingRange,
+  reconcileTimingSegments,
+  resolveTimingSegments,
+  sumTimingAnalyses,
+  type TimingAnalysis,
+} from './timing'
+import type { ActionTimingMode, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotTimingSegment, ShotViewMode } from './types'
 import { useAppState } from './useAppState'
 import { notify } from './notification'
 
@@ -1427,6 +1510,17 @@ const shotViewModeOptions: MaterialSegmentedOption<ShotViewMode>[] = [
   { label: '完成折叠', value: 'collapse-completed', icon: Fold },
   { label: '全部展开', value: 'expanded', icon: Expand },
 ]
+const speechRateOptions = [
+  { label: '慢 · 5', value: 'slow' },
+  { label: '中 · 6', value: 'medium' },
+  { label: '快 · 7', value: 'fast' },
+]
+const actionTimingModeOptions = [
+  { label: '同步', value: 'sync' },
+  { label: '异步', value: 'async' },
+]
+const actionShotCountOptions = [1, 2, 3, 4, 5].map((value) => ({ label: String(value), value }))
+const actionSecondsPerShotOptions = [1, 2, 3, 4, 5].map((value) => ({ label: String(value), value }))
 const episodeDropdownRefs = new Map<string, { handleClose?: () => void }>()
 const groupDropdownRefs = new Map<string, { handleClose?: () => void }>()
 type HighlightInputBinding = {
@@ -1437,6 +1531,10 @@ type HighlightInputBinding = {
 
 const scriptInputRefs = new Map<string, HighlightInputBinding>()
 const scriptHighlightRefs = new Map<string, HTMLElement>()
+const timingPopoverAnchorRef = ref<HTMLElement | null>(null)
+const timingPopoverPosition = ref({ left: 0, top: 0 })
+const activeTimingTarget = ref<{ shotId: string; segmentId: string } | null>(null)
+const hoveredTimingTarget = ref<{ shotId: string; segmentId: string } | null>(null)
 let dialogueInputRef: HighlightInputBinding | null = null
 let dialogueHighlightRef: HTMLElement | null = null
 let materialSceneTransitionFrame: number | null = null
@@ -1454,6 +1552,17 @@ const shotRemarkDraft = ref('')
 const reviewDraft = ref<PromptReview>(createPromptReview())
 const reviewDrawCountMode = ref<ReviewDrawCountMode>('')
 const reviewCustomDrawCount = ref<number | undefined>()
+const timingPopoverAnchorStyle = computed(() => ({
+  left: `${timingPopoverPosition.value.left}px`,
+  top: `${timingPopoverPosition.value.top}px`,
+}))
+const activeTimingSegment = computed<ShotTimingSegment | null>(() => {
+  const target = activeTimingTarget.value
+  if (!target) return null
+  const shot = activeEpisode.value?.shots.find((item) => item.id === target.shotId)
+  return shot?.timingSegments.find((segment) => segment.id === target.segmentId) ?? null
+})
+const timingPopoverVisible = computed(() => Boolean(activeTimingSegment.value))
 const reviewSubtitleMode = ref<ReviewSubtitleMode>('subtitle-free')
 const reviewCustomSubtitleCount = ref<number | undefined>()
 const reviewNotePrefixPath = ref<string[]>([])
@@ -2093,11 +2202,6 @@ function formatUnitLabel(unitNumber: number) {
   return `单元${labels[unitNumber - 1] ?? unitNumber}`
 }
 
-function sceneSelectLabel(label: string) {
-  const scene = activeEpisode.value?.scenes.find((item) => item.name === label)
-  return scene ? sceneAssetLabel(scene) : label
-}
-
 function collectWeeklyReportEntries(range: WeeklyReportRange) {
   return state.episodes
     .map((episode): WeeklyReportEntry | null => {
@@ -2318,6 +2422,105 @@ function syncScriptHighlightScroll(id: string) {
   highlight.scrollLeft = inputRef.textarea.scrollLeft
 }
 
+function timingSegmentAtPoint(shot: Shot, clientX: number, clientY: number) {
+  const highlight = scriptHighlightRefs.get(shot.id)
+  if (!highlight) return null
+
+  const timingMarks = Array.from(highlight.querySelectorAll<HTMLElement>('.timing-segment[data-timing-id]'))
+  return timingMarks.flatMap((mark) => (
+    Array.from(mark.getClientRects()).map((rect) => ({ mark, rect }))
+  )).find(({ rect }) => (
+    clientX >= rect.left
+    && clientX <= rect.right
+    && clientY >= rect.top
+    && clientY <= rect.bottom
+  )) ?? null
+}
+
+function handleTimingHighlightPointerMove(event: MouseEvent, shot: Shot) {
+  if (activeTimingTarget.value) return
+  const hit = timingSegmentAtPoint(shot, event.clientX, event.clientY)
+  const segmentId = hit?.mark.dataset.timingId
+  const nextTarget = segmentId ? { shotId: shot.id, segmentId } : null
+  if (
+    hoveredTimingTarget.value?.shotId === nextTarget?.shotId
+    && hoveredTimingTarget.value?.segmentId === nextTarget?.segmentId
+  ) return
+  hoveredTimingTarget.value = nextTarget
+}
+
+function clearHoveredTimingHighlight() {
+  if (!activeTimingTarget.value) {
+    hoveredTimingTarget.value = null
+  }
+}
+
+function openTimingPopoverFromContextMenu(event: MouseEvent, shot: Shot) {
+  event.preventDefault()
+  const hit = timingSegmentAtPoint(shot, event.clientX, event.clientY)
+  if (!hit) {
+    closeTimingPopover()
+    return
+  }
+
+  const segmentId = hit.mark.dataset.timingId
+  if (!segmentId) return
+  event.stopPropagation()
+  hoveredTimingTarget.value = null
+  activeTimingTarget.value = { shotId: shot.id, segmentId }
+  timingPopoverPosition.value = {
+    left: hit.rect.left + Math.min(24, hit.rect.width / 2),
+    top: hit.rect.bottom,
+  }
+}
+
+function closeTimingPopover() {
+  activeTimingTarget.value = null
+  hoveredTimingTarget.value = null
+}
+
+function handleTimingPopoverPointerDown(event: PointerEvent) {
+  const target = event.target
+  if (target instanceof Element && target.closest('.timing-config-popover')) return
+  closeTimingPopover()
+}
+
+function handleTimingPopoverKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && activeTimingTarget.value) {
+    closeTimingPopover()
+  }
+}
+
+function updateActiveSpeechRate(value: unknown) {
+  const segment = activeTimingSegment.value
+  if (segment?.kind === 'dialogue' && (value === 'slow' || value === 'medium' || value === 'fast')) {
+    segment.speechRate = value as DialogueSpeechRate
+  }
+}
+
+function updateActiveActionMode(value: unknown) {
+  const segment = activeTimingSegment.value
+  if (segment?.kind === 'action' && (value === 'sync' || value === 'async')) {
+    segment.mode = value as ActionTimingMode
+  }
+}
+
+function updateActiveShotCount(value: unknown) {
+  const segment = activeTimingSegment.value
+  const shotCount = Number(value)
+  if (segment?.kind === 'action' && Number.isInteger(shotCount) && shotCount >= 1 && shotCount <= 5) {
+    segment.shotCount = shotCount
+  }
+}
+
+function updateActiveSecondsPerShot(value: unknown) {
+  const segment = activeTimingSegment.value
+  const seconds = Number(value)
+  if (segment?.kind === 'action' && Number.isInteger(seconds) && seconds >= 1 && seconds <= 5) {
+    segment.secondsPerShot = seconds
+  }
+}
+
 function setDialogueHighlightRef(element: unknown) {
   dialogueHighlightRef = element instanceof HTMLElement ? element : null
   syncDialogueHighlightScroll()
@@ -2370,6 +2573,20 @@ watch(
   () => activeEpisode.value?.shots.map((shot) => `${shot.id}\u0001${shot.text}`).join('\u0000') ?? '',
   () => void nextTick(syncAllScriptHighlights),
   { flush: 'post' },
+)
+
+watch(
+  () => JSON.stringify({
+    episodeId: activeEpisode.value?.id,
+    episodeCharacters: activeEpisode.value?.characters,
+    shots: activeEpisode.value?.shots.map((shot) => ({
+      id: shot.id,
+      text: shot.text,
+      characterNames: shot.characters.map((character) => character.name),
+    })),
+  }),
+  () => activeEpisode.value?.shots.forEach(syncShotTimingSegments),
+  { flush: 'sync' },
 )
 
 watch(
@@ -3125,6 +3342,7 @@ function syncEpisodeShots(episode: Episode, segments: BatchShotSegment[], sceneD
     return shot
   })
   episode.shots.forEach((shot) => detectShotCharacters(shot, { silent: true, showConflict: false }))
+  episode.shots.forEach(syncShotTimingSegments)
   compactShotUnitNumbers(episode.shots)
   normalizeEpisodeShotConnections(episode)
   return segments.length
@@ -3223,6 +3441,11 @@ function hasModifiedShots(episode: Episode) {
     || shot.connectNextCount > 0
     || hasConfiguredScenes(shot)
     || shot.characters.length > 0
+    || shot.timingSegments.some((segment) => (
+      segment.kind === 'dialogue'
+        ? segment.speechRate !== 'medium'
+        : segment.mode !== 'async' || segment.shotCount !== 1 || segment.secondsPerShot !== 2
+    ))
     || !shot.usePositionReference
     || shot.firstFrameMode
     || shot.status !== 'incomplete'
@@ -3412,6 +3635,73 @@ function hasConfiguredScenes(shot: Shot) {
   return shot.scenes.some((scene) => scene.name.trim() || scene.statusText?.trim())
 }
 
+function timingCharacterNames(shot: Shot) {
+  return Array.from(new Set([
+    ...(activeEpisode.value?.characters ?? []),
+    ...shot.characters.map((character) => character.name),
+  ].map((name) => name.trim()).filter(Boolean)))
+}
+
+function syncShotTimingSegments(shot: Shot) {
+  const reconciled = reconcileTimingSegments(shot.text, timingCharacterNames(shot), shot.timingSegments)
+  if (JSON.stringify(reconciled) !== JSON.stringify(shot.timingSegments)) {
+    shot.timingSegments = reconciled
+  }
+}
+
+function sourceShotTimingAnalysis(shot: Shot, start = 0, end = shot.text.length) {
+  return analyzeTimingRange(shot.text, timingCharacterNames(shot), shot.timingSegments, start, end)
+}
+
+function shotTimingAnalysis(shot: Shot): TimingAnalysis {
+  const episode = activeEpisode.value
+  const index = shotIndex(shot)
+  const analyses = [sourceShotTimingAnalysis(shot)]
+
+  if (episode && index > 0 && shot.connectPreviousCount > 0) {
+    const previous = episode.shots[index - 1]
+    const fragment = previousShotTail(index, shot.connectPreviousCount)
+    const start = previous.text.lastIndexOf(fragment)
+    if (fragment && start >= 0) {
+      analyses.unshift(sourceShotTimingAnalysis(previous, start, start + fragment.length))
+    }
+  }
+
+  if (episode && index >= 0 && index < episode.shots.length - 1 && shot.connectNextCount > 0) {
+    const next = episode.shots[index + 1]
+    const fragment = nextShotHead(index, shot.connectNextCount)
+    const start = next.text.indexOf(fragment)
+    if (fragment && start >= 0) {
+      analyses.push(sourceShotTimingAnalysis(next, start, start + fragment.length))
+    }
+  }
+
+  return sumTimingAnalyses(analyses)
+}
+
+function batchTimingAnalysis(text: string) {
+  return analyzeTimingRange(text, activeEpisode.value?.characters ?? [], [])
+}
+
+function formatTimingSeconds(seconds: number) {
+  return `${seconds.toFixed(1)} 秒`
+}
+
+function isDurationOutsideRange(seconds: number, hasText: boolean, thirtySecondMode = false) {
+  const min = Math.min(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
+  const max = Math.max(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
+    * (thirtySecondMode ? 2 : 1)
+  return { warn: hasText && (seconds < min || seconds > max) }
+}
+
+function shotDurationState(shot: Shot) {
+  return isDurationOutsideRange(shotTimingAnalysis(shot).totalSeconds, Boolean(effectiveShotText(shot)), shot.thirtySecondMode)
+}
+
+function batchDurationState(text: string, thirtySecondMode = false) {
+  return isDurationOutsideRange(batchTimingAnalysis(text).totalSeconds, Boolean(text.trim()), thirtySecondMode)
+}
+
 function promptPreviewWarnings(shot: Shot) {
   const warnings: string[] = []
   const configuredCharacters = shot.characters.filter((character) => character.name.trim())
@@ -3433,13 +3723,13 @@ function promptPreviewWarnings(shot: Shot) {
     warnings.push('多角色建议启用定位图')
   }
 
-  const seconds = recommendedSeconds(text)
+  const seconds = shotTimingAnalysis(shot).totalSeconds
   const min = Math.min(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
   const max = Math.max(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
     * (shot.thirtySecondMode ? 2 : 1)
 
   if (text && (seconds < min || seconds > max)) {
-    warnings.push(`推荐时长 ${formatSeconds(seconds)}，超出推荐范围 ${formatSeconds(min)}～${formatSeconds(max)}`)
+    warnings.push(`推荐时长 ${formatTimingSeconds(seconds)}，超出推荐范围 ${formatTimingSeconds(min)}～${formatTimingSeconds(max)}`)
   }
 
   return warnings
@@ -3483,25 +3773,45 @@ function highlightedShotText(shot: Shot) {
     .filter((character, index, list) => character.name && character.matchName && list.findIndex((item) => item.matchName === character.matchName) === index)
     .sort((a, b) => b.matchName.length - a.matchName.length)
 
-  if (!characters.length) {
-    return escapeHtml(text)
+  const highlightCharacters = (value: string) => {
+    if (!characters.length) return escapeHtml(value)
+    const pattern = new RegExp(characters.map((character) => escapeRegExp(character.matchName)).join('|'), 'g')
+    const parts: string[] = []
+    let cursor = 0
+    value.replace(pattern, (match, offset: number) => {
+      parts.push(escapeHtml(value.slice(cursor, offset)))
+      const character = characters.find((item) => item.matchName === match)
+      const className = character?.includeVoice ? 'matched-character with-voice' : 'matched-character without-voice'
+      parts.push('<mark class="' + className + '">' + escapeHtml(match) + '</mark>')
+      cursor = offset + match.length
+      return match
+    })
+    parts.push(escapeHtml(value.slice(cursor)))
+    return parts.join('')
   }
 
-  const pattern = new RegExp(characters.map((character) => escapeRegExp(character.matchName)).join('|'), 'g')
-  const rawParts: string[] = []
+  const resolved = resolveTimingSegments(shot.text, timingCharacterNames(shot), shot.timingSegments)
+  const highlightedTarget = activeTimingTarget.value ?? hoveredTimingTarget.value
+  const parts: string[] = []
   let cursor = 0
-
-  text.replace(pattern, (match, offset: number) => {
-    rawParts.push(escapeHtml(text.slice(cursor, offset)))
-    const character = characters.find((item) => item.matchName === match)
-    const className = character?.includeVoice ? 'matched-character with-voice' : 'matched-character without-voice'
-    rawParts.push('<mark class="' + className + '">' + escapeHtml(match) + '</mark>')
-    cursor = offset + match.length
-    return match
+  resolved.forEach((segment) => {
+    parts.push(highlightCharacters(text.slice(cursor, segment.start)))
+    const modeClass = segment.config.kind === 'action' ? ` is-${segment.config.mode}` : ''
+    const highlightClass = highlightedTarget?.shotId === shot.id && highlightedTarget.segmentId === segment.id
+      ? ' is-highlighted'
+      : ''
+    const highlightedContent = segment.kind === 'dialogue'
+      ? escapeHtml(text.slice(segment.start, segment.end))
+      : highlightCharacters(text.slice(segment.start, segment.end))
+    parts.push(
+      `<mark class="timing-segment is-${segment.kind}${modeClass}${highlightClass}" data-timing-id="${segment.id}">`
+      + highlightedContent
+      + '</mark>',
+    )
+    cursor = segment.end
   })
-
-  rawParts.push(escapeHtml(text.slice(cursor)))
-  return rawParts.join('')
+  parts.push(highlightCharacters(text.slice(cursor)))
+  return parts.join('')
 }
 
 function highlightDialogueReplacements(line: string, replacementTerms: string[]) {
@@ -4486,6 +4796,9 @@ onMounted(() => {
   window.addEventListener('keydown', handleSingleShotMenuKeydown)
   document.addEventListener('pointerdown', handleSingleShotMenuPointerDown)
   document.addEventListener('focusin', handleSingleShotMenuFocusIn)
+  document.addEventListener('pointerdown', handleTimingPopoverPointerDown)
+  window.addEventListener('keydown', handleTimingPopoverKeydown)
+  window.addEventListener('blur', closeTimingPopover)
 })
 
 onUnmounted(() => {
@@ -4493,6 +4806,9 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleSingleShotMenuKeydown)
   document.removeEventListener('pointerdown', handleSingleShotMenuPointerDown)
   document.removeEventListener('focusin', handleSingleShotMenuFocusIn)
+  document.removeEventListener('pointerdown', handleTimingPopoverPointerDown)
+  window.removeEventListener('keydown', handleTimingPopoverKeydown)
+  window.removeEventListener('blur', closeTimingPopover)
   cancelSingleShotMenuClose()
   if (materialSceneTransitionFrame !== null) {
     cancelAnimationFrame(materialSceneTransitionFrame)
@@ -4505,31 +4821,6 @@ onUnmounted(() => {
   dialogueInputRef?.textarea.removeEventListener('scroll', dialogueInputRef.handler)
   dialogueInputRef?.observer?.disconnect()
 })
-
-function characterCount(text: string) {
-  return countNonPunctuationCharacters(text)
-}
-
-function durationText(text: string) {
-  return formatSeconds(recommendedSeconds(text))
-}
-
-function durationState(text: string, thirtySecondMode = false): { warn: boolean } {
-  const seconds = recommendedSeconds(text)
-  const min = Math.min(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
-  const max = Math.max(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
-    * (thirtySecondMode ? 2 : 1)
-
-  if (!text.trim()) {
-    return { warn: false }
-  }
-
-  if (seconds < min || seconds > max) {
-    return { warn: true }
-  }
-
-  return { warn: false }
-}
 
 function namesText(names: string[]) {
   return names.length ? names.join('、') : '无'
@@ -4845,6 +5136,19 @@ function episodeComparableSignature(episode: Episode) {
         includeVoice: character.includeVoice,
         statusText: character.statusText ?? '',
       })),
+      timingSegments: shot.timingSegments.map((segment) => segment.kind === 'dialogue'
+        ? {
+            kind: segment.kind,
+            sourceText: segment.sourceText,
+            speechRate: segment.speechRate,
+          }
+        : {
+            kind: segment.kind,
+            sourceText: segment.sourceText,
+            mode: segment.mode,
+            shotCount: segment.shotCount,
+            secondsPerShot: segment.secondsPerShot,
+          }),
       status: shot.status,
       review: normalizePromptReview(shot.review),
     })),
@@ -4939,11 +5243,22 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       index < shots.length - 1,
     )
 
+    const text = typeof shot.text === 'string' ? shot.text : ''
+    const characters = Array.isArray(shot.characters)
+      ? shot.characters.map((character) => ({ ...character, id: createId('character') }))
+      : []
+    const timingSegments = reconcileTimingSegments(
+      text,
+      [...(Array.isArray(episode.characters) ? episode.characters : []), ...characters.map((character) => character.name)],
+      shot.timingSegments,
+    )
+
     return {
       ...createShot(),
       ...shot,
       ...connection,
       id: createId('shot'),
+      text,
       remark: typeof shot.remark === 'string' ? shot.remark : '',
       thirtySecondMode: typeof shot.thirtySecondMode === 'boolean' ? shot.thirtySecondMode : false,
       unitNumber: normalizeShotUnitNumber(shot.unitNumber),
@@ -4957,9 +5272,8 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       undoCharacters: null,
       review: normalizePromptReview(shot.review),
       scenes: normalizeImportedShotScenes(shot.scenes, scenes),
-      characters: Array.isArray(shot.characters)
-        ? shot.characters.map((character) => ({ ...character, id: createId('character') }))
-        : [],
+      characters,
+      timingSegments,
     }
   })
   compactShotUnitNumbers(normalizedShots)

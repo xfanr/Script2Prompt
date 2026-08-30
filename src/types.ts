@@ -2,6 +2,8 @@ export type CompletionStatus = 'incomplete' | 'complete'
 export type ShotViewMode = 'expanded' | 'collapse-completed' | 'single-expanded'
 export type SceneTime = '白天' | '深夜'
 export type SceneSpace = '室内' | '室外' | '无'
+export type DialogueSpeechRate = 'slow' | 'medium' | 'fast'
+export type ActionTimingMode = 'sync' | 'async'
 
 export interface DurationRange {
   min: number
@@ -107,6 +109,24 @@ export interface EpisodeProductionData {
   productionDate: string
 }
 
+export interface DialogueTimingSegment {
+  id: string
+  kind: 'dialogue'
+  sourceText: string
+  speechRate: DialogueSpeechRate
+}
+
+export interface ActionTimingSegment {
+  id: string
+  kind: 'action'
+  sourceText: string
+  mode: ActionTimingMode
+  shotCount: number
+  secondsPerShot: number
+}
+
+export type ShotTimingSegment = DialogueTimingSegment | ActionTimingSegment
+
 export interface Shot {
   id: string
   text: string
@@ -122,6 +142,7 @@ export interface Shot {
   useReverseAngle: boolean
   firstFrameMode: boolean
   characters: CharacterConfig[]
+  timingSegments: ShotTimingSegment[]
   status: CompletionStatus
   review: PromptReview
   pendingDetection: PendingDetection | null
