@@ -250,9 +250,9 @@
             <template #content>
               <div class="stage-page-actions">
                 <el-button-group class="stage-action-group">
-                  <el-button round size="default" type="primary" plain @click="openEpisodeScriptDialog('materials')">素材</el-button>
-                  <el-button size="default" type="primary" plain @click="openEpisodeScriptDialog('shots')">分镜</el-button>
-                  <el-button round size="default" type="primary" plain @click="openEpisodeScriptDialog('dialogue')">台词</el-button>
+                  <el-button round size="default" type="primary" plain @click="openEpisodeScriptDialog('materials')">⒈素材</el-button>
+                  <el-button size="default" type="primary" plain @click="openEpisodeScriptDialog('shots')">⒉分镜</el-button>
+                  <el-button round size="default" type="primary" plain @click="openEpisodeScriptDialog('dialogue')">⒊台词</el-button>
                 </el-button-group>
                 <el-button-group class="stage-action-group">
                   <el-button
@@ -260,8 +260,8 @@
                     size="default"
                     type="primary"
                     text
-                    :bg="allShotsPositionReferenceMode !== 'none'"
-                    @click="cycleAllPositionReferenceMode"
+                    :bg="areAllShotsPositionReferenced"
+                    @click="toggleAllShotsPositionReference"
                   >
                     全定位
                   </el-button>
@@ -388,20 +388,20 @@
 
               <div class="shot-meta">
                 <div class="shot-index-area" :class="{ 'has-remark': hasShotRemark(shot) }">
-                  <el-tooltip
-                    :content="shot.text"
-                    :disabled="!shot.text"
-                    placement="top-start"
-                    popper-class="shot-detail-tooltip"
+                  <span
+                    class="shot-index"
+                    @dblclick.stop.prevent="copyShotNumber(shot)"
                   >
-                    <span
-                      class="shot-index"
-                      @dblclick.stop.prevent="copyShotNumber(shot)"
+                    <el-tooltip
+                      :content="shot.text"
+                      :disabled="!shot.text"
+                      placement="top-start"
+                      popper-class="shot-detail-tooltip"
                     >
                       <span class="shot-order">{{ index + 1 }}</span>
-                      <span class="shot-number">{{ formatShotNumber(activeEpisode, index) }}</span>
-                    </span>
-                  </el-tooltip>
+                    </el-tooltip>
+                    <span class="shot-number">{{ formatShotNumber(activeEpisode, index) }}</span>
+                  </span>
                   <template v-if="editingShotRemarkId === shot.id">
                     <el-input
                       v-model="shotRemarkDraft"
@@ -440,6 +440,19 @@
                   </template>
                 </div>
                 <div class="shot-tools">
+                  <el-button
+                    class="shot-thirty-second-button"
+                    :icon="VideoCamera"
+                    type="primary"
+                    :plain="!shot.thirtySecondMode"
+                    size="small"
+                    circle
+                    :title="shot.thirtySecondMode ? '关闭 30S 模式' : '开启 30S 模式'"
+                    :aria-label="shot.thirtySecondMode ? '关闭 30S 模式' : '开启 30S 模式'"
+                    :aria-pressed="shot.thirtySecondMode"
+                    @click.stop="shot.thirtySecondMode = !shot.thirtySecondMode"
+                  />
+                  <el-divider class="shot-tool-divider" direction="vertical" />
                   <el-button
                     class="shot-status-button"
                     :icon="Check"
@@ -484,7 +497,7 @@
                       </div>
                     </div>
                     <div class="script-title-stats">
-                      <el-tag :type="durationState(effectiveShotText(shot)).warn ? 'danger' : 'info'" effect="light" round>
+                      <el-tag :type="durationState(effectiveShotText(shot), shot.thirtySecondMode).warn ? 'danger' : 'info'" effect="light" round>
                         {{ characterCount(effectiveShotText(shot)) }} 字 · {{ durationText(effectiveShotText(shot)) }}
                       </el-tag>
                     </div>
@@ -532,7 +545,17 @@
                 <section class="shot-cell config-cell">
                   <div class="config-group">
                     <div class="config-heading">
-                      <span>场景配置</span>
+                      <div class="scene-heading-title">
+                        <span>场景配置</span>
+                        <el-button
+                          :type="shot.usePositionReference ? 'primary' : undefined"
+                          :icon="Camera"
+                          size="small"
+                          :title="shot.usePositionReference ? '关闭定位图' : '开启定位图'"
+                          :aria-label="shot.usePositionReference ? '关闭定位图' : '开启定位图'"
+                          @click="setPositionReference(shot, !shot.usePositionReference)"
+                        />
+                      </div>
                       <el-button :icon="Plus" text type="primary" @click="addSceneToShot(shot)">添加场景</el-button>
                     </div>
                     <div v-if="!shot.scenes.length" class="empty-note">暂无场景配置</div>
@@ -574,23 +597,7 @@
 
                   <div class="config-group character-config-group">
                     <div class="config-heading character-heading">
-                      <div class="character-heading-title">
-                        <span>人物配置</span>
-                        <el-segmented
-                          :model-value="positionReferenceMode(shot)"
-                          :options="positionReferenceModeOptions"
-                          size="small"
-                          class="shot-view-segmented position-reference-segmented"
-                          aria-label="位置参考模式"
-                          @change="setPositionReferenceMode(shot, $event)"
-                        >
-                          <template #default="{ item }">
-                            <el-icon :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
-                              <component :is="segmentedOptionIcon(item)" />
-                            </el-icon>
-                          </template>
-                        </el-segmented>
-                      </div>
+                      <span>人物配置</span>
                       <el-button :icon="Plus" text type="primary" @click="addCharacterToShot(shot)">添加人物</el-button>
                     </div>
                     <div class="character-config-list">
@@ -606,7 +613,13 @@
                             :disabled="isCharacterOptionDisabled(shot, character.id, item)"
                           />
                         </el-select>
-                        <el-checkbox v-model="character.includeVoice" border :class="{ 'is-voice-overflow': isVoiceOverflow(shot) && character.includeVoice }">音色</el-checkbox>
+                        <el-button
+                          :type="!shot.thirtySecondMode && isVoiceOverflow(shot) && character.includeVoice ? 'danger' : character.includeVoice ? 'primary' : undefined"
+                          :icon="character.includeVoice ? Microphone : Mute"
+                          :title="character.includeVoice ? '关闭音色' : '开启音色'"
+                          :aria-label="character.includeVoice ? '关闭音色' : '开启音色'"
+                          @click="character.includeVoice = !character.includeVoice"
+                        />
                       </div>
                       <el-input
                         v-model="character.statusText"
@@ -642,7 +655,6 @@
                 <section class="shot-cell preview-cell">
                   <div class="cell-title preview-title">
                     <span class="preview-title-label">
-                      完整提示词
                       <el-tooltip :content="promptPreviewStatus(shot).htmlMessage" placement="top" raw-content>
                         <el-icon
                           class="prompt-preview-status"
@@ -653,6 +665,15 @@
                           <CircleCheckFilled v-else />
                         </el-icon>
                       </el-tooltip>
+                      完整提示词
+                      <el-button
+                        :type="shot.firstFrameMode ? 'primary' : undefined"
+                        :icon="VideoPlay"
+                        size="small"
+                        :title="shot.firstFrameMode ? '关闭首帧' : '开启首帧'"
+                        :aria-label="shot.firstFrameMode ? '关闭首帧' : '开启首帧'"
+                        @click="shot.firstFrameMode = !shot.firstFrameMode"
+                      />
                     </span>
                     <div class="preview-copy-actions">
                       <el-button :icon="CopyDocument" text type="primary" @click="copyPrompt(shot)">完整</el-button>
@@ -976,7 +997,7 @@
                   type="textarea"
                   :rows="16"
                   resize="none"
-                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，使用“---”划分分镜"
+                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，“---”划分普通分镜，“+++”划分 30S 分镜"
                   @input="syncEpisodeScriptDraft"
                 />
               </div>
@@ -1089,7 +1110,7 @@
                   type="textarea"
                   :rows="16"
                   resize="none"
-                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，使用“---”划分分镜"
+                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，“---”划分普通分镜，“+++”划分 30S 分镜"
                   @input="syncEpisodeScriptDraft"
                 />
               </div>
@@ -1100,23 +1121,24 @@
                 <div class="batch-shot-preview">
                   <div
                     v-for="(segment, index) in batchShotSegments"
-                    :key="`${segment.unitNumber}-${index}-${segment.text.length}-${segment.remark}`"
+                    :key="`${segment.unitNumber}-${index}-${segment.text.length}-${segment.remark}-${segment.thirtySecondMode}`"
                     class="batch-shot-preview-item"
                     :class="{
-                      warn: durationState(segment.text).warn,
+                      warn: durationState(segment.text, segment.thirtySecondMode).warn,
                       'is-even-unit': normalizeShotUnitNumber(segment.unitNumber) % 2 === 0,
                     }"
                   >
                     <div class="batch-shot-preview-head">
                       <div class="batch-shot-heading">
                         <span class="batch-shot-index">{{ batchShotNumber(segment, index) }}</span>
+                        <span v-if="segment.thirtySecondMode" class="batch-shot-remark">30S</span>
                         <span v-if="segment.remark" class="batch-shot-remark" :title="segment.remark">{{ segment.remark }}</span>
                       </div>
                       <span class="batch-shot-stat">{{ batchShotMatchedCharacterCount(segment.text) }} 人 · {{ characterCount(segment.text) }} 字 · {{ durationText(segment.text) }}</span>
                     </div>
                     <p>{{ segment.text }}</p>
                   </div>
-                  <div v-if="!batchShotSegments.length" class="episode-script-empty empty-note">使用“===”划分单元、“---”划分分镜后，将在此显示识别结果。</div>
+                  <div v-if="!batchShotSegments.length" class="episode-script-empty empty-note">使用“===”划分单元、“---”划分普通分镜、“+++”划分 30S 分镜后，将在此显示识别结果。</div>
                 </div>
               </div>
             </div>
@@ -1260,7 +1282,7 @@ import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
-import { ArrowRight, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Folder, Fold, Location, Moon, Notebook, Plus, Position, Refresh, RefreshLeft, Search, Setting, Sort, SortUp, Star, StarFilled, Sunny, Upload, User, View, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Folder, Fold, Location, Microphone, Moon, Mute, Notebook, Plus, Position, Refresh, RefreshLeft, Search, Setting, Star, StarFilled, Sunny, Upload, VideoCamera, VideoPlay, View, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
@@ -1292,7 +1314,6 @@ import { notify } from './notification'
 
 type MaterialKind = 'characters' | 'scenes'
 type StatusSyncScope = 'unit' | 'all'
-type PositionReferenceMode = 'none' | 'position' | 'reverse'
 type MaterialSceneDraft = {
   name: string
   time: SceneTime
@@ -1334,6 +1355,7 @@ type DialogueView = 'original' | 'replaced'
 type BatchShotSegment = {
   text: string
   remark: string
+  thirtySecondMode: boolean
   unitNumber: number
 }
 type EditingMaterial = {
@@ -1412,11 +1434,6 @@ const shotViewModeOptions: MaterialSegmentedOption<ShotViewMode>[] = [
   { label: '完成折叠', value: 'collapse-completed', icon: Fold },
   { label: '全部展开', value: 'expanded', icon: Expand },
 ]
-const positionReferenceModeOptions: MaterialSegmentedOption<PositionReferenceMode>[] = [
-  { label: '常规视角', value: 'none', icon: User },
-  { label: '位置参考', value: 'position', icon: SortUp },
-  { label: '反打视角', value: 'reverse', icon: Sort },
-]
 const episodeDropdownRefs = new Map<string, { handleClose?: () => void }>()
 const groupDropdownRefs = new Map<string, { handleClose?: () => void }>()
 type HighlightInputBinding = {
@@ -1467,14 +1484,9 @@ const isEpisodeShotUpdateMode = computed(() => Boolean(activeEpisode.value && ha
 const activeEpisodeUnitNumbers = computed(() => Array.from(new Set(
   activeEpisode.value?.shots.map((shot) => normalizeShotUnitNumber(shot.unitNumber)) ?? [],
 )).sort((left, right) => left - right))
-const allShotsPositionReferenceMode = computed<PositionReferenceMode>(() => {
+const areAllShotsPositionReferenced = computed(() => {
   const shots = activeEpisode.value?.shots ?? []
-  if (shots.length === 0) {
-    return 'none'
-  }
-
-  const firstMode = positionReferenceMode(shots[0])
-  return shots.every((shot) => positionReferenceMode(shot) === firstMode) ? firstMode : 'none'
+  return shots.length > 0 && shots.every((shot) => shot.usePositionReference)
 })
 const areAllShotsComplete = computed(() => {
   const shots = activeEpisode.value?.shots ?? []
@@ -3025,24 +3037,39 @@ function splitBatchShotText(value: string): BatchShotSegment[] {
     .replace(/\r\n/g, '\n')
     .split(/===/g)
     .forEach((unitText) => {
-      const unitSegments = unitText
-        .split(/---/g)
-        .map((item, index) => {
-          let text = item
-          let remark = ''
+      const unitSegments: Omit<BatchShotSegment, 'unitNumber'>[] = []
+      let marker: '---' | '+++' | null = null
 
-          if (index > 0) {
-            const remarkMatch = text.match(/^[ \t　]*#([^#\r\n]*)#/)
+      unitText.split(/(---|\+\+\+)/g).forEach((item) => {
+        if (item === '---' || item === '+++') {
+          marker = item
+          return
+        }
 
-            if (remarkMatch) {
-              remark = remarkMatch[1].trim() ? remarkMatch[1] : ''
-              text = text.slice(remarkMatch[0].length)
-            }
+        let text = item
+        let remark = ''
+
+        if (marker) {
+          const remarkMatch = text.match(/^[ \t　]*#([^#\r\n]*)#/)
+
+          if (remarkMatch) {
+            remark = remarkMatch[1].trim() ? remarkMatch[1] : ''
+            text = text.slice(remarkMatch[0].length)
           }
+        }
 
-          return { text: text.trim(), remark }
-        })
-        .filter((segment) => Boolean(segment.text))
+        text = text.trim()
+
+        if (text) {
+          unitSegments.push({
+            text,
+            remark,
+            thirtySecondMode: marker === '+++',
+          })
+        }
+
+        marker = null
+      })
 
       if (!unitSegments.length) {
         return
@@ -3099,6 +3126,9 @@ function syncEpisodeShots(episode: Episode, segments: BatchShotSegment[], sceneD
     const shot = episode.shots[index] ?? createShot(segment.unitNumber)
     shot.text = segment.text
     shot.remark = segment.remark
+    if (segment.thirtySecondMode) {
+      shot.thirtySecondMode = true
+    }
     shot.unitNumber = segment.unitNumber
     applyUnitSceneToEmptyShot(episode, shot, segment.unitNumber, sceneDrafts)
     return shot
@@ -3197,12 +3227,13 @@ function hasModifiedShots(episode: Episode) {
   return episode.shots.some((shot) => (
     Boolean(shot.text.trim())
     || Boolean(shot.remark.trim())
+    || shot.thirtySecondMode
     || shot.connectPreviousCount > 0
     || shot.connectNextCount > 0
     || hasConfiguredScenes(shot)
     || shot.characters.length > 0
-    || shot.usePositionReference
-    || shot.useReverseAngle
+    || !shot.usePositionReference
+    || shot.firstFrameMode
     || shot.status !== 'incomplete'
     || !isReviewDefault(shot.review)
   ))
@@ -3403,17 +3434,18 @@ function promptPreviewWarnings(shot: Shot) {
     warnings.push('未配置场景')
   }
 
-  if (isVoiceOverflow(shot)) {
+  if (!shot.thirtySecondMode && isVoiceOverflow(shot)) {
     warnings.push('音色人物超过 3 人')
   }
 
   if (configuredCharacters.length > 3 && !shot.usePositionReference) {
-    warnings.push('多角色建议启用位置参考')
+    warnings.push('多角色建议启用定位图')
   }
 
   const seconds = recommendedSeconds(text)
   const min = Math.min(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
   const max = Math.max(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
+    * (shot.thirtySecondMode ? 2 : 1)
 
   if (text && (seconds < min || seconds > max)) {
     warnings.push(`推荐时长 ${formatSeconds(seconds)}，超出推荐范围 ${formatSeconds(min)}～${formatSeconds(max)}`)
@@ -3517,34 +3549,17 @@ function setShotStatus(shot: Shot, done: boolean) {
   shot.status = done ? 'complete' : 'incomplete'
 }
 
-function positionReferenceMode(shot: Shot): PositionReferenceMode {
-  if (!shot.usePositionReference) {
-    return 'none'
-  }
-
-  return shot.useReverseAngle ? 'reverse' : 'position'
+function setPositionReference(shot: Shot, value: boolean) {
+  shot.usePositionReference = value
+  shot.useReverseAngle = false
 }
 
-function setPositionReferenceMode(shot: Shot, value: string | number | boolean | undefined) {
-  if (value !== 'none' && value !== 'position' && value !== 'reverse') {
-    return
-  }
-
-  shot.usePositionReference = value !== 'none'
-  shot.useReverseAngle = value === 'reverse'
-}
-
-function cycleAllPositionReferenceMode() {
+function toggleAllShotsPositionReference() {
   const shots = activeEpisode.value?.shots ?? []
-  const currentMode = allShotsPositionReferenceMode.value
-  const nextMode: PositionReferenceMode = currentMode === 'none'
-    ? 'position'
-    : currentMode === 'position'
-      ? 'reverse'
-      : 'none'
+  const nextValue = !areAllShotsPositionReferenced.value
 
   shots.forEach((shot) => {
-    setPositionReferenceMode(shot, nextMode)
+    setPositionReference(shot, nextValue)
   })
 }
 
@@ -4138,18 +4153,19 @@ function openEpisodeScriptDialog(tab: EpisodeScriptTab) {
 }
 
 function organizeEpisodeScriptDraft() {
-  const protectedRemarks: string[] = []
+  const protectedRemarks: Array<{ marker: '---' | '+++'; remark: string }> = []
   const protectedDraft = episodeScriptDraft.value
     .replace(/\r\n/g, '\n')
-    .replace(/[ \t　]*---[ \t　]*#([^#\r\n]*)#[ \t　]*/g, (_match, remark: string) => {
+    .replace(/[ \t　]*(---|\+\+\+)[ \t　]*#([^#\r\n]*)#[ \t　]*/g, (_match, marker: '---' | '+++', remark: string) => {
       const placeholder = `\n__SHOT_REMARK_${protectedRemarks.length}__\n`
-      protectedRemarks.push(remark)
+      protectedRemarks.push({ marker, remark })
       return placeholder
     })
 
   episodeScriptDraft.value = protectedDraft
     .replace(/[ \t　]*===[ \t　]*/g, '\n===\n')
     .replace(/[ \t　]*---[ \t　]*/g, '\n---\n')
+    .replace(/[ \t　]*\+\+\+[ \t　]*/g, '\n+++\n')
     .replace(/[△▲][ \t　]*/g, '')
     .replace(/[\t　]+/g, '')
     .replace(/\.{3,}/g, '…')
@@ -4157,7 +4173,10 @@ function organizeEpisodeScriptDraft() {
     .replace(/\n[ \t　]+/g, '\n')
     .replace(/\n{2,}/g, '\n')
     .trim()
-    .replace(/__SHOT_REMARK_(\d+)__/g, (_match, index: string) => `--- #${protectedRemarks[Number(index)]}#`)
+    .replace(/__SHOT_REMARK_(\d+)__/g, (_match, index: string) => {
+      const protectedRemark = protectedRemarks[Number(index)]
+      return `${protectedRemark.marker} #${protectedRemark.remark}#`
+    })
   syncEpisodeScriptDraft()
   notify.success('已整理剧本文字')
 }
@@ -4488,10 +4507,11 @@ function durationText(text: string) {
   return formatSeconds(recommendedSeconds(text))
 }
 
-function durationState(text: string): { warn: boolean } {
+function durationState(text: string, thirtySecondMode = false): { warn: boolean } {
   const seconds = recommendedSeconds(text)
   const min = Math.min(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
   const max = Math.max(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
+    * (thirtySecondMode ? 2 : 1)
 
   if (!text.trim()) {
     return { warn: false }
@@ -4798,6 +4818,7 @@ function episodeComparableSignature(episode: Episode) {
     shots: episode.shots.map((shot) => ({
       text: shot.text,
       remark: shot.remark,
+      thirtySecondMode: shot.thirtySecondMode,
       unitNumber: normalizeShotUnitNumber(shot.unitNumber),
       connectPrevious: shot.connectPrevious,
       connectPreviousCount: shot.connectPreviousCount,
@@ -4811,6 +4832,7 @@ function episodeComparableSignature(episode: Episode) {
       })),
       usePositionReference: shot.usePositionReference,
       useReverseAngle: shot.useReverseAngle,
+      firstFrameMode: shot.firstFrameMode,
       characters: shot.characters.map((character) => ({
         name: character.name,
         includeVoice: character.includeVoice,
@@ -4916,8 +4938,13 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       ...connection,
       id: createId('shot'),
       remark: typeof shot.remark === 'string' ? shot.remark : '',
+      thirtySecondMode: typeof shot.thirtySecondMode === 'boolean' ? shot.thirtySecondMode : false,
       unitNumber: normalizeShotUnitNumber(shot.unitNumber),
-      useReverseAngle: Boolean(shot.useReverseAngle),
+      usePositionReference: typeof shot.usePositionReference === 'boolean'
+        ? Boolean(shot.usePositionReference || shot.useReverseAngle)
+        : true,
+      useReverseAngle: false,
+      firstFrameMode: Boolean(shot.firstFrameMode),
       pendingDetection: null,
       autoSyncNotice: null,
       undoCharacters: null,

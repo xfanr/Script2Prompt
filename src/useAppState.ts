@@ -162,6 +162,9 @@ function loadState(defaultGlobalConfig: GlobalConfig): AppState {
       episode.scriptText = typeof episode.scriptText === 'string' ? episode.scriptText : ''
       episode.shots?.forEach((shot, index, shots) => {
         shot.remark = typeof shot.remark === 'string' ? shot.remark : ''
+        const hadStoredThirtySecondMode = typeof shot.thirtySecondMode === 'boolean'
+        shot.thirtySecondMode = hadStoredThirtySecondMode ? shot.thirtySecondMode : false
+        shouldPersistNormalizedState ||= !hadStoredThirtySecondMode
         shot.unitNumber = normalizeShotUnitNumber(shot.unitNumber)
         Object.assign(shot, normalizeStoredShotConnection(
           shot.connectPreviousCount,
@@ -172,7 +175,15 @@ function loadState(defaultGlobalConfig: GlobalConfig): AppState {
           index < shots.length - 1,
         ))
         shot.scenes = normalizeShotScenes(shot.scenes, episode.scenes)
-        shot.useReverseAngle = Boolean(shot.useReverseAngle)
+        const hadStoredPositionReference = typeof shot.usePositionReference === 'boolean'
+        const hadReverseAngle = Boolean(shot.useReverseAngle)
+        shot.usePositionReference = hadStoredPositionReference
+          ? Boolean(shot.usePositionReference || hadReverseAngle)
+          : true
+        shot.useReverseAngle = false
+        const hadStoredFirstFrameMode = typeof shot.firstFrameMode === 'boolean'
+        shot.firstFrameMode = hadStoredFirstFrameMode ? shot.firstFrameMode : false
+        shouldPersistNormalizedState ||= !hadStoredPositionReference || hadReverseAngle || !hadStoredFirstFrameMode
         shot.characters ??= []
         shot.characters.forEach((character) => {
           character.statusText ??= ''

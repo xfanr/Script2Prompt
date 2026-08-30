@@ -4,7 +4,7 @@ import type { DialogueReplacementRule, GlobalConfig, PromptProfile, ReviewNotePr
 
 const RUNTIME_CONFIG_SCHEMA_VERSION = 1
 const RUNTIME_CONFIG_CACHE_KEY = 'script2prompt.runtimeDefaultConfig.v1'
-const PROMPT_PROFILE_NAMES = ['真人', '国漫', '其他'] as const
+const PROMPT_PROFILE_NAMES = ['公真人', '公3D', '真人', '3D'] as const
 const PROMPT_PROFILE_SLOT_COUNT = PROMPT_PROFILE_NAMES.length
 
 type UnknownRecord = Record<string, unknown>

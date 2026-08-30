@@ -7,6 +7,11 @@ import type {
   Shot,
 } from './types'
 
+const FIRST_FRAME_SHOT_PROMPT = `00-01秒（景别只能使用远景）
+\@
+
+01-30秒（景别只能使用特写、近景或中景）`
+
 type CharacterMatchCandidate = {
   name: string
   matchName: string
@@ -103,6 +108,7 @@ export function composePrompt(globalConfig: GlobalConfig, shot: Shot, promptProf
       profile.sceneRoleSuffix,
     ])],
     ['三、分镜详情', joinPromptBlocks([
+      shot.firstFrameMode ? FIRST_FRAME_SHOT_PROMPT : '',
       profile.shotPrefix,
       shot.text,
     ])],
@@ -135,8 +141,7 @@ function composeSceneRoleSection(shot: Shot) {
     })
 
   if (shot.usePositionReference) {
-    const reverseAngle = shot.useReverseAngle ? '，反打视角@' : ''
-    lines.push(`多角色位置参考@${reverseAngle}（仅参考图中人物在空间中的位置，人物动作、姿态、情绪均以分镜详情为准）。`)
+    lines.push('多角色位置参考@（仅参考图中人物在空间中的位置，人物动作、姿态、情绪均以分镜详情为准）。')
   }
 
   shot.characters

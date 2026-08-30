@@ -111,6 +111,7 @@ export interface Shot {
   id: string
   text: string
   remark: string
+  thirtySecondMode: boolean
   unitNumber: number
   connectPrevious: boolean
   connectPreviousCount: number
@@ -119,6 +120,7 @@ export interface Shot {
   scenes: SceneConfig[]
   usePositionReference: boolean
   useReverseAngle: boolean
+  firstFrameMode: boolean
   characters: CharacterConfig[]
   status: CompletionStatus
   review: PromptReview
