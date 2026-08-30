@@ -4582,7 +4582,12 @@ function applyEpisodeScriptShots() {
 function promptFor(shot: Shot) {
   const group = state.episodeGroups.find((item) => item.id === activeEpisode.value?.groupId)
   const profileId = group?.promptProfileId ?? state.globalConfig.prompt.activeProfileId
-  return composePrompt(state.globalConfig, { ...shot, text: effectiveShotText(shot) }, profileId)
+  return composePrompt(
+    state.globalConfig,
+    { ...shot, text: effectiveShotText(shot) },
+    profileId,
+    shotTimingAnalysis(shot).totalSeconds,
+  )
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
