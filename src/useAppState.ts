@@ -135,6 +135,11 @@ function loadState(defaultGlobalConfig: GlobalConfig): AppState {
     const normalizedGlobalConfig = storedVersion < 3
       ? migrateLegacyGlobalConfig(parsed.globalConfig, storedVersion, defaultGlobalConfig)
       : normalizeGlobalConfig(parsed.globalConfig)
+
+    if (normalizedGlobalConfig) {
+      syncPromptProfileNames(normalizedGlobalConfig, defaultGlobalConfig)
+    }
+
     let shouldPersistNormalizedState = (
       storedVersion < APP_VERSION
       || storedShotViewMode !== parsed.shotViewMode
@@ -222,6 +227,12 @@ function loadState(defaultGlobalConfig: GlobalConfig): AppState {
   } catch {
     return createPersistedInitialState(defaultGlobalConfig)
   }
+}
+
+function syncPromptProfileNames(config: GlobalConfig, runtimeConfig: GlobalConfig) {
+  config.prompt.profiles.forEach((profile, index) => {
+    profile.name = runtimeConfig.prompt.profiles[index]?.name ?? profile.name
+  })
 }
 
 function createPersistedInitialState(defaultGlobalConfig: GlobalConfig) {

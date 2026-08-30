@@ -1,11 +1,10 @@
 import { normalizeDialogueReplacementRules } from './dialogue'
-import { APP_VERSION, createId, createReviewNotePrefixOption, normalizeReviewNotePrefixOptions, STORAGE_KEY } from './defaults'
+import { createId, createReviewNotePrefixOption, normalizeReviewNotePrefixOptions } from './defaults'
 import type { DialogueReplacementRule, GlobalConfig, PromptProfile, ReviewNotePrefixOption } from './types'
 
 const RUNTIME_CONFIG_SCHEMA_VERSION = 1
 const RUNTIME_CONFIG_CACHE_KEY = 'script2prompt.runtimeDefaultConfig.v1'
-const PROMPT_PROFILE_NAMES = ['公真人', '公3D', '真人', '3D'] as const
-const PROMPT_PROFILE_SLOT_COUNT = PROMPT_PROFILE_NAMES.length
+const PROMPT_PROFILE_SLOT_COUNT = 4
 
 type UnknownRecord = Record<string, unknown>
 
@@ -30,7 +29,7 @@ export function activePromptProfile(config: GlobalConfig, profileId = config.pro
 }
 
 export async function loadInitialGlobalConfig(): Promise<GlobalConfig> {
-  return loadStoredUserConfig() ?? loadRuntimeDefaultConfig()
+  return loadRuntimeDefaultConfig()
 }
 
 export function normalizeGlobalConfig(value: unknown): GlobalConfig | null {
@@ -218,21 +217,6 @@ function loadCachedRuntimeConfig() {
   }
 }
 
-function loadStoredUserConfig() {
-  const raw = localStorage.getItem(STORAGE_KEY)
-
-  if (!raw) {
-    return null
-  }
-
-  try {
-    const state = JSON.parse(raw) as UnknownRecord
-    return state.version === APP_VERSION ? normalizeGlobalConfig(state.globalConfig) : null
-  } catch {
-    return null
-  }
-}
-
 function normalizePromptProfiles(value: unknown): PromptProfile[] | null {
   if (!Array.isArray(value) || !value.length) {
     return null
@@ -289,15 +273,13 @@ function normalizePromptProfileSlots(profiles: PromptProfile[], activeProfileId:
     slots.push({
       ...activeProfile,
       id: uniquePromptSlotId(activeProfile.id, slotNumber, slots),
+      name: uniquePromptSlotName(activeProfile.name, slotNumber, slots),
     })
   }
 
   return {
     activeProfileId: activeProfile.id,
-    profiles: slots.map((profile, index) => ({
-      ...profile,
-      name: PROMPT_PROFILE_NAMES[index],
-    })),
+    profiles: slots,
   }
 }
 
@@ -313,6 +295,20 @@ function uniquePromptSlotId(sourceId: string, slotNumber: number, profiles: Prom
   }
 
   return id
+}
+
+function uniquePromptSlotName(sourceName: string, slotNumber: number, profiles: PromptProfile[]) {
+  const usedNames = new Set(profiles.map((profile) => profile.name))
+  const baseName = `${sourceName} ${slotNumber}`
+  let name = baseName
+  let suffix = 2
+
+  while (usedNames.has(name)) {
+    name = `${baseName}-${suffix}`
+    suffix += 1
+  }
+
+  return name
 }
 
 function normalizeDurationRange(value: unknown) {

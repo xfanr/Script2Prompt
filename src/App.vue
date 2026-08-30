@@ -254,19 +254,6 @@
                   <el-button size="default" type="primary" plain @click="openEpisodeScriptDialog('shots')">⒉分镜</el-button>
                   <el-button round size="default" type="primary" plain @click="openEpisodeScriptDialog('dialogue')">⒊台词</el-button>
                 </el-button-group>
-                <el-button-group class="stage-action-group">
-                  <el-button
-                    round
-                    size="default"
-                    type="primary"
-                    text
-                    :bg="areAllShotsPositionReferenced"
-                    @click="toggleAllShotsPositionReference"
-                  >
-                    全定位
-                  </el-button>
-                  <el-button round size="default" type="primary" text :bg="areAllShotsComplete" @click="toggleAllShotsCompletion">全完成</el-button>
-                </el-button-group>
               </div>
             </template>
             <template #extra>
@@ -368,7 +355,7 @@
               </div>
             </div>
           </el-page-header>
-          <section class="shot-list">
+          <section ref="shotListRef" class="shot-list">
             <article
               v-for="(shot, index) in activeEpisode.shots"
               :key="shot.id"
@@ -447,10 +434,11 @@
                     :plain="!shot.thirtySecondMode"
                     size="small"
                     circle
-                    :title="shot.thirtySecondMode ? '关闭 30S 模式' : '开启 30S 模式'"
+                    :title="`${shot.thirtySecondMode ? '关闭 30S 模式' : '开启 30S 模式'}；右键应用到本集全部分镜`"
                     :aria-label="shot.thirtySecondMode ? '关闭 30S 模式' : '开启 30S 模式'"
                     :aria-pressed="shot.thirtySecondMode"
                     @click.stop="shot.thirtySecondMode = !shot.thirtySecondMode"
+                    @contextmenu.prevent.stop="toggleEpisodeThirtySecondModeFromShot(shot)"
                   />
                   <el-divider class="shot-tool-divider" direction="vertical" />
                   <el-button
@@ -460,9 +448,10 @@
                     :plain="shot.status !== 'complete'"
                     size="small"
                     circle
-                    :title="shot.status === 'complete' ? '标记为待办' : '标记为完成'"
+                    :title="`${shot.status === 'complete' ? '标记为待办' : '标记为完成'}；右键应用到本集全部分镜`"
                     :aria-label="shot.status === 'complete' ? '标记为待办' : '标记为完成'"
                     @click="setShotStatus(shot, shot.status !== 'complete')"
+                    @contextmenu.prevent.stop="toggleEpisodeCompletionFromShot(shot)"
                   />
                   <el-button
                     class="shot-review-button"
@@ -548,13 +537,15 @@
                       <div class="scene-heading-title">
                         <span>场景配置</span>
                         <el-button
-                          :type="shot.usePositionReference ? 'primary' : undefined"
+                          type="primary"
+                          text
+                          :bg="shot.usePositionReference"
                           :icon="Camera"
-                          size="small"
-                          :title="shot.usePositionReference ? '关闭定位图' : '开启定位图'"
+                          :title="`${shot.usePositionReference ? '关闭定位图' : '开启定位图'}；右键应用到本集全部分镜`"
                           :aria-label="shot.usePositionReference ? '关闭定位图' : '开启定位图'"
                           @click="setPositionReference(shot, !shot.usePositionReference)"
-                        />
+                          @contextmenu.prevent.stop="toggleEpisodePositionReferenceFromShot(shot)"
+                        >定位</el-button>
                       </div>
                       <el-button :icon="Plus" text type="primary" @click="addSceneToShot(shot)">添加场景</el-button>
                     </div>
@@ -667,13 +658,15 @@
                       </el-tooltip>
                       完整提示词
                       <el-button
-                        :type="shot.firstFrameMode ? 'primary' : undefined"
+                        type="primary"
+                        text
+                        :bg="shot.firstFrameMode"
                         :icon="VideoPlay"
-                        size="small"
-                        :title="shot.firstFrameMode ? '关闭首帧' : '开启首帧'"
+                        :title="`${shot.firstFrameMode ? '关闭首帧' : '开启首帧'}；右键应用到本集全部分镜`"
                         :aria-label="shot.firstFrameMode ? '关闭首帧' : '开启首帧'"
                         @click="shot.firstFrameMode = !shot.firstFrameMode"
-                      />
+                        @contextmenu.prevent.stop="toggleEpisodeFirstFrameModeFromShot(shot)"
+                      >首帧</el-button>
                     </span>
                     <div class="preview-copy-actions">
                       <el-button :icon="CopyDocument" text type="primary" @click="copyPrompt(shot)">完整</el-button>
@@ -1448,6 +1441,7 @@ let dialogueInputRef: HighlightInputBinding | null = null
 let dialogueHighlightRef: HTMLElement | null = null
 let materialSceneTransitionFrame: number | null = null
 const fileInputRef = ref<HTMLInputElement | null>(null)
+const shotListRef = ref<HTMLElement | null>(null)
 const reviewDialogVisible = ref(false)
 const reviewSummaryVisible = ref(false)
 const groupSummaryVisible = ref(false)
@@ -1484,14 +1478,6 @@ const isEpisodeShotUpdateMode = computed(() => Boolean(activeEpisode.value && ha
 const activeEpisodeUnitNumbers = computed(() => Array.from(new Set(
   activeEpisode.value?.shots.map((shot) => normalizeShotUnitNumber(shot.unitNumber)) ?? [],
 )).sort((left, right) => left - right))
-const areAllShotsPositionReferenced = computed(() => {
-  const shots = activeEpisode.value?.shots ?? []
-  return shots.length > 0 && shots.every((shot) => shot.usePositionReference)
-})
-const areAllShotsComplete = computed(() => {
-  const shots = activeEpisode.value?.shots ?? []
-  return shots.length > 0 && shots.every((shot) => shot.status === 'complete')
-})
 const sortedEpisodeGroups = computed(() => state.episodeGroups.filter((group) => !group.archived).sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
 const sortedArchivedEpisodeGroups = computed(() => state.episodeGroups
   .filter((group) => group.archived)
@@ -2391,6 +2377,11 @@ watch(
   (episodeId, previousEpisodeId) => {
     if (episodeId !== previousEpisodeId) {
       resetSingleExpandedView()
+      void nextTick(() => {
+        if (shotListRef.value) {
+          shotListRef.value.scrollTop = 0
+        }
+      })
     }
   },
 )
@@ -3554,20 +3545,36 @@ function setPositionReference(shot: Shot, value: boolean) {
   shot.useReverseAngle = false
 }
 
-function toggleAllShotsPositionReference() {
-  const shots = activeEpisode.value?.shots ?? []
-  const nextValue = !areAllShotsPositionReferenced.value
-
-  shots.forEach((shot) => {
-    setPositionReference(shot, nextValue)
+function toggleEpisodePositionReferenceFromShot(shot: Shot) {
+  const enabled = !shot.usePositionReference
+  activeEpisode.value?.shots.forEach((item) => {
+    setPositionReference(item, enabled)
   })
+  notify.success(`已${enabled ? '开启' : '关闭'}本集全部定位图`)
 }
 
-function toggleAllShotsCompletion() {
-  const nextStatus = areAllShotsComplete.value ? 'incomplete' : 'complete'
-  activeEpisode.value?.shots.forEach((shot) => {
-    shot.status = nextStatus
+function toggleEpisodeFirstFrameModeFromShot(shot: Shot) {
+  const enabled = !shot.firstFrameMode
+  activeEpisode.value?.shots.forEach((item) => {
+    item.firstFrameMode = enabled
   })
+  notify.success(`已${enabled ? '开启' : '关闭'}本集全部首帧`)
+}
+
+function toggleEpisodeCompletionFromShot(shot: Shot) {
+  const done = shot.status !== 'complete'
+  activeEpisode.value?.shots.forEach((item) => {
+    setShotStatus(item, done)
+  })
+  notify.success(`已将本集全部分镜标记为${done ? '完成' : '待办'}`)
+}
+
+function toggleEpisodeThirtySecondModeFromShot(shot: Shot) {
+  const enabled = !shot.thirtySecondMode
+  activeEpisode.value?.shots.forEach((item) => {
+    item.thirtySecondMode = enabled
+  })
+  notify.success(`已${enabled ? '开启' : '关闭'}本集全部 30S 模式`)
 }
 
 function shotIndex(shot: Shot) {
