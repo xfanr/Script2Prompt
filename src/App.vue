@@ -759,7 +759,17 @@
       </div>
     </div>
 
-      <GlobalConfigDialog v-model="globalDialogVisible" :config="state.globalConfig" @save="saveGlobalConfig" />
+      <GlobalConfigDialog
+        v-model="globalDialogVisible"
+        :config="state.globalConfig"
+        :web-dav-settings="webDavSettings"
+        :web-dav-action="webDavAction"
+        @save="saveGlobalConfig"
+        @webdav-save="persistWebDavSettings"
+        @webdav-test="testWebDav"
+        @webdav-upload="uploadToWebDav"
+        @webdav-download="downloadFromWebDav"
+      />
       <el-dialog v-model="detectionDialogVisible" title="人物识别冲突" width="820px" :show-close="false" class="detection-dialog" @closed="cancelActiveDetection">
         <div v-if="detectionConflict" class="detection-compare">
           <div class="detection-compare-row">
@@ -1387,6 +1397,16 @@ import {
 import type { ActionTimingMode, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotTimingSegment, ShotViewMode } from './types'
 import { useAppState } from './useAppState'
 import { notify } from './notification'
+import {
+  downloadWebDavSnapshot,
+  loadWebDavSettings,
+  saveWebDavSettings,
+  testWebDavConnection,
+  uploadWebDavSnapshot,
+  WebDavError,
+  type WebDavAction,
+  type WebDavSettings,
+} from './webdav'
 
 type MaterialKind = 'characters' | 'scenes'
 type StatusSyncScope = 'unit' | 'all'
@@ -1439,6 +1459,11 @@ type EditingMaterial = {
   value: string
 }
 type ImportMode = 'replace' | 'merge'
+type ImportBatch = {
+  groups: unknown
+  episodes: Episode[]
+  globalConfig: GlobalConfig | null
+}
 type ReviewDrawCountMode = '' | 'one' | 'two' | 'three' | 'four'
 type ReviewSubtitleMode = '' | 'subtitled' | 'half' | 'majority' | 'subtitle-free'
 type WeeklyReportPickerCell = {
@@ -1466,6 +1491,8 @@ const EmptyPageHeaderIcon: Component = () => null
 const { state, activeEpisode } = useAppState(props.initialGlobalConfig)
 const materialDialogVisible = ref(false)
 const globalDialogVisible = ref(false)
+const webDavSettings = ref<WebDavSettings>(loadWebDavSettings())
+const webDavAction = ref<WebDavAction | null>(null)
 const detectionDialogVisible = ref(false)
 const detectionConflictShotId = ref<string | null>(null)
 const sidebarCollapsed = ref(false)
@@ -1941,6 +1968,104 @@ function saveGlobalConfig(config: GlobalConfig) {
   const nextConfig = cloneGlobalConfig(config)
   remapGroupPromptProfiles(previousConfig, nextConfig)
   state.globalConfig = nextConfig
+}
+
+function persistWebDavSettings(settings: WebDavSettings) {
+  const targetChanged = webDavTargetIdentity(settings) !== webDavTargetIdentity(webDavSettings.value)
+  const normalized = saveWebDavSettings({
+    ...settings,
+    etag: targetChanged ? null : settings.etag,
+    lastSyncedAt: targetChanged ? null : settings.lastSyncedAt,
+  })
+  webDavSettings.value = normalized
+  return normalized
+}
+
+async function testWebDav(settings: WebDavSettings) {
+  const normalized = persistWebDavSettings(settings)
+  webDavAction.value = 'test'
+
+  try {
+    await testWebDavConnection(normalized)
+    notify.success('WebDAV 连接成功')
+  } catch (error) {
+    notifyWebDavError(error)
+  } finally {
+    webDavAction.value = null
+  }
+}
+
+async function uploadToWebDav(settings: WebDavSettings) {
+  const normalized = persistWebDavSettings(settings)
+  webDavAction.value = 'upload'
+
+  try {
+    const etag = await uploadWebDavSnapshot(normalized, exportPayload())
+    webDavSettings.value = saveWebDavSettings({
+      ...normalized,
+      etag,
+      lastSyncedAt: new Date().toISOString(),
+    })
+    notify.success('已上传到 WebDAV')
+  } catch (error) {
+    notifyWebDavError(error)
+  } finally {
+    webDavAction.value = null
+  }
+}
+
+async function downloadFromWebDav(settings: WebDavSettings) {
+  const normalized = persistWebDavSettings(settings)
+  webDavAction.value = 'download'
+
+  try {
+    const downloaded = await downloadWebDavSnapshot(normalized)
+    let batch: ImportBatch
+
+    try {
+      batch = parseImportPayload(JSON.parse(downloaded.text))
+    } catch {
+      throw new WebDavError('云端同步文件格式错误或缺少单集数据')
+    }
+
+    try {
+      await ElMessageBox.confirm('从云端下载会完整替换当前所有分组、单集和全局配置，是否继续？', '从 WebDAV 下载', {
+        type: 'warning',
+        confirmButtonText: '下载并替换',
+        cancelButtonText: '取消',
+      })
+    } catch {
+      return
+    }
+
+    applyImportBatches([batch], 'replace')
+    webDavSettings.value = saveWebDavSettings({
+      ...normalized,
+      etag: downloaded.etag,
+      lastSyncedAt: new Date().toISOString(),
+    })
+    notify.success('已从 WebDAV 下载并恢复')
+  } catch (error) {
+    notifyWebDavError(error)
+  } finally {
+    webDavAction.value = null
+  }
+}
+
+function webDavTargetIdentity(settings: WebDavSettings) {
+  const baseUrl = settings.baseUrl.trim().replace(/\/+$/, '')
+  return `${baseUrl}\n${settings.username.trim()}\n${settings.filename.trim()}`
+}
+
+function notifyWebDavError(error: unknown) {
+  const message = error instanceof Error ? error.message : 'WebDAV 操作失败'
+
+  if (error instanceof WebDavError && (error.status === 409 || error.status === 412)) {
+    notify.warning(message)
+    return
+  }
+
+  notify.error(message)
 }
 
 function setDarkMode(value: boolean) {
@@ -4932,28 +5057,11 @@ async function importEpisode(event: Event) {
     return
   }
 
-  const batches: Array<{
-    groups: unknown
-    episodes: Episode[]
-    globalConfig: GlobalConfig | null
-  }> = []
+  const batches: ImportBatch[] = []
 
   for (const file of files) {
     try {
-      const payload = JSON.parse(await file.text()) as Partial<ExportPayload> & { episodes?: Episode[] }
-      const episodes = Array.isArray(payload.episodes) ? payload.episodes : payload.episode ? [payload.episode] : []
-      const storedVersion = typeof payload.version === 'number' && Number.isInteger(payload.version) ? payload.version : 1
-      const globalConfig = normalizeGlobalConfigSnapshot(payload.globalConfigSnapshot, storedVersion, state.globalConfig)
-
-      if (!episodes.length) {
-        throw new Error('invalid episode')
-      }
-
-      batches.push({
-        groups: payload.episodeGroups,
-        episodes,
-        globalConfig,
-      })
+      batches.push(parseImportPayload(JSON.parse(await file.text())))
     } catch {
       notify.error(`导入失败：文件“${file.name}”格式错误或缺少单集数据`)
     }
@@ -4969,6 +5077,37 @@ async function importEpisode(event: Event) {
     return
   }
 
+  const importedCount = applyImportBatches(batches, importMode)
+
+  if (importedCount) {
+    notify.success(`已导入 ${importedCount} 个单集`)
+  } else {
+    notify.info('暂无可导入的新单集')
+  }
+}
+
+function parseImportPayload(value: unknown): ImportBatch {
+  if (!value || typeof value !== 'object') {
+    throw new Error('invalid payload')
+  }
+
+  const payload = value as Partial<ExportPayload> & { episodes?: Episode[] }
+  const episodes = Array.isArray(payload.episodes) ? payload.episodes : payload.episode ? [payload.episode] : []
+  const storedVersion = typeof payload.version === 'number' && Number.isInteger(payload.version) ? payload.version : 1
+  const globalConfig = normalizeGlobalConfigSnapshot(payload.globalConfigSnapshot, storedVersion, state.globalConfig)
+
+  if (!episodes.length) {
+    throw new Error('invalid episode')
+  }
+
+  return {
+    groups: payload.episodeGroups,
+    episodes,
+    globalConfig,
+  }
+}
+
+function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
   applyImportedGlobalConfigs(batches, importMode)
 
   if (importMode === 'replace') {
@@ -5035,11 +5174,7 @@ async function importEpisode(event: Event) {
     selectEpisode(episode)
   }
 
-  if (importedCount) {
-    notify.success(`已导入 ${importedCount} 个单集`)
-  } else {
-    notify.info('暂无可导入的新单集')
-  }
+  return importedCount
 }
 
 function applyImportedGlobalConfigs(

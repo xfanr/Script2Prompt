@@ -8,6 +8,38 @@
     @update:model-value="emit('update:modelValue', $event)"
   >
     <el-tabs v-model="activeTab" class="global-config-tabs">
+      <el-tab-pane label="WebDAV" name="webdav">
+        <div class="global-config-scroll-pane">
+          <el-form class="global-config-form" label-position="top">
+            <el-form-item label="WebDAV 地址">
+              <el-input v-model="webDavDraft.baseUrl" placeholder="/webdav/" clearable />
+            </el-form-item>
+            <div class="webdav-credentials-grid">
+              <el-form-item label="用户名">
+                <el-input v-model="webDavDraft.username" autocomplete="username" clearable />
+              </el-form-item>
+              <el-form-item label="密码">
+                <el-input v-model="webDavDraft.password" type="password" autocomplete="current-password" show-password />
+              </el-form-item>
+            </div>
+            <el-form-item label="同步文件名">
+              <el-input v-model="webDavDraft.filename" placeholder="script2prompt-sync.json" clearable />
+            </el-form-item>
+            <div class="webdav-sync-status">
+              <span>最近同步</span>
+              <strong>{{ formattedWebDavSyncTime }}</strong>
+            </div>
+            <div class="webdav-inline-actions">
+              <el-button-group class="episode-actions webdav-sync-actions">
+                <el-button :icon="Connection" round title="测试连接" aria-label="测试连接" :loading="webDavAction === 'test'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('test')" />
+                <el-button :icon="Download" title="从云端下载" aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('download')" />
+                <el-button :icon="Upload" round title="上传到云端" aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('upload')" />
+              </el-button-group>
+            </div>
+          </el-form>
+        </div>
+      </el-tab-pane>
+
       <el-tab-pane label="提示词" name="prompt">
         <div class="global-config-scroll-pane">
           <el-form v-if="selectedProfile" class="global-config-form" label-position="top">
@@ -94,6 +126,7 @@
           </el-form>
         </div>
       </el-tab-pane>
+
     </el-tabs>
 
     <template #footer>
@@ -108,7 +141,10 @@
             aria-label="提示词方案"
           />
         </div>
-        <div class="global-config-footer-actions">
+        <div v-if="activeTab === 'webdav'" class="global-config-footer-actions">
+          <el-button type="primary" :disabled="Boolean(webDavAction)" @click="saveWebDavSettingsDraft">保存连接设置</el-button>
+        </div>
+        <div v-else class="global-config-footer-actions">
           <el-button :loading="isResetting" @click="resetFromServer">恢复初始配置</el-button>
           <el-button type="primary" @click="save">保存</el-button>
         </div>
@@ -120,28 +156,37 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
-import { Delete, Plus } from '@element-plus/icons-vue'
+import { Connection, Delete, Download, Plus, Upload } from '@element-plus/icons-vue'
 import { cloneGlobalConfig, loadRuntimeDefaultConfig, normalizeGlobalConfig } from '../config'
 import { createDialogueReplacementRule, createReviewNotePrefixOption } from '../defaults'
 import type { GlobalConfig } from '../types'
 import { notify } from '../notification'
+import { normalizeWebDavSettings, type WebDavAction, type WebDavSettings } from '../webdav'
 
-type GlobalConfigTab = 'prompt' | 'data' | 'dialogue'
+type GlobalConfigTab = 'prompt' | 'data' | 'dialogue' | 'webdav'
 
 const props = defineProps<{
   modelValue: boolean
   config: GlobalConfig
+  webDavSettings: WebDavSettings
+  webDavAction: WebDavAction | null
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   save: [config: GlobalConfig]
+  'webdav-save': [settings: WebDavSettings]
+  'webdav-test': [settings: WebDavSettings]
+  'webdav-upload': [settings: WebDavSettings]
+  'webdav-download': [settings: WebDavSettings]
 }>()
 
-const activeTab = ref<GlobalConfigTab>('prompt')
+const activeTab = ref<GlobalConfigTab>('webdav')
 const draft = ref<GlobalConfig>(cloneGlobalConfig(props.config))
 const selectedProfileId = ref(props.config.prompt.activeProfileId)
 const initialSignature = ref('')
+const webDavDraft = ref<WebDavSettings>({ ...props.webDavSettings })
+const initialWebDavSignature = ref('')
 const isResetting = ref(false)
 
 const selectedProfile = computed(() => draft.value.prompt.profiles.find((profile) => profile.id === selectedProfileId.value) ?? null)
@@ -149,7 +194,17 @@ const promptProfileOptions = computed(() => draft.value.prompt.profiles.map((pro
   label: profile.name,
   value: profile.id,
 })))
-const isDirty = computed(() => JSON.stringify(draft.value) !== initialSignature.value)
+const isGlobalConfigDirty = computed(() => JSON.stringify(draft.value) !== initialSignature.value)
+const isWebDavDirty = computed(() => JSON.stringify(webDavDraft.value) !== initialWebDavSignature.value)
+const isDirty = computed(() => isGlobalConfigDirty.value || isWebDavDirty.value)
+const formattedWebDavSyncTime = computed(() => {
+  if (!webDavDraft.value.lastSyncedAt) {
+    return '尚未同步'
+  }
+
+  const date = new Date(webDavDraft.value.lastSyncedAt)
+  return Number.isNaN(date.getTime()) ? '尚未同步' : date.toLocaleString('zh-CN', { hour12: false })
+})
 const durationRangeDraft = computed<[number, number]>({
   get: (): [number, number] => [
     draft.value.dataCollection.recommendedDurationRange.min,
@@ -163,15 +218,22 @@ const durationRangeDraft = computed<[number, number]>({
 
 watch(() => props.modelValue, (visible) => {
   if (visible) {
-    initializeDraft(props.config)
+    initializeDraft(props.config, props.webDavSettings)
   }
 })
 
-function initializeDraft(config: GlobalConfig) {
+watch(() => props.webDavSettings, (settings) => {
+  webDavDraft.value = { ...settings }
+  initialWebDavSignature.value = JSON.stringify(webDavDraft.value)
+}, { deep: true })
+
+function initializeDraft(config: GlobalConfig, webDavSettings: WebDavSettings) {
   draft.value = cloneGlobalConfig(config)
+  webDavDraft.value = { ...webDavSettings }
   selectedProfileId.value = config.prompt.activeProfileId
-  activeTab.value = 'prompt'
+  activeTab.value = 'webdav'
   initialSignature.value = JSON.stringify(draft.value)
+  initialWebDavSignature.value = JSON.stringify(webDavDraft.value)
 }
 
 function addDialogueReplacementRule() {
@@ -192,14 +254,63 @@ function removeReviewNotePrefixOption(id: string) {
 
 function save() {
   const normalized = validateDraft()
+  const webDavSettings = isWebDavDirty.value ? validatedWebDavSettings() : null
 
-  if (!normalized) {
+  if (!normalized || (isWebDavDirty.value && !webDavSettings)) {
     return
   }
 
   initialSignature.value = JSON.stringify(normalized)
   emit('save', normalized)
+
+  if (webDavSettings) {
+    webDavDraft.value = webDavSettings
+    initialWebDavSignature.value = JSON.stringify(webDavSettings)
+    emit('webdav-save', webDavSettings)
+  }
+
   emit('update:modelValue', false)
+}
+
+function saveWebDavSettingsDraft() {
+  const settings = validatedWebDavSettings()
+
+  if (!settings) {
+    return
+  }
+
+  webDavDraft.value = settings
+  initialWebDavSignature.value = JSON.stringify(settings)
+  emit('webdav-save', settings)
+  notify.success('WebDAV 连接设置已保存')
+}
+
+function runWebDavAction(action: WebDavAction) {
+  const settings = validatedWebDavSettings()
+
+  if (!settings) {
+    return
+  }
+
+  webDavDraft.value = settings
+  initialWebDavSignature.value = JSON.stringify(settings)
+
+  if (action === 'test') {
+    emit('webdav-test', settings)
+  } else if (action === 'upload') {
+    emit('webdav-upload', settings)
+  } else {
+    emit('webdav-download', settings)
+  }
+}
+
+function validatedWebDavSettings() {
+  try {
+    return normalizeWebDavSettings(webDavDraft.value)
+  } catch (error) {
+    notify.warning(error instanceof Error ? error.message : 'WebDAV 连接设置无效')
+    return null
+  }
 }
 
 function validateDraft() {
@@ -288,7 +399,7 @@ async function canDiscardChanges() {
   }
 
   try {
-    await ElMessageBox.confirm('全局配置尚未保存，确认放弃修改？', '放弃修改', {
+    await ElMessageBox.confirm('设置中存在尚未保存的修改，确认放弃？', '放弃修改', {
       type: 'warning',
       confirmButtonText: '放弃修改',
       cancelButtonText: '继续编辑',

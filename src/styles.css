@@ -2113,6 +2113,30 @@ html.dark .episode-panel {
   line-height: 1.5;
 }
 
+.webdav-credentials-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.webdav-sync-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 18px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--el-border-radius-base);
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-light);
+  font-size: 13px;
+}
+
+.webdav-sync-status strong {
+  color: var(--el-text-color-primary);
+}
+
 .prompt-profile-dock {
   display: flex;
   flex: 0 0 auto;
@@ -2192,6 +2216,22 @@ html.dark .episode-panel {
 .global-config-footer-actions {
   display: flex;
   gap: 10px;
+}
+
+.webdav-inline-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.webdav-sync-actions.el-button-group > .el-button:first-child {
+  border-radius: var(--el-border-radius-round) 0 0 var(--el-border-radius-round);
+}
+
+.webdav-sync-actions.el-button-group > .el-button:last-child {
+  border-radius: 0 var(--el-border-radius-round) var(--el-border-radius-round) 0;
 }
 
 .global-config-footer .el-button + .el-button {
@@ -2682,6 +2722,11 @@ html.dark .episode-panel {
 
   .dialogue-rule-row {
     grid-template-columns: 1fr 1fr 32px;
+  }
+
+  .webdav-credentials-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
   }
 
   .prompt-profile-dock {
