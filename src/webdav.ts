@@ -137,16 +137,22 @@ export async function downloadWebDavSnapshot(settings: WebDavSettings) {
   }
 }
 
-export async function uploadWebDavSnapshot(settings: WebDavSettings, payload: unknown) {
+export async function uploadWebDavSnapshot(
+  settings: WebDavSettings,
+  payload: unknown,
+  options: { overwrite?: boolean } = {},
+) {
   const normalized = normalizeWebDavSettings(settings)
   const headers: Record<string, string> = {
     'Content-Type': 'application/json; charset=utf-8',
   }
 
-  if (normalized.etag) {
-    headers['If-Match'] = normalized.etag
-  } else {
-    headers['If-None-Match'] = '*'
+  if (!options.overwrite) {
+    if (normalized.etag) {
+      headers['If-Match'] = normalized.etag
+    } else {
+      headers['If-None-Match'] = '*'
+    }
   }
 
   const response = await webDavFetch(normalized, snapshotUrl(normalized), {
@@ -156,7 +162,7 @@ export async function uploadWebDavSnapshot(settings: WebDavSettings, payload: un
   })
 
   if (response.status === 409 || response.status === 412) {
-    throw new WebDavError('云端文件已存在或已被其他设备更新，请先下载云端数据', response.status)
+    throw new WebDavError('云端文件已存在或已被其他设备更新', response.status)
   }
 
   if (!response.ok) {

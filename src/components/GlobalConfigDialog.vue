@@ -33,7 +33,20 @@
               <el-button-group class="episode-actions webdav-sync-actions">
                 <el-button :icon="Connection" round title="测试连接" aria-label="测试连接" :loading="webDavAction === 'test'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('test')" />
                 <el-button :icon="Download" title="从云端下载" aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('download')" />
-                <el-button :icon="Upload" round title="上传到云端" aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('upload')" />
+                <el-popconfirm
+                  :visible="webDavUploadConflict"
+                  title="云端文件已存在或已被其他设备更新，是否覆盖"
+                  confirm-button-text="覆盖"
+                  cancel-button-text="取消"
+                  icon-color="var(--el-color-warning)"
+                  :width="300"
+                  @confirm="emit('webdav-overwrite')"
+                  @cancel="emit('webdav-upload-conflict-dismiss')"
+                >
+                  <template #reference>
+                    <el-button :icon="Upload" round title="上传到云端" aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('upload')" />
+                  </template>
+                </el-popconfirm>
               </el-button-group>
             </div>
           </el-form>
@@ -170,6 +183,7 @@ const props = defineProps<{
   config: GlobalConfig
   webDavSettings: WebDavSettings
   webDavAction: WebDavAction | null
+  webDavUploadConflict: boolean
 }>()
 
 const emit = defineEmits<{
@@ -178,6 +192,8 @@ const emit = defineEmits<{
   'webdav-save': [settings: WebDavSettings]
   'webdav-test': [settings: WebDavSettings]
   'webdav-upload': [settings: WebDavSettings]
+  'webdav-overwrite': []
+  'webdav-upload-conflict-dismiss': []
   'webdav-download': [settings: WebDavSettings]
 }>()
 

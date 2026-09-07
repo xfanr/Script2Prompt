@@ -764,10 +764,13 @@
         :config="state.globalConfig"
         :web-dav-settings="webDavSettings"
         :web-dav-action="webDavAction"
+        :web-dav-upload-conflict="Boolean(pendingWebDavOverwrite)"
         @save="saveGlobalConfig"
         @webdav-save="persistWebDavSettings"
         @webdav-test="testWebDav"
         @webdav-upload="uploadToWebDav"
+        @webdav-overwrite="overwriteWebDavSnapshot"
+        @webdav-upload-conflict-dismiss="pendingWebDavOverwrite = null"
         @webdav-download="downloadFromWebDav"
       />
       <el-dialog v-model="detectionDialogVisible" title="人物识别冲突" width="820px" :show-close="false" class="detection-dialog" @closed="cancelActiveDetection">
@@ -1493,6 +1496,7 @@ const materialDialogVisible = ref(false)
 const globalDialogVisible = ref(false)
 const webDavSettings = ref<WebDavSettings>(loadWebDavSettings())
 const webDavAction = ref<WebDavAction | null>(null)
+const pendingWebDavOverwrite = ref<{ settings: WebDavSettings; payload: ExportPayload } | null>(null)
 const detectionDialogVisible = ref(false)
 const detectionConflictShotId = ref<string | null>(null)
 const sidebarCollapsed = ref(false)
@@ -1997,16 +2001,47 @@ async function testWebDav(settings: WebDavSettings) {
 
 async function uploadToWebDav(settings: WebDavSettings) {
   const normalized = persistWebDavSettings(settings)
+  const payload = exportPayload()
+  pendingWebDavOverwrite.value = null
   webDavAction.value = 'upload'
 
   try {
-    const etag = await uploadWebDavSnapshot(normalized, exportPayload())
+    const etag = await uploadWebDavSnapshot(normalized, payload)
     webDavSettings.value = saveWebDavSettings({
       ...normalized,
       etag,
       lastSyncedAt: new Date().toISOString(),
     })
     notify.success('已上传到 WebDAV')
+  } catch (error) {
+    if (isWebDavConflict(error)) {
+      pendingWebDavOverwrite.value = { settings: normalized, payload }
+    } else {
+      notifyWebDavError(error)
+    }
+  } finally {
+    webDavAction.value = null
+  }
+}
+
+async function overwriteWebDavSnapshot() {
+  const pending = pendingWebDavOverwrite.value
+  pendingWebDavOverwrite.value = null
+
+  if (!pending) {
+    return
+  }
+
+  webDavAction.value = 'upload'
+
+  try {
+    const etag = await uploadWebDavSnapshot(pending.settings, pending.payload, { overwrite: true })
+    webDavSettings.value = saveWebDavSettings({
+      ...pending.settings,
+      etag,
+      lastSyncedAt: new Date().toISOString(),
+    })
+    notify.success('已覆盖 WebDAV 云端文件')
   } catch (error) {
     notifyWebDavError(error)
   } finally {
@@ -2060,12 +2095,11 @@ function webDavTargetIdentity(settings: WebDavSettings) {
 function notifyWebDavError(error: unknown) {
   const message = error instanceof Error ? error.message : 'WebDAV 操作失败'
 
-  if (error instanceof WebDavError && (error.status === 409 || error.status === 412)) {
-    notify.warning(message)
-    return
-  }
-
   notify.error(message)
+}
+
+function isWebDavConflict(error: unknown) {
+  return error instanceof WebDavError && (error.status === 409 || error.status === 412)
 }
 
 function setDarkMode(value: boolean) {
@@ -3672,7 +3706,7 @@ function splitMaterialInput(value: string) {
   return Array.from(
     new Set(
       value
-        .split(/[、；，;,\n\r]+/)
+        .split(/[、；，;,\s]+/)
         .map((item) => item.trim())
         .filter(Boolean),
     ),
