@@ -480,9 +480,18 @@
                   <div class="cell-title script-title">
                     <div class="script-title-main">
                       <span class="script-title-label">分镜详情</span>
+                      <el-button
+                        class="title-copy-button"
+                        :icon="CopyDocument"
+                        text
+                        circle
+                        type="primary"
+                        title="复制分镜详情"
+                        aria-label="复制分镜详情"
+                        @click="copyShotDetail(shot)"
+                      />
                       <div class="script-title-actions">
                         <el-button :icon="Search" text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
-                        <el-button :icon="CopyDocument" text type="primary" @click="copyShotDetail(shot)">复制</el-button>
                       </div>
                     </div>
                     <div class="script-title-stats">
@@ -554,6 +563,17 @@
                       <div class="scene-heading-title">
                         <span>场景配置</span>
                         <el-button
+                          class="title-copy-button"
+                          :icon="CopyDocument"
+                          text
+                          circle
+                          type="primary"
+                          title="复制场景配置"
+                          aria-label="复制场景配置"
+                          :disabled="!composeSceneSettings(shot)"
+                          @click="copySceneSettings(shot)"
+                        />
+                        <el-button
                           type="primary"
                           text
                           :bg="shot.usePositionReference"
@@ -605,7 +625,20 @@
 
                   <div class="config-group character-config-group">
                     <div class="config-heading character-heading">
-                      <span>人物配置</span>
+                      <div class="character-heading-title">
+                        <span>人物配置</span>
+                        <el-button
+                          class="title-copy-button"
+                          :icon="CopyDocument"
+                          text
+                          circle
+                          type="primary"
+                          title="复制人物配置"
+                          aria-label="复制人物配置"
+                          :disabled="!composeCharacterSettings(shot)"
+                          @click="copyCharacterSettings(shot)"
+                        />
+                      </div>
                       <el-button :icon="Plus" text type="primary" @click="addCharacterToShot(shot)">添加人物</el-button>
                     </div>
                     <div class="character-config-list">
@@ -675,6 +708,16 @@
                       </el-tooltip>
                       完整提示词
                       <el-button
+                        class="title-copy-button"
+                        :icon="CopyDocument"
+                        text
+                        circle
+                        type="primary"
+                        title="复制完整提示词"
+                        aria-label="复制完整提示词"
+                        @click="copyPrompt(shot)"
+                      />
+                      <el-button
                         type="primary"
                         text
                         :bg="shot.firstFrameMode"
@@ -685,9 +728,6 @@
                         @contextmenu.prevent.stop="toggleEpisodeFirstFrameModeFromShot(shot)"
                       >首帧</el-button>
                     </span>
-                    <div class="preview-copy-actions">
-                      <el-button :icon="CopyDocument" text type="primary" @click="copyPrompt(shot)">完整</el-button>
-                    </div>
                   </div>
                   <pre>{{ promptFor(shot) }}</pre>
                 </section>
@@ -1382,7 +1422,9 @@ import {
 } from './defaults'
 import {
   buildDetectedCharacters,
+  composeCharacterSettings,
   composePrompt,
+  composeSceneSettings,
   countNonPunctuationCharacters,
   detectCharacters,
   mergeDetectedCharacters,
@@ -4919,6 +4961,28 @@ async function copyShotDetail(shot: Shot) {
 
   if (copied) {
     notify.success('已复制分镜详情')
+    return
+  }
+
+  notify.error('复制失败，请手动选择文本复制')
+}
+
+async function copySceneSettings(shot: Shot) {
+  const copied = await copyText(composeSceneSettings(shot))
+
+  if (copied) {
+    notify.success('已复制场景配置')
+    return
+  }
+
+  notify.error('复制失败，请手动选择文本复制')
+}
+
+async function copyCharacterSettings(shot: Shot) {
+  const copied = await copyText(composeCharacterSettings(shot))
+
+  if (copied) {
+    notify.success('已复制人物配置')
     return
   }
 

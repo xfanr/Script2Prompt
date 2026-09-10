@@ -125,6 +125,13 @@ export function composePrompt(globalConfig: GlobalConfig, shot: Shot, promptProf
 }
 
 function composeSceneRoleSection(shot: Shot) {
+  return joinPromptBlocks([
+    composeSceneSettings(shot),
+    composeCharacterSettings(shot),
+  ])
+}
+
+export function composeSceneSettings(shot: Shot) {
   const lines: string[] = []
 
   shot.scenes
@@ -148,6 +155,12 @@ function composeSceneRoleSection(shot: Shot) {
   if (shot.usePositionReference) {
     lines.push('多角色位置参考@（仅参考图中人物在空间中的位置，人物动作、姿态、情绪均以分镜详情为准）。')
   }
+
+  return lines.join('\n')
+}
+
+export function composeCharacterSettings(shot: Shot) {
+  const lines: string[] = []
 
   shot.characters
     .filter((character) => character.name.trim())
