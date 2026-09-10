@@ -241,10 +241,10 @@
               <span class="stage-page-title">
                 <span>《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》</span>
                 <span>{{ activeEpisode.title }}</span>
-                <span class="stage-title-data-actions">
-                  <el-button :icon="Notebook" circle title="整组数据" aria-label="整组数据" @click="openGroupSummary(activeEpisode.groupId ?? 'ungrouped')" />
-                  <el-button :icon="Document" circle title="本集数据" aria-label="本集数据" @click="openReviewSummary(activeEpisode)" />
-                </span>
+                <el-button-group class="episode-actions stage-title-data-actions">
+                  <el-button :icon="Notebook" round title="整组数据" aria-label="整组数据" @click="openGroupSummary(activeEpisode.groupId ?? 'ungrouped')" />
+                  <el-button :icon="Document" round title="本集数据" aria-label="本集数据" @click="openReviewSummary(activeEpisode)" />
+                </el-button-group>
               </span>
             </template>
             <template #content>
@@ -612,12 +612,27 @@
                           </el-popconfirm>
                         </template>
                       </el-input>
-                      <el-popconfirm title="确认删除这条场景配置？" @confirm="removeSceneFromShot(shot, scene.id)">
+                      <el-popconfirm
+                        title="确认删除这条场景配置？"
+                        @show="showConfigRemove(scene.id)"
+                        @hide="hideConfigRemove(scene.id)"
+                        @confirm="removeSceneFromShot(shot, scene.id)"
+                      >
                         <template #actions="{ confirm }">
                           <el-button size="small" type="danger" @click="confirm($event)">删除</el-button>
                         </template>
                         <template #reference>
-                          <el-button :icon="Close" circle text />
+                          <el-button
+                            class="config-remove-button"
+                            :class="{ 'is-popconfirm-open': activeConfigRemoveId === scene.id }"
+                            :icon="Delete"
+                            type="primary"
+                            text
+                            size="small"
+                            circle
+                            title="删除场景配置"
+                            aria-label="删除场景配置"
+                          />
                         </template>
                       </el-popconfirm>
                     </div>
@@ -641,9 +656,24 @@
                       </div>
                       <el-button :icon="Plus" text type="primary" @click="addCharacterToShot(shot)">添加人物</el-button>
                     </div>
-                    <div class="character-config-list">
+                    <VueDraggable
+                      v-model="shot.characters"
+                      class="character-config-list"
+                      :animation="150"
+                      handle=".character-drag-handle"
+                      ghost-class="character-drag-ghost"
+                    >
                       <div v-if="!shot.characters.length" class="empty-note">暂无人物配置</div>
                       <div v-for="character in shot.characters" :key="character.id" class="config-line character-line">
+                      <el-button
+                        class="character-drag-handle"
+                        :icon="Sort"
+                        text
+                        circle
+                        type="primary"
+                        title="拖拽排序"
+                        aria-label="拖拽排序"
+                      />
                       <div class="character-identity-controls">
                         <el-select v-model="character.name" placeholder="选择人物" filterable>
                           <el-option
@@ -680,16 +710,31 @@
                           </el-popconfirm>
                         </template>
                       </el-input>
-                      <el-popconfirm title="确认删除这条人物配置？" @confirm="removeCharacterFromShot(shot, character.id)">
+                      <el-popconfirm
+                        title="确认删除这条人物配置？"
+                        @show="showConfigRemove(character.id)"
+                        @hide="hideConfigRemove(character.id)"
+                        @confirm="removeCharacterFromShot(shot, character.id)"
+                      >
                         <template #actions="{ confirm }">
                           <el-button size="small" type="danger" @click="confirm($event)">删除</el-button>
                         </template>
                         <template #reference>
-                          <el-button :icon="Close" circle text />
+                          <el-button
+                            class="config-remove-button"
+                            :class="{ 'is-popconfirm-open': activeConfigRemoveId === character.id }"
+                            :icon="Delete"
+                            type="primary"
+                            text
+                            size="small"
+                            circle
+                            title="删除人物配置"
+                            aria-label="删除人物配置"
+                          />
                         </template>
                       </el-popconfirm>
                       </div>
-                    </div>
+                    </VueDraggable>
                   </div>
                 </section>
 
@@ -1402,11 +1447,12 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Component } from 'vue'
+import { VueDraggable } from 'vue-draggable-plus'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
-import { ArrowRight, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Folder, Fold, Location, Microphone, Moon, Mute, Notebook, Plus, Position, Refresh, RefreshLeft, Search, Setting, Star, StarFilled, Sunny, Upload, VideoCamera, VideoPlay, View, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Folder, Fold, Location, Microphone, Moon, Mute, Notebook, Plus, Position, Refresh, RefreshLeft, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, VideoCamera, VideoPlay, View, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
@@ -1564,6 +1610,7 @@ const expandedGroupIds = ref<string[]>(['ungrouped'])
 const openEpisodeMenuId = ref<string | null>(null)
 const openGroupMenuId = ref<string | null>(null)
 const singleShotMenuVisible = ref(false)
+const activeConfigRemoveId = ref<string | null>(null)
 let singleShotMenuCloseTimer: number | null = null
 const materialSceneTimeOptions: MaterialSegmentedOption<SceneTime>[] = [
   { label: '白天', value: '白天', icon: Sunny },
@@ -3822,6 +3869,16 @@ function addCharacterToShot(shot: Shot) {
 
 function removeCharacterFromShot(shot: Shot, id: string) {
   shot.characters = shot.characters.filter((character) => character.id !== id)
+}
+
+function showConfigRemove(id: string) {
+  activeConfigRemoveId.value = id
+}
+
+function hideConfigRemove(id: string) {
+  if (activeConfigRemoveId.value === id) {
+    activeConfigRemoveId.value = null
+  }
 }
 
 function isCharacterOptionDisabled(shot: Shot, currentId: string, name: string) {

@@ -642,13 +642,9 @@ html.dark .episode-panel {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 8px;
+  gap: 0;
   margin-left: 10px;
   overflow: visible;
-}
-
-.stage-title-data-actions .el-button + .el-button {
-  margin-left: 0;
 }
 
 .stage-page-actions {
@@ -1504,9 +1500,11 @@ html.dark .episode-panel {
 
 .config-cell {
   container-type: inline-size;
+  width: calc(100% + 32px);
   gap: 10px;
+  margin-left: -16px;
   overflow-y: auto;
-  padding: 0 12px;
+  padding: 0 28px;
   scrollbar-width: none;
 }
 
@@ -1550,16 +1548,21 @@ html.dark .episode-panel {
 
 .character-config-list {
   display: flex;
+  box-sizing: border-box;
+  width: calc(100% + 56px);
   max-height: 272px;
   flex-direction: column;
   gap: 8px;
+  margin-left: -28px;
+  padding: 0 28px;
   overflow-y: auto;
   scrollbar-width: none;
 }
 
 .scene-line {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(100px, 0.65fr) minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(100px, 0.65fr) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
 }
@@ -1571,10 +1574,79 @@ html.dark .episode-panel {
 }
 
 .character-line {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(100px, 0.65fr) minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(100px, 0.65fr) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
+}
+
+.character-drag-handle {
+  --el-button-bg-color: transparent;
+  --el-button-hover-bg-color: transparent;
+  --el-button-active-bg-color: transparent;
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: -28px;
+  width: 24px;
+  min-height: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--el-color-primary);
+  cursor: grab;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity var(--el-transition-duration-fast);
+}
+
+.character-drag-handle.el-button,
+.character-drag-handle.el-button:hover,
+.character-drag-handle.el-button:focus,
+.character-drag-handle.el-button:focus-visible,
+.character-drag-handle.el-button:active {
+  background: transparent !important;
+}
+
+.character-drag-handle:active {
+  cursor: grabbing;
+}
+
+.character-line:hover .character-drag-handle {
+  opacity: 1;
+}
+
+.config-remove-button {
+  --el-button-bg-color: transparent;
+  --el-button-hover-bg-color: transparent;
+  --el-button-active-bg-color: transparent;
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  right: -28px;
+  color: var(--el-color-primary);
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity var(--el-transition-duration-fast);
+}
+
+.config-remove-button.el-button,
+.config-remove-button.el-button:hover,
+.config-remove-button.el-button:focus,
+.config-remove-button.el-button:focus-visible,
+.config-remove-button.el-button:active {
+  background: transparent !important;
+}
+
+.config-line:hover .config-remove-button,
+.config-remove-button.is-popconfirm-open {
+  opacity: 1;
+}
+
+.character-drag-ghost {
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-color-primary-light-9);
+  opacity: 0.55;
 }
 
 .character-identity-controls {
@@ -1619,28 +1691,42 @@ html.dark .episode-panel {
 }
 
 @container (max-width: 420px) {
-  .config-cell .scene-line,
-  .config-cell .character-line {
-    grid-template-columns: minmax(0, 1fr) 32px;
+  .config-cell .scene-line {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .scene-line .el-select,
+  .config-cell .character-line {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scene-line .el-select {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
   .character-identity-controls {
     grid-column: 1;
     grid-row: 1;
   }
 
-  .scene-status-input,
+  .scene-status-input {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
   .character-status-input {
     grid-column: 1;
     grid-row: 2;
   }
 
-  .scene-line > .el-button,
-  .character-line > .el-button {
-    grid-column: 2;
-    grid-row: 1 / span 2;
+}
+
+@media (hover: none) {
+  .character-drag-handle,
+  .config-remove-button {
+    opacity: 1;
   }
+
 }
 
 .preview-cell pre {
@@ -2843,11 +2929,11 @@ html.dark .episode-panel {
 }
 
 .scene-line {
-  grid-template-columns: minmax(100px, 0.65fr) minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(100px, 0.65fr) minmax(0, 1fr);
 }
 
 .character-line {
-  grid-template-columns: minmax(100px, 0.65fr) minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(100px, 0.65fr) minmax(0, 1fr);
 }
 
 .character-line .el-select {
