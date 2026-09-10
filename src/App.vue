@@ -1136,14 +1136,14 @@
         </div>
         <el-table :data="groupSummaryTableRows" max-height="430" empty-text="暂无单集" scrollbar-always-on :row-class-name="groupSummaryRowClass">
           <el-table-column prop="title" label="单集" min-width="130" fixed="left" show-overflow-tooltip />
-          <el-table-column prop="averageText" label="平均分" width="90" />
-          <el-table-column prop="total" label="总分镜数" width="86" />
-          <el-table-column prop="drawTotal" label="总抽卡次数" width="86" />
+          <el-table-column label="分镜数-抽卡数" width="120">
+            <template #default="{ row }">{{ row.total }}-{{ row.drawTotal }}</template>
+          </el-table-column>
           <el-table-column prop="averageDrawRate" label="抽卡成功率" width="110" />
-          <el-table-column prop="noSubtitleRate" label="无字幕率" width="94" />
           <el-table-column prop="pointUsageText" label="积分消耗" width="92" />
           <el-table-column prop="totalCost" label="总成本" width="98" />
           <el-table-column prop="productionDate" label="制作日期" width="116" />
+          <el-table-column prop="averageText" label="平均分" width="90" />
           <el-table-column label="操作" width="84" fixed="right" align="center" header-align="center">
             <template #default="{ row }">
               <el-button v-if="!row.isSummary" text type="primary" @click="openReviewSummary(row.episode)">查看</el-button>
