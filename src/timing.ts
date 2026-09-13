@@ -127,9 +127,9 @@ function normalizeDialogueSegment(value: Partial<DialogueTimingSegment>, sourceT
 }
 
 function normalizeActionSegment(value: Partial<ActionTimingSegment>, sourceText = ''): ActionTimingSegment {
-  const shotCount = Number.isInteger(value.shotCount) ? Math.min(5, Math.max(1, Number(value.shotCount))) : 1
+  const shotCount = Number.isInteger(value.shotCount) ? Math.min(4, Math.max(1, Number(value.shotCount))) : 1
   const secondsPerShot = Number.isInteger(value.secondsPerShot)
-    ? Math.min(5, Math.max(1, Number(value.secondsPerShot)))
+    ? Math.min(5, Math.max(2, Number(value.secondsPerShot)))
     : 2
   return {
     id: typeof value.id === 'string' && value.id ? value.id : createTimingSegmentId('action'),
@@ -247,6 +247,17 @@ function punctuationPauseSeconds(text: string) {
     if (/…|—|\.{3,}/u.test(cluster)) pause = Math.max(pause, 0.8)
     return total + pause
   }, 0)
+}
+
+export function analyzeDialogueTiming(text: string, speechRate: DialogueSpeechRate) {
+  const spokenText = spokenTextInRange(text, 0, text.length)
+  const articulationSeconds = countNonPunctuationCharacters(spokenText) / SPEECH_RATE_CHARACTERS_PER_SECOND[speechRate]
+  const pauseSeconds = punctuationPauseSeconds(spokenText)
+  return {
+    articulationSeconds,
+    pauseSeconds,
+    totalSeconds: articulationSeconds + pauseSeconds,
+  }
 }
 
 export function createEmptyTimingAnalysis(): TimingAnalysis {

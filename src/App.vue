@@ -1,6 +1,11 @@
 <template>
   <el-config-provider>
     <div class="app-shell">
+      <el-alert v-if="saveError" class="storage-save-error" type="error" :closable="false" show-icon title="更改尚未保存">
+        <div>{{ saveError }}</div>
+        <el-button size="small" @click="saveNow">重试保存</el-button>
+        <el-button size="small" @click="exportAllEpisodes">导出备份</el-button>
+      </el-alert>
       <input ref="fileInputRef" class="file-input" type="file" accept="application/json,.json" multiple @change="importEpisode" />
 
       <div class="workspace">
@@ -37,8 +42,10 @@
                 <el-button-group class="episode-actions">
                   <el-button :icon="Plus" round title="新建单集" aria-label="新建单集" @click="addEpisode" />
                   <el-button :icon="Folder" title="新建分组" aria-label="新建分组" @click="addEpisodeGroup" />
-                  <el-button :icon="Upload" title="导入备份" aria-label="导入备份" @click="triggerImport" />
-                  <el-button :icon="Download" round title="导出备份" aria-label="导出备份" @click="exportAllEpisodes" />
+                  <el-button :icon="Download" title="从云端下载" aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="downloadFromWebDav(webDavSettings)" />
+                  <el-button :icon="Upload" title="上传到云端" aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="uploadToWebDav(webDavSettings)" />
+                  <el-button :icon="DocumentChecked" title="导入本地备份" aria-label="导入本地备份" @click="triggerImport" />
+                  <el-button :icon="DocumentAdd" round title="下载备份文件" aria-label="下载备份文件" @click="exportAllEpisodes" />
                 </el-button-group>
               </div>
               <el-scrollbar class="episode-scrollbar">
@@ -502,11 +509,10 @@
                             <span>标点停顿 {{ formatTimingSeconds(shotTimingAnalysis(shot).punctuationSeconds) }}</span>
                             <span>异步动作 {{ formatTimingSeconds(shotTimingAnalysis(shot).asyncActionSeconds) }}</span>
                             <span>同步动作 {{ shotTimingAnalysis(shot).synchronousActionCount }} 段 · 0 秒</span>
-                            <span class="timing-summary-hint">悬停查看片段，右键调整计时</span>
                           </div>
                         </template>
                         <el-tag :type="shotDurationState(shot).warn ? 'danger' : 'info'" effect="light" round>
-                          {{ shotTimingAnalysis(shot).dialogueCharacters }} / {{ shotTimingAnalysis(shot).totalCharacters }} 字 · {{ formatTimingSeconds(shotTimingAnalysis(shot).totalSeconds) }}
+                          {{ shotTimingTitleStats(shot) }}
                         </el-tag>
                       </el-tooltip>
                     </div>
@@ -803,18 +809,23 @@
                   block
                   @change="updateActiveSpeechRate"
                 />
+                <div v-if="activeDialogueTiming" class="timing-config-result">
+                  发音 {{ activeDialogueTiming.articulationSeconds.toFixed(1) }} 秒 + 停顿 {{ activeDialogueTiming.pauseSeconds.toFixed(1) }} 秒 = {{ activeDialogueTiming.totalSeconds.toFixed(1) }} 秒
+                </div>
               </template>
               <template v-else>
                 <div class="timing-config-heading">
                   <span>动作计时</span>
                   <em>{{ activeTimingSegment.sourceText }}</em>
                 </div>
-                <el-segmented
-                  :model-value="activeTimingSegment.mode"
-                  :options="actionTimingModeOptions"
-                  block
-                  @change="updateActiveActionMode"
-                />
+                <div class="timing-config-row">
+                  <span>方式</span>
+                  <el-segmented
+                    :model-value="activeTimingSegment.mode"
+                    :options="actionTimingModeOptions"
+                    @change="updateActiveActionMode"
+                  />
+                </div>
                 <template v-if="activeTimingSegment.mode === 'async'">
                   <div class="timing-config-row">
                     <span>镜头数</span>
@@ -849,14 +860,10 @@
         :config="state.globalConfig"
         :web-dav-settings="webDavSettings"
         :web-dav-action="webDavAction"
-        :web-dav-upload-conflict="Boolean(pendingWebDavOverwrite)"
         @save="saveGlobalConfig"
-        @webdav-save="persistWebDavSettings"
+        @webdav-save="saveWebDavConnection"
         @webdav-test="testWebDav"
-        @webdav-upload="uploadToWebDav"
-        @webdav-overwrite="overwriteWebDavSnapshot"
-        @webdav-upload-conflict-dismiss="pendingWebDavOverwrite = null"
-        @webdav-download="downloadFromWebDav"
+        @webdav-migrate="migrateWebDav"
       />
       <el-dialog v-model="detectionDialogVisible" title="人物识别冲突" width="820px" :show-close="false" class="detection-dialog" @closed="cancelActiveDetection">
         <div v-if="detectionConflict" class="detection-compare">
@@ -1452,7 +1459,7 @@ import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
-import { ArrowRight, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Folder, Fold, Location, Microphone, Moon, Mute, Notebook, Plus, Position, Refresh, RefreshLeft, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, VideoCamera, VideoPlay, View, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowRight, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, DocumentAdd, DocumentChecked, Download, EditPen, Expand, Files, Folder, Fold, Location, Microphone, Moon, Mute, Notebook, Plus, Position, Refresh, RefreshLeft, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, VideoCamera, VideoPlay, View, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
@@ -1479,22 +1486,24 @@ import {
 import { normalizeConnectionPunctuationCount, normalizeStoredShotConnection, takeLeadingPunctuationSegments, takeTrailingPunctuationSegments } from './shotContext'
 import { compactShotUnitNumbers, formatShotNumber, normalizeShotUnitNumber } from './shotNumber'
 import {
+  analyzeDialogueTiming,
   analyzeTimingRange,
   reconcileTimingSegments,
   resolveTimingSegments,
   sumTimingAnalyses,
   type TimingAnalysis,
 } from './timing'
-import type { ActionTimingMode, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotTimingSegment, ShotViewMode } from './types'
+import type { ActionTimingMode, AppState, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotTimingSegment, ShotViewMode } from './types'
 import { useAppState } from './useAppState'
+import { LocalRepository, readSyncTarget } from './storage'
+import { buildDataFiles, canonicalJson, groupFilePath, mergeDownloadedFiles } from './dataFiles'
+import { acceptDownloadedFiles, downloadDataFiles, legacySnapshotFiles, migrateLegacyFiles, uploadDataFiles, type TransferItem, type TransferResult } from './webdavSync'
 import { notify } from './notification'
 import {
-  downloadWebDavSnapshot,
   loadWebDavSettings,
   saveWebDavSettings,
-  testWebDavConnection,
-  uploadWebDavSnapshot,
-  WebDavError,
+  WebDavClient,
+  webDavTargetIdentity,
   type WebDavAction,
   type WebDavSettings,
 } from './webdav'
@@ -1576,15 +1585,16 @@ type WeeklyReportRange = {
 
 const props = defineProps<{
   initialGlobalConfig: GlobalConfig
+  initialState: AppState
+  repository: LocalRepository
 }>()
 
 const EmptyPageHeaderIcon: Component = () => null
-const { state, activeEpisode } = useAppState(props.initialGlobalConfig)
+const { state, activeEpisode, saveError, saveNow, replaceState } = useAppState(props.initialState, props.repository)
 const materialDialogVisible = ref(false)
 const globalDialogVisible = ref(false)
 const webDavSettings = ref<WebDavSettings>(loadWebDavSettings())
 const webDavAction = ref<WebDavAction | null>(null)
-const pendingWebDavOverwrite = ref<{ settings: WebDavSettings; payload: ExportPayload } | null>(null)
 const detectionDialogVisible = ref(false)
 const detectionConflictShotId = ref<string | null>(null)
 const sidebarCollapsed = ref(false)
@@ -1639,8 +1649,8 @@ const actionTimingModeOptions = [
   { label: '同步', value: 'sync' },
   { label: '异步', value: 'async' },
 ]
-const actionShotCountOptions = [1, 2, 3, 4, 5].map((value) => ({ label: String(value), value }))
-const actionSecondsPerShotOptions = [1, 2, 3, 4, 5].map((value) => ({ label: String(value), value }))
+const actionShotCountOptions = [1, 2, 3, 4].map((value) => ({ label: String(value), value }))
+const actionSecondsPerShotOptions = [2, 3, 4, 5].map((value) => ({ label: String(value), value }))
 const episodeDropdownRefs = new Map<string, { handleClose?: () => void }>()
 const groupDropdownRefs = new Map<string, { handleClose?: () => void }>()
 type HighlightInputBinding = {
@@ -1681,6 +1691,12 @@ const activeTimingSegment = computed<ShotTimingSegment | null>(() => {
   if (!target) return null
   const shot = activeEpisode.value?.shots.find((item) => item.id === target.shotId)
   return shot?.timingSegments.find((segment) => segment.id === target.segmentId) ?? null
+})
+const activeDialogueTiming = computed(() => {
+  const segment = activeTimingSegment.value
+  return segment?.kind === 'dialogue'
+    ? analyzeDialogueTiming(segment.sourceText, segment.speechRate)
+    : null
 })
 const timingPopoverVisible = computed(() => Boolean(activeTimingSegment.value))
 const reviewSubtitleMode = ref<ReviewSubtitleMode>('subtitle-free')
@@ -2064,131 +2080,128 @@ function saveGlobalConfig(config: GlobalConfig) {
 }
 
 function persistWebDavSettings(settings: WebDavSettings) {
-  const targetChanged = webDavTargetIdentity(settings) !== webDavTargetIdentity(webDavSettings.value)
+  const identity = webDavTargetIdentity(settings)
   const normalized = saveWebDavSettings({
     ...settings,
-    etag: targetChanged ? null : settings.etag,
-    lastSyncedAt: targetChanged ? null : settings.lastSyncedAt,
+    lastSyncedAt: readSyncTarget(localStorage, identity).lastCompleteAt,
   })
   webDavSettings.value = normalized
   return normalized
 }
 
-async function testWebDav(settings: WebDavSettings) {
-  const normalized = persistWebDavSettings(settings)
-  webDavAction.value = 'test'
-
+function saveWebDavConnection(settings: WebDavSettings) {
   try {
-    await testWebDavConnection(normalized)
+    persistWebDavSettings(settings)
+    notify.success('WebDAV 连接设置已保存')
+  } catch (error) { notifyWebDavError(error) }
+}
+
+async function confirmWebDavItems(items: TransferItem[], deleting = false) {
+  try {
+    await ElMessageBox.confirm(
+      items.map((item) => `${item.title}（${item.path}）：${item.reason}`).join('\n'),
+      deleting ? '确认删除云端分组' : '确认覆盖云端文件',
+      { type: 'warning', confirmButtonText: deleting ? '删除云端文件' : '覆盖列出的文件', cancelButtonText: '保留云端文件', customClass: 'webdav-confirm-dialog' },
+    )
+    return true
+  } catch { return false }
+}
+
+async function testWebDav(settings: WebDavSettings) {
+  if (webDavAction.value) return
+  webDavAction.value = 'test'
+  try {
+    await new WebDavClient(persistWebDavSettings(settings)).test()
     notify.success('WebDAV 连接成功')
-  } catch (error) {
-    notifyWebDavError(error)
-  } finally {
-    webDavAction.value = null
-  }
+  } catch (error) { notifyWebDavError(error) }
+  finally { webDavAction.value = null }
 }
 
 async function uploadToWebDav(settings: WebDavSettings) {
-  const normalized = persistWebDavSettings(settings)
-  const payload = exportPayload()
-  pendingWebDavOverwrite.value = null
+  if (webDavAction.value || !saveNow()) return
   webDavAction.value = 'upload'
-
   try {
-    const etag = await uploadWebDavSnapshot(normalized, payload)
-    webDavSettings.value = saveWebDavSettings({
-      ...normalized,
-      etag,
-      lastSyncedAt: new Date().toISOString(),
+    const normalized = persistWebDavSettings(settings)
+    // Snapshot the whole operation, so edits during network requests are left for the next upload.
+    const snapshot = JSON.parse(JSON.stringify(state)) as AppState
+    const result = await uploadDataFiles(new WebDavClient(normalized), buildDataFiles(snapshot), {
+      storage: localStorage,
+      identity: webDavTargetIdentity(normalized),
+      confirmOverwrite: (items) => confirmWebDavItems(items),
+      confirmDelete: (items) => confirmWebDavItems(items, true),
+      isGroupPresent: (path) => state.episodeGroups.some((group) => groupFilePath(group.id) === path),
     })
-    notify.success('已上传到 WebDAV')
-  } catch (error) {
-    if (isWebDavConflict(error)) {
-      pendingWebDavOverwrite.value = { settings: normalized, payload }
-    } else {
-      notifyWebDavError(error)
-    }
-  } finally {
-    webDavAction.value = null
-  }
-}
-
-async function overwriteWebDavSnapshot() {
-  const pending = pendingWebDavOverwrite.value
-  pendingWebDavOverwrite.value = null
-
-  if (!pending) {
-    return
-  }
-
-  webDavAction.value = 'upload'
-
-  try {
-    const etag = await uploadWebDavSnapshot(pending.settings, pending.payload, { overwrite: true })
-    webDavSettings.value = saveWebDavSettings({
-      ...pending.settings,
-      etag,
-      lastSyncedAt: new Date().toISOString(),
-    })
-    notify.success('已覆盖 WebDAV 云端文件')
-  } catch (error) {
-    notifyWebDavError(error)
-  } finally {
-    webDavAction.value = null
-  }
+    persistWebDavSettings(normalized)
+    notifyWebDavTransferResults('WebDAV 上传', result.results, result.complete)
+  } catch (error) { notifyWebDavError(error) }
+  finally { webDavAction.value = null }
 }
 
 async function downloadFromWebDav(settings: WebDavSettings) {
-  const normalized = persistWebDavSettings(settings)
+  if (webDavAction.value || !saveNow()) return
   webDavAction.value = 'download'
-
   try {
-    const downloaded = await downloadWebDavSnapshot(normalized)
-    let batch: ImportBatch
-
+    const normalized = persistWebDavSettings(settings)
+    const before = canonicalJson({ groups: state.episodeGroups, episodes: state.episodes, config: state.globalConfig })
+    const downloaded = await downloadDataFiles(new WebDavClient(normalized))
+    const next = mergeDownloadedFiles(state, downloaded.files)
     try {
-      batch = parseImportPayload(JSON.parse(downloaded.text))
-    } catch {
-      throw new WebDavError('云端同步文件格式错误或缺少单集数据')
+      await ElMessageBox.confirm(
+        `将下载 ${downloaded.files.size - 2} 个分组及未分组内容，替换本地同 ID 分组和全局设置（提示词、数据收集、台词规则）。本地独有分组保留。是否继续？`,
+        '从 WebDAV 下载',
+        { type: 'warning', confirmButtonText: '下载并替换', cancelButtonText: '取消' },
+      )
+    } catch { return }
+    if (before !== canonicalJson({ groups: state.episodeGroups, episodes: state.episodes, config: state.globalConfig })) {
+      throw new Error('下载期间本地数据已变化，请重新下载后确认')
     }
-
-    try {
-      await ElMessageBox.confirm('从云端下载会完整替换当前所有分组、单集和全局配置，是否继续？', '从 WebDAV 下载', {
-        type: 'warning',
-        confirmButtonText: '下载并替换',
-        cancelButtonText: '取消',
-      })
-    } catch {
-      return
-    }
-
-    applyImportBatches([batch], 'replace')
-    webDavSettings.value = saveWebDavSettings({
-      ...normalized,
-      etag: downloaded.etag,
-      lastSyncedAt: new Date().toISOString(),
+    replaceState(next, {
+      identity: webDavTargetIdentity(normalized),
+      update: (target) => acceptDownloadedFiles(target, downloaded.files, downloaded.remote),
     })
-    notify.success('已从 WebDAV 下载并恢复')
-  } catch (error) {
-    notifyWebDavError(error)
-  } finally {
-    webDavAction.value = null
-  }
+    selectedEpisodeGroupId.value = activeEpisode.value?.groupId ?? null
+    persistWebDavSettings(normalized)
+    notify.success(`WebDAV 下载完成：已保存 ${downloaded.files.size} 个文件，分组及单集 ID 已保留`)
+  } catch (error) { notifyWebDavError(error) }
+  finally { webDavAction.value = null }
 }
 
-function webDavTargetIdentity(settings: WebDavSettings) {
-  const baseUrl = settings.baseUrl.trim().replace(/\/+$/, '')
-  return `${baseUrl}\n${settings.username.trim()}\n${settings.filename.trim()}`
+async function migrateWebDav(settings: WebDavSettings) {
+  if (webDavAction.value) return
+  webDavAction.value = 'migrate'
+  try {
+    const client = new WebDavClient(persistWebDavSettings(settings))
+    const legacy = await client.readLegacy()
+    const files = legacySnapshotFiles(legacy.text, state.globalConfig)
+    try {
+      await ElMessageBox.confirm(
+        `将旧文件“${settings.legacyFilename}”拆分为 ${files.size} 个文件，直接保存在当前同步目录：${client.settings.baseUrl}。旧文件与本地数据保留；目录中已有不同的新格式数据时停止迁移。是否继续？`,
+        '迁移旧版 WebDAV 文件',
+        { type: 'warning', confirmButtonText: '迁移为多文件', cancelButtonText: '取消' },
+      )
+    } catch { return }
+    const results = await migrateLegacyFiles(client, files, () => {})
+    notifyWebDavTransferResults('WebDAV 迁移', results, results.every((item) => item.status !== 'failed'))
+  } catch (error) { notifyWebDavError(error) }
+  finally { webDavAction.value = null }
 }
 
 function notifyWebDavError(error: unknown) {
   const message = error instanceof Error ? error.message : 'WebDAV 操作失败'
-
   notify.error(message)
 }
 
-function isWebDavConflict(error: unknown) {
-  return error instanceof WebDavError && (error.status === 409 || error.status === 412)
+function notifyWebDavTransferResults(operation: string, results: TransferResult[], complete: boolean) {
+  const changed = results.filter((item) => item.status === 'uploaded' || item.status === 'downloaded' || item.status === 'deleted').length
+  const unchanged = results.filter((item) => item.status === 'unchanged').length
+  const unfinished = results.filter((item) => item.status === 'failed' || item.status === 'skipped')
+  const summary = `${operation}${complete ? '完成' : '未全部完成'}：已处理 ${changed}，未变化 ${unchanged}`
+  if (complete) {
+    notify.success(summary)
+    return
+  }
+  const details = unfinished.map((item) => `${item.title}：${item.message}`).join('；')
+  notify.warning(`${summary}；${details || '请重试'}`)
 }
 
 function setDarkMode(value: boolean) {
@@ -2756,7 +2769,7 @@ function updateActiveActionMode(value: unknown) {
 function updateActiveShotCount(value: unknown) {
   const segment = activeTimingSegment.value
   const shotCount = Number(value)
-  if (segment?.kind === 'action' && Number.isInteger(shotCount) && shotCount >= 1 && shotCount <= 5) {
+  if (segment?.kind === 'action' && Number.isInteger(shotCount) && shotCount >= 1 && shotCount <= 4) {
     segment.shotCount = shotCount
   }
 }
@@ -2764,7 +2777,7 @@ function updateActiveShotCount(value: unknown) {
 function updateActiveSecondsPerShot(value: unknown) {
   const segment = activeTimingSegment.value
   const seconds = Number(value)
-  if (segment?.kind === 'action' && Number.isInteger(seconds) && seconds >= 1 && seconds <= 5) {
+  if (segment?.kind === 'action' && Number.isInteger(seconds) && seconds >= 2 && seconds <= 5) {
     segment.secondsPerShot = seconds
   }
 }
@@ -3943,6 +3956,18 @@ function batchTimingAnalysis(text: string) {
 
 function formatTimingSeconds(seconds: number) {
   return `${seconds.toFixed(1)} 秒`
+}
+
+function shotTimingTitleStats(shot: Shot) {
+  const analysis = shotTimingAnalysis(shot)
+  const actionSeconds = analysis.asyncActionSeconds
+  const dialogueSeconds = analysis.dialogueArticulationSeconds + analysis.punctuationSeconds
+  const timedSeconds = actionSeconds + dialogueSeconds
+  const actionPercent = timedSeconds > 0
+    ? Math.round(actionSeconds / timedSeconds * 100)
+    : 0
+  const dialoguePercent = timedSeconds > 0 ? 100 - actionPercent : 0
+  return `动${actionPercent}% 词${dialoguePercent}% · ${analysis.totalSeconds.toFixed(1)}秒`
 }
 
 function isDurationOutsideRange(seconds: number, hasText: boolean, thirtySecondMode = false) {

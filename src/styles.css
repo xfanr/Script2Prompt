@@ -1199,7 +1199,7 @@ html.dark .episode-panel {
 .script-title-stats .el-tag {
   width: 100%;
   justify-content: center;
-  font-weight: 900;
+  font-weight: 400;
 }
 
 .script-editor-layout {
@@ -1473,11 +1473,24 @@ html.dark .episode-panel {
   line-height: 1.45;
 }
 
-.timing-summary-hint {
-  margin-top: 3px;
-  padding-top: 5px;
-  border-top: 1px solid var(--el-border-color-darker);
-  color: var(--el-text-color-placeholder);
+.storage-save-error {
+  position: fixed;
+  z-index: 3000;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(620px, calc(100vw - 32px));
+}
+
+.webdav-legacy-settings {
+  margin-top: 16px;
+}
+
+.webdav-confirm-dialog .el-message-box__message {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 50vh;
+  overflow-y: auto;
 }
 
 .script-inline-stats {
@@ -2308,22 +2321,6 @@ html.dark .episode-panel {
 .global-config-footer-actions {
   display: flex;
   gap: 10px;
-}
-
-.webdav-inline-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  gap: 10px;
-}
-
-.webdav-sync-actions.el-button-group > .el-button:first-child {
-  border-radius: var(--el-border-radius-round) 0 0 var(--el-border-radius-round);
-}
-
-.webdav-sync-actions.el-button-group > .el-button:last-child {
-  border-radius: 0 var(--el-border-radius-round) var(--el-border-radius-round) 0;
 }
 
 .global-config-footer .el-button + .el-button {

@@ -25,6 +25,8 @@ __pycache__/
 dist/
 build/
 .cache/
+.playwright-cli/
+output/playwright/
 .parcel-cache/
 .next/
 out/
@@ -40,4 +42,3 @@ pnpm-debug.log*
 *.tsbuildinfo
 auto-imports.d.ts
 components.d.ts
-

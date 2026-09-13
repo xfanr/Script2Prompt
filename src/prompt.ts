@@ -9,12 +9,12 @@ import type {
 
 function firstFrameShotPrompt(estimatedSeconds = 30) {
   const endSecond = Number.isFinite(estimatedSeconds)
-    ? Math.max(1, Math.round(estimatedSeconds))
+    ? Math.min(30, Math.max(1, Math.round(estimatedSeconds)))
     : 30
   return `00-01秒（景别只能使用远景）
 \@
 
-01-${endSecond}秒（景别只能使用特写、近景或中景）`
+01-${endSecond}秒（景别不限）`
 }
 
 type CharacterMatchCandidate = {

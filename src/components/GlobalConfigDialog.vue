@@ -10,9 +10,10 @@
     <el-tabs v-model="activeTab" class="global-config-tabs">
       <el-tab-pane label="WebDAV" name="webdav">
         <div class="global-config-scroll-pane">
-          <el-form class="global-config-form" label-position="top">
+          <el-form class="global-config-form" label-position="top" :disabled="Boolean(webDavAction)">
             <el-form-item label="WebDAV 地址">
               <el-input v-model="webDavDraft.baseUrl" placeholder="/webdav/" clearable />
+              <div class="config-field-help">填写完整同步目录地址。设置和分组文件直接保存在此目录，不再追加目录名。</div>
             </el-form-item>
             <div class="webdav-credentials-grid">
               <el-form-item label="用户名">
@@ -22,33 +23,19 @@
                 <el-input v-model="webDavDraft.password" type="password" autocomplete="current-password" show-password />
               </el-form-item>
             </div>
-            <el-form-item label="同步文件名">
-              <el-input v-model="webDavDraft.filename" placeholder="script2prompt-sync.json" clearable />
-            </el-form-item>
             <div class="webdav-sync-status">
-              <span>最近同步</span>
+              <span>最近完整同步</span>
               <strong>{{ formattedWebDavSyncTime }}</strong>
             </div>
-            <div class="webdav-inline-actions">
-              <el-button-group class="episode-actions webdav-sync-actions">
-                <el-button :icon="Connection" round title="测试连接" aria-label="测试连接" :loading="webDavAction === 'test'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('test')" />
-                <el-button :icon="Download" title="从云端下载" aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('download')" />
-                <el-popconfirm
-                  :visible="webDavUploadConflict"
-                  title="云端文件已存在或已被其他设备更新，是否覆盖"
-                  confirm-button-text="覆盖"
-                  cancel-button-text="取消"
-                  icon-color="var(--el-color-warning)"
-                  :width="300"
-                  @confirm="emit('webdav-overwrite')"
-                  @cancel="emit('webdav-upload-conflict-dismiss')"
-                >
-                  <template #reference>
-                    <el-button :icon="Upload" round title="上传到云端" aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('upload')" />
-                  </template>
-                </el-popconfirm>
-              </el-button-group>
-            </div>
+            <el-collapse class="webdav-legacy-settings">
+              <el-collapse-item title="迁移旧版单文件" name="legacy">
+                <el-form-item label="旧同步文件名">
+                  <el-input v-model="webDavDraft.legacyFilename" placeholder="script2prompt-sync.json" />
+                </el-form-item>
+                <el-button :loading="webDavAction === 'migrate'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('migrate')">迁移为多文件</el-button>
+                <div class="config-field-help">直接拆分到当前同步目录，保留旧文件和本地数据。迁移完成后点击下载载入。</div>
+              </el-collapse-item>
+            </el-collapse>
           </el-form>
         </div>
       </el-tab-pane>
@@ -155,6 +142,7 @@
           />
         </div>
         <div v-if="activeTab === 'webdav'" class="global-config-footer-actions">
+          <el-button :icon="Connection" :loading="webDavAction === 'test'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('test')">测试连接</el-button>
           <el-button type="primary" :disabled="Boolean(webDavAction)" @click="saveWebDavSettingsDraft">保存连接设置</el-button>
         </div>
         <div v-else class="global-config-footer-actions">
@@ -169,7 +157,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
-import { Connection, Delete, Download, Plus, Upload } from '@element-plus/icons-vue'
+import { Connection, Delete, Plus } from '@element-plus/icons-vue'
 import { cloneGlobalConfig, loadRuntimeDefaultConfig, normalizeGlobalConfig } from '../config'
 import { createDialogueReplacementRule, createReviewNotePrefixOption } from '../defaults'
 import type { GlobalConfig } from '../types'
@@ -183,7 +171,6 @@ const props = defineProps<{
   config: GlobalConfig
   webDavSettings: WebDavSettings
   webDavAction: WebDavAction | null
-  webDavUploadConflict: boolean
 }>()
 
 const emit = defineEmits<{
@@ -191,10 +178,7 @@ const emit = defineEmits<{
   save: [config: GlobalConfig]
   'webdav-save': [settings: WebDavSettings]
   'webdav-test': [settings: WebDavSettings]
-  'webdav-upload': [settings: WebDavSettings]
-  'webdav-overwrite': []
-  'webdav-upload-conflict-dismiss': []
-  'webdav-download': [settings: WebDavSettings]
+  'webdav-migrate': [settings: WebDavSettings]
 }>()
 
 const activeTab = ref<GlobalConfigTab>('webdav')
@@ -242,6 +226,12 @@ watch(() => props.webDavSettings, (settings) => {
   webDavDraft.value = { ...settings }
   initialWebDavSignature.value = JSON.stringify(webDavDraft.value)
 }, { deep: true })
+
+watch(() => props.config, (config) => {
+  draft.value = cloneGlobalConfig(config)
+  selectedProfileId.value = config.prompt.activeProfileId
+  initialSignature.value = JSON.stringify(draft.value)
+})
 
 function initializeDraft(config: GlobalConfig, webDavSettings: WebDavSettings) {
   draft.value = cloneGlobalConfig(config)
@@ -298,10 +288,9 @@ function saveWebDavSettingsDraft() {
   webDavDraft.value = settings
   initialWebDavSignature.value = JSON.stringify(settings)
   emit('webdav-save', settings)
-  notify.success('WebDAV 连接设置已保存')
 }
 
-function runWebDavAction(action: WebDavAction) {
+function runWebDavAction(action: 'test' | 'migrate') {
   const settings = validatedWebDavSettings()
 
   if (!settings) {
@@ -313,10 +302,8 @@ function runWebDavAction(action: WebDavAction) {
 
   if (action === 'test') {
     emit('webdav-test', settings)
-  } else if (action === 'upload') {
-    emit('webdav-upload', settings)
   } else {
-    emit('webdav-download', settings)
+    emit('webdav-migrate', settings)
   }
 }
 
@@ -402,6 +389,7 @@ async function resetFromServer() {
 }
 
 function handleBeforeClose(done: () => void) {
+  if (props.webDavAction) return
   void canDiscardChanges().then((canClose) => {
     if (canClose) {
       done()
