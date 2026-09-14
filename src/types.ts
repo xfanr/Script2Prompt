@@ -1,5 +1,5 @@
 export type CompletionStatus = 'incomplete' | 'complete'
-export type ShotViewMode = 'expanded' | 'collapse-completed' | 'single-expanded'
+export type ShotViewMode = 'expanded' | 'single-expanded'
 export type SceneTime = '白天' | '深夜'
 export type SceneSpace = '室内' | '室外' | '无'
 export type DialogueSpeechRate = 'slow' | 'medium' | 'fast'

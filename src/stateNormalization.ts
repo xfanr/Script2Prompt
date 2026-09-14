@@ -5,7 +5,7 @@ import { compactShotUnitNumbers, normalizeShotUnitNumber } from './shotNumber'
 import { reconcileTimingSegments } from './timing'
 import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
 
-const shotViewModes: ShotViewMode[] = ['expanded', 'collapse-completed', 'single-expanded']
+const shotViewModes: ShotViewMode[] = ['expanded', 'single-expanded']
 
 function normalizeSceneAsset(scene: unknown): SceneAsset | null {
   if (typeof scene === 'string') {
@@ -116,11 +116,9 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
 
     const legacyGlobalConfig = parsed.globalConfig as unknown as { autoCollapseCompletedShots?: boolean }
     const storedShotViewMode = parsed.shotViewMode as unknown
-    parsed.shotViewMode = storedShotViewMode === 'hide-completed'
-      ? 'collapse-completed'
-      : shotViewModes.includes(storedShotViewMode as ShotViewMode)
-        ? storedShotViewMode as ShotViewMode
-        : legacyGlobalConfig.autoCollapseCompletedShots === false ? 'expanded' : 'collapse-completed'
+    parsed.shotViewMode = shotViewModes.includes(storedShotViewMode as ShotViewMode)
+      ? storedShotViewMode as ShotViewMode
+      : 'expanded'
     parsed.singleExpandedShotId = typeof parsed.singleExpandedShotId === 'string'
       ? parsed.singleExpandedShotId
       : null
@@ -208,7 +206,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
       parsed.singleExpandedShotId = null
 
       if (parsed.shotViewMode === 'single-expanded') {
-        parsed.shotViewMode = 'collapse-completed'
+        parsed.shotViewMode = 'expanded'
       }
     }
 
@@ -220,4 +218,3 @@ function syncPromptProfileNames(config: GlobalConfig, runtimeConfig: GlobalConfi
     profile.name = runtimeConfig.prompt.profiles[index]?.name ?? profile.name
   })
 }
-

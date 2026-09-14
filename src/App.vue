@@ -16,23 +16,6 @@
               <strong>短剧提示词工作台</strong>
               <span>Script2Prompt</span>
             </div>
-            <div v-if="!sidebarCollapsed" class="sidebar-tools">
-              <el-segmented v-model="isDarkMode" :options="themeModeOptions" class="theme-switch" aria-label="主题切换" @change="setDarkMode">
-                <template #default="{ item }">
-                  <el-icon :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
-                    <component :is="segmentedOptionIcon(item)" />
-                  </el-icon>
-                </template>
-              </el-segmented>
-              <el-button
-                class="global-config-icon"
-                :icon="Setting"
-                circle
-                title="全局配置"
-                aria-label="全局配置"
-                @click="openGlobalDialog"
-              />
-            </div>
           </section>
 
           <template v-if="!sidebarCollapsed">
@@ -246,73 +229,91 @@
           <el-page-header class="stage-header" :icon="EmptyPageHeaderIcon">
             <template #title>
               <span class="stage-page-title">
-                <span>《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》</span>
-                <span>{{ activeEpisode.title }}</span>
-                <el-button-group class="episode-actions stage-title-data-actions">
-                  <el-button :icon="Notebook" round title="整组数据" aria-label="整组数据" @click="openGroupSummary(activeEpisode.groupId ?? 'ungrouped')" />
-                  <el-button :icon="Document" round title="本集数据" aria-label="本集数据" @click="openReviewSummary(activeEpisode)" />
+                <el-dropdown trigger="click" popper-class="stage-title-switch-dropdown" @command="switchActiveEpisodeGroup">
+                  <button class="stage-title-switch-trigger" type="button" title="切换剧本" aria-label="切换剧本">
+                    <span>《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》</span>
+                  </button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item
+                        v-for="group in sortedEpisodeGroups"
+                        :key="group.id"
+                        :command="group.id"
+                        :disabled="group.id === activeEpisode.groupId || !hasEpisodesInGroup(group.id)"
+                      >
+                        <span class="stage-title-switch-option">《{{ group.title }}》<small v-if="!hasEpisodesInGroup(group.id)">无单集</small></span>
+                        <el-icon v-if="group.id === activeEpisode.groupId" class="stage-title-switch-check"><Check /></el-icon>
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+                <el-dropdown trigger="click" popper-class="stage-title-switch-dropdown" @command="switchActiveEpisode">
+                  <button class="stage-title-switch-trigger" type="button" title="切换集数" aria-label="切换集数">
+                    <span>{{ activeEpisode.title }}</span>
+                    <el-icon><ArrowDown /></el-icon>
+                  </button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item
+                        v-for="episode in activeGroupEpisodes"
+                        :key="episode.id"
+                        :command="episode.id"
+                        :disabled="episode.id === activeEpisode.id"
+                      >
+                        <span class="stage-title-switch-option">{{ episode.title }}{{ isEpisodeAutoStarred(episode) ? ' ⭐️' : '' }}</span>
+                        <el-icon v-if="episode.id === activeEpisode.id" class="stage-title-switch-check"><Check /></el-icon>
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+                <el-button-group class="stage-title-data-actions">
+                  <el-button :icon="Notebook" type="primary" text @click="openGroupSummary(activeEpisode.groupId ?? 'ungrouped')">全剧</el-button>
+                  <el-button :icon="Document" type="primary" text @click="openReviewSummary(activeEpisode)">本集</el-button>
                 </el-button-group>
               </span>
             </template>
             <template #content>
               <div class="stage-page-actions">
                 <el-button-group class="stage-action-group">
-                  <el-button round size="default" type="primary" plain @click="openEpisodeScriptDialog('materials')">⒈素材</el-button>
-                  <el-button size="default" type="primary" plain @click="openEpisodeScriptDialog('shots')">⒉分镜</el-button>
-                  <el-button round size="default" type="primary" plain @click="openEpisodeScriptDialog('dialogue')">⒊台词</el-button>
+                  <el-button type="primary" text @click="openEpisodeScriptDialog('materials')">⒈素材</el-button>
+                  <el-button type="primary" text @click="openEpisodeScriptDialog('shots')">⒉分镜</el-button>
+                  <el-button type="primary" text @click="openEpisodeScriptDialog('dialogue')">⒊台词</el-button>
                 </el-button-group>
+                <el-segmented
+                  :model-value="activeShotViewSelection"
+                  :options="shotViewModeOptions"
+                  size="small"
+                  class="shot-view-segmented"
+                  aria-label="分镜展开模式"
+                  @change="handleShotViewModeChange"
+                >
+                  <template #default="{ item }">
+                    <el-icon v-if="isExpandedShotViewOption(item)" title="全部展开" aria-label="全部展开"><Expand /></el-icon>
+                    <span v-else class="shot-view-index" :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
+                      {{ segmentedOptionNumber(item) }}
+                    </span>
+                  </template>
+                </el-segmented>
               </div>
             </template>
             <template #extra>
-              <el-segmented :model-value="state.shotViewMode" :options="shotViewModeOptions" size="small" class="shot-view-segmented" aria-label="分镜展开模式" @change="handleShotViewModeChange">
-                <template #default="{ item }">
-                  <el-popover
-                    v-if="isSingleExpandedOption(item)"
-                    :visible="singleShotMenuVisible"
-                    placement="bottom-start"
-                    :width="128"
-                    popper-class="single-shot-menu-popper"
-                  >
-                    <template #reference>
-                      <span
-                        class="single-shot-menu-trigger"
-                        role="button"
-                        tabindex="0"
-                        title="单条展开"
-                        aria-label="选择单条展开的分镜"
-                        aria-haspopup="listbox"
-                        :aria-expanded="singleShotMenuVisible"
-                        @mouseenter="openSingleShotMenu"
-                        @mouseleave="scheduleSingleShotMenuClose"
-                        @click.stop.prevent="activateFirstSingleShot"
-                        @keydown.enter.stop.prevent="activateFirstSingleShot"
-                        @keydown.space.stop.prevent="activateFirstSingleShot"
-                      >
-                        <el-icon><component :is="segmentedOptionIcon(item)" /></el-icon>
-                      </span>
-                    </template>
-                    <el-scrollbar max-height="320px" @mouseenter="openSingleShotMenu" @mouseleave="scheduleSingleShotMenuClose">
-                      <div class="single-shot-menu-list" role="listbox" aria-label="选择要展开的分镜">
-                        <el-button
-                          v-for="(shot, index) in activeEpisode.shots"
-                          :key="shot.id"
-                          text
-                          class="single-shot-menu-item"
-                          :class="{ 'is-active': state.singleExpandedShotId === shot.id }"
-                          role="option"
-                          :aria-selected="state.singleExpandedShotId === shot.id"
-                          @click="selectSingleExpandedShot(shot)"
-                        >
-                          {{ formatShotNumber(activeEpisode, index) }}
-                        </el-button>
-                      </div>
-                    </el-scrollbar>
-                  </el-popover>
-                  <el-icon v-else :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
-                    <component :is="segmentedOptionIcon(item)" />
-                  </el-icon>
-                </template>
-              </el-segmented>
+              <div class="stage-header-tools">
+                <el-segmented v-model="isDarkMode" :options="themeModeOptions" class="theme-switch" aria-label="主题切换" @change="setDarkMode">
+                  <template #default="{ item }">
+                    <el-icon :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
+                      <component :is="segmentedOptionIcon(item)" />
+                    </el-icon>
+                  </template>
+                </el-segmented>
+                <el-button
+                  class="global-config-icon"
+                  :icon="Setting"
+                  circle
+                  title="全局配置"
+                  aria-label="全局配置"
+                  @click="openGlobalDialog"
+                />
+              </div>
             </template>
             <div class="asset-editor">
               <div class="asset-tags">
@@ -1081,7 +1082,7 @@
           </el-table-column>
         </el-table>
       </el-dialog>
-      <el-dialog v-model="groupSummaryVisible" title="整组数据" width="820px" :show-close="false" class="group-summary-dialog" @closed="activeGroupSummaryId = null">
+      <el-dialog v-model="groupSummaryVisible" title="整剧数据" width="820px" :show-close="false" class="group-summary-dialog" @closed="activeGroupSummaryId = null">
         <p class="group-summary-subtitle">{{ groupSummarySubtitle }}</p>
         <div class="episode-summary-cards group-statistic-cards">
           <section class="episode-summary-card">
@@ -1459,7 +1460,7 @@ import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
-import { ArrowRight, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, DocumentAdd, DocumentChecked, Download, EditPen, Expand, Files, Folder, Fold, Location, Microphone, Moon, Mute, Notebook, Plus, Position, Refresh, RefreshLeft, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, VideoCamera, VideoPlay, View, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, DocumentAdd, DocumentChecked, Download, EditPen, Expand, Files, Folder, Location, Microphone, Moon, Mute, Notebook, Plus, Position, Refresh, RefreshLeft, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
@@ -1493,7 +1494,7 @@ import {
   sumTimingAnalyses,
   type TimingAnalysis,
 } from './timing'
-import type { ActionTimingMode, AppState, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotTimingSegment, ShotViewMode } from './types'
+import type { ActionTimingMode, AppState, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotTimingSegment } from './types'
 import { useAppState } from './useAppState'
 import { LocalRepository, readSyncTarget } from './storage'
 import { buildDataFiles, canonicalJson, groupFilePath, mergeDownloadedFiles } from './dataFiles'
@@ -1619,9 +1620,7 @@ const editingGroupOriginalTitle = ref('')
 const expandedGroupIds = ref<string[]>(['ungrouped'])
 const openEpisodeMenuId = ref<string | null>(null)
 const openGroupMenuId = ref<string | null>(null)
-const singleShotMenuVisible = ref(false)
 const activeConfigRemoveId = ref<string | null>(null)
-let singleShotMenuCloseTimer: number | null = null
 const materialSceneTimeOptions: MaterialSegmentedOption<SceneTime>[] = [
   { label: '白天', value: '白天', icon: Sunny },
   { label: '深夜', value: '深夜', icon: Moon },
@@ -1635,11 +1634,17 @@ const themeModeOptions = [
   { label: '浅色模式', value: false, icon: Sunny },
   { label: '深色模式', value: true, icon: Moon },
 ]
-const shotViewModeOptions: MaterialSegmentedOption<ShotViewMode>[] = [
-  { label: '单条展开', value: 'single-expanded', icon: View },
-  { label: '完成折叠', value: 'collapse-completed', icon: Fold },
-  { label: '全部展开', value: 'expanded', icon: Expand },
-]
+const shotViewModeOptions = computed(() => [
+  { label: '全部展开', value: 'expanded', number: null },
+  ...(activeEpisode.value?.shots.map((shot, index) => ({
+    label: `第 ${index + 1} 条分镜`,
+    value: shot.id,
+    number: index + 1,
+  })) ?? []),
+])
+const activeShotViewSelection = computed(() => state.shotViewMode === 'single-expanded'
+  ? state.singleExpandedShotId ?? 'expanded'
+  : 'expanded')
 const speechRateOptions = [
   { label: '慢 · 5', value: 'slow' },
   { label: '中 · 6', value: 'medium' },
@@ -1731,6 +1736,9 @@ const sortedArchivedEpisodeGroups = computed(() => state.episodeGroups
     return dateDiff || state.episodeGroups.indexOf(a) - state.episodeGroups.indexOf(b)
   }))
 const sortedUngroupedEpisodes = computed(() => sortEpisodesForDisplay(state.episodes.filter((episode) => !episode.groupId)))
+const activeGroupEpisodes = computed(() => activeEpisode.value
+  ? sortEpisodesForDisplay(state.episodes.filter((episode) => episode.groupId === activeEpisode.value?.groupId))
+  : [])
 const episodeTreeUngroupedEpisodes = computed(() => {
   const episodes = [...sortedUngroupedEpisodes.value]
 
@@ -2267,6 +2275,20 @@ function selectEpisode(episode: Episode) {
 
   state.activeEpisodeId = episode.id
   selectedEpisodeGroupId.value = episode.groupId ?? null
+}
+
+function switchActiveEpisode(episodeId: string) {
+  const episode = activeGroupEpisodes.value.find((item) => item.id === episodeId)
+  if (episode) selectEpisode(episode)
+}
+
+function hasEpisodesInGroup(groupId: string) {
+  return state.episodes.some((episode) => episode.groupId === groupId)
+}
+
+function switchActiveEpisodeGroup(groupId: string) {
+  const episode = episodesForGroup(groupId)[0]
+  if (episode) selectEpisode(episode)
 }
 
 function selectGroup(id: string | null) {
@@ -3192,8 +3214,16 @@ function segmentedOptionIcon(item: unknown) {
   return Sunny
 }
 
-function isSingleExpandedOption(item: unknown) {
-  return Boolean(item && typeof item === 'object' && 'value' in item && item.value === 'single-expanded')
+function isExpandedShotViewOption(item: unknown) {
+  return Boolean(item && typeof item === 'object' && 'value' in item && item.value === 'expanded')
+}
+
+function segmentedOptionNumber(item: unknown) {
+  if (item && typeof item === 'object' && 'number' in item) {
+    return String((item as { number?: unknown }).number ?? '')
+  }
+
+  return ''
 }
 
 function isCharacterUsed(name: string) {
@@ -3609,64 +3639,25 @@ function syncEpisodeShots(episode: Episode, segments: BatchShotSegment[], sceneD
   return segments.length
 }
 
-function openSingleShotMenu() {
-  cancelSingleShotMenuClose()
-  singleShotMenuVisible.value = true
-}
-
-function closeSingleShotMenu() {
-  cancelSingleShotMenuClose()
-  singleShotMenuVisible.value = false
-}
-
-function cancelSingleShotMenuClose() {
-  if (singleShotMenuCloseTimer !== null) {
-    window.clearTimeout(singleShotMenuCloseTimer)
-    singleShotMenuCloseTimer = null
-  }
-}
-
-function scheduleSingleShotMenuClose() {
-  cancelSingleShotMenuClose()
-  singleShotMenuCloseTimer = window.setTimeout(() => {
-    singleShotMenuCloseTimer = null
-    singleShotMenuVisible.value = false
-  }, 80)
-}
-
 function isCurrentEpisodeShot(id: string | null) {
   return Boolean(id && activeEpisode.value?.shots.some((shot) => shot.id === id))
 }
 
 function resetSingleExpandedView() {
-  closeSingleShotMenu()
   state.singleExpandedShotId = null
-
-  if (state.shotViewMode === 'single-expanded') {
-    state.shotViewMode = 'collapse-completed'
-  }
+  state.shotViewMode = 'expanded'
 }
 
 function handleShotViewModeChange(value: string | number | boolean | undefined) {
-  if (value === 'single-expanded') {
-    activateFirstSingleShot()
+  if (value === 'expanded') {
+    resetSingleExpandedView()
     return
   }
 
-  if (value !== 'expanded' && value !== 'collapse-completed') {
-    return
-  }
-
-  closeSingleShotMenu()
-  state.shotViewMode = value
-}
-
-function activateFirstSingleShot() {
-  const firstShot = activeEpisode.value?.shots[0]
-
-  if (firstShot) {
-    selectSingleExpandedShot(firstShot)
-  }
+  const shot = typeof value === 'string'
+    ? activeEpisode.value?.shots.find((item) => item.id === value)
+    : null
+  if (shot) selectSingleExpandedShot(shot)
 }
 
 function shotRowElementId(id: string) {
@@ -3686,11 +3677,7 @@ function selectSingleExpandedShot(shot: Shot) {
 }
 
 function isShotCollapsed(shot: Shot) {
-  if (state.shotViewMode === 'single-expanded') {
-    return shot.id !== state.singleExpandedShotId
-  }
-
-  return state.shotViewMode === 'collapse-completed' && shot.status === 'complete'
+  return state.shotViewMode === 'single-expanded' && shot.id !== state.singleExpandedShotId
 }
 
 function hasModifiedShots(episode: Episode) {
@@ -4921,29 +4908,6 @@ function handleShotNumberShortcut(event: KeyboardEvent) {
   selectSingleExpandedShot(shot)
 }
 
-function isSingleShotMenuTarget(target: EventTarget | null) {
-  return target instanceof HTMLElement && Boolean(target.closest('.single-shot-menu-trigger, .single-shot-menu-popper'))
-}
-
-function handleSingleShotMenuPointerDown(event: PointerEvent) {
-  if (singleShotMenuVisible.value && !isSingleShotMenuTarget(event.target)) {
-    closeSingleShotMenu()
-  }
-}
-
-function handleSingleShotMenuFocusIn(event: FocusEvent) {
-  if (singleShotMenuVisible.value && !isSingleShotMenuTarget(event.target)) {
-    closeSingleShotMenu()
-  }
-}
-
-function handleSingleShotMenuKeydown(event: KeyboardEvent) {
-  if (singleShotMenuVisible.value && event.key === 'Escape') {
-    event.preventDefault()
-    closeSingleShotMenu()
-  }
-}
-
 function shotCopyLabel(shot: Shot) {
   const episode = activeEpisode.value
   const index = episode?.shots.findIndex((item) => item.id === shot.id) ?? -1
@@ -5103,9 +5067,6 @@ async function copyText(text: string) {
 
 onMounted(() => {
   window.addEventListener('keydown', handleShotNumberShortcut)
-  window.addEventListener('keydown', handleSingleShotMenuKeydown)
-  document.addEventListener('pointerdown', handleSingleShotMenuPointerDown)
-  document.addEventListener('focusin', handleSingleShotMenuFocusIn)
   document.addEventListener('pointerdown', handleTimingPopoverPointerDown)
   window.addEventListener('keydown', handleTimingPopoverKeydown)
   window.addEventListener('blur', closeTimingPopover)
@@ -5113,13 +5074,9 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleShotNumberShortcut)
-  window.removeEventListener('keydown', handleSingleShotMenuKeydown)
-  document.removeEventListener('pointerdown', handleSingleShotMenuPointerDown)
-  document.removeEventListener('focusin', handleSingleShotMenuFocusIn)
   document.removeEventListener('pointerdown', handleTimingPopoverPointerDown)
   window.removeEventListener('keydown', handleTimingPopoverKeydown)
   window.removeEventListener('blur', closeTimingPopover)
-  cancelSingleShotMenuClose()
   if (materialSceneTransitionFrame !== null) {
     cancelAnimationFrame(materialSceneTransitionFrame)
   }

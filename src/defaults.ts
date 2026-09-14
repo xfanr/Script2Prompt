@@ -170,7 +170,7 @@ export function createInitialState(defaultGlobalConfig: GlobalConfig): AppState 
 
   return {
     version: APP_VERSION,
-    shotViewMode: 'collapse-completed',
+    shotViewMode: 'expanded',
     singleExpandedShotId: null,
     globalConfig,
     episodeGroups: [],
