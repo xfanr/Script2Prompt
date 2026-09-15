@@ -114,7 +114,7 @@ export function createShot(unitNumber = 1): Shot {
     id: createId('shot'),
     text: '',
     remark: '',
-    thirtySecondMode: false,
+    thirtySecondMode: true,
     unitNumber: normalizedUnitNumber,
     connectPrevious: false,
     connectPreviousCount: 0,

@@ -154,7 +154,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
         shot.text = typeof shot.text === 'string' ? shot.text : ''
         shot.remark = typeof shot.remark === 'string' ? shot.remark : ''
         const hadStoredThirtySecondMode = typeof shot.thirtySecondMode === 'boolean'
-        shot.thirtySecondMode = hadStoredThirtySecondMode ? shot.thirtySecondMode : false
+        shot.thirtySecondMode = hadStoredThirtySecondMode ? shot.thirtySecondMode : true
         shot.unitNumber = normalizeShotUnitNumber(shot.unitNumber)
         Object.assign(shot, normalizeStoredShotConnection(
           shot.connectPreviousCount,

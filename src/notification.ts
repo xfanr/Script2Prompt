@@ -6,7 +6,7 @@ function openNotification(type: NotificationType, message: string) {
   ElNotification({
     type,
     message,
-    position: 'bottom-left',
+    position: 'bottom-right',
     showClose: false,
   })
 }

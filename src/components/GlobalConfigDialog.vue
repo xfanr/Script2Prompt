@@ -142,7 +142,7 @@
           />
         </div>
         <div v-if="activeTab === 'webdav'" class="global-config-footer-actions">
-          <el-button :icon="Connection" :loading="webDavAction === 'test'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('test')">测试连接</el-button>
+          <el-button :loading="webDavAction === 'test'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('test')">测试连接</el-button>
           <el-button type="primary" :disabled="Boolean(webDavAction)" @click="saveWebDavSettingsDraft">保存连接设置</el-button>
         </div>
         <div v-else class="global-config-footer-actions">
@@ -157,7 +157,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
-import { Connection, Delete, Plus } from '@element-plus/icons-vue'
+import { Delete, Plus } from '@element-plus/icons-vue'
 import { cloneGlobalConfig, loadRuntimeDefaultConfig, normalizeGlobalConfig } from '../config'
 import { createDialogueReplacementRule, createReviewNotePrefixOption } from '../defaults'
 import type { GlobalConfig } from '../types'

@@ -16,6 +16,23 @@
               <strong>短剧提示词工作台</strong>
               <span>Script2Prompt</span>
             </div>
+            <div class="brand-tools">
+              <el-segmented v-model="isDarkMode" :options="themeModeOptions" class="theme-switch" aria-label="主题切换" @change="setDarkMode">
+                <template #default="{ item }">
+                  <el-icon :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
+                    <component :is="segmentedOptionIcon(item)" />
+                  </el-icon>
+                </template>
+              </el-segmented>
+              <el-button
+                class="global-config-icon"
+                :icon="Setting"
+                circle
+                title="全局配置"
+                aria-label="全局配置"
+                @click="openGlobalDialog"
+              />
+            </div>
           </section>
           <el-page-header class="stage-header" :icon="EmptyPageHeaderIcon">
             <template #title>
@@ -87,25 +104,6 @@
                 </el-segmented>
               </div>
             </template>
-            <template #extra>
-              <div class="stage-header-tools">
-                <el-segmented v-model="isDarkMode" :options="themeModeOptions" class="theme-switch" aria-label="主题切换" @change="setDarkMode">
-                  <template #default="{ item }">
-                    <el-icon :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
-                      <component :is="segmentedOptionIcon(item)" />
-                    </el-icon>
-                  </template>
-                </el-segmented>
-                <el-button
-                  class="global-config-icon"
-                  :icon="Setting"
-                  circle
-                  title="全局配置"
-                  aria-label="全局配置"
-                  @click="openGlobalDialog"
-                />
-              </div>
-            </template>
           </el-page-header>
         </header>
 
@@ -120,86 +118,81 @@
                     <div class="episode-group-row root-group-row" role="button" tabindex="0" @contextmenu.prevent.stop @click="toggleGroup(myEpisodesTreeId)" @keyup.enter="toggleGroup(myEpisodesTreeId)">
                       <span class="root-group-title">我的剧集</span>
                       <el-icon class="root-group-caret" :class="{ expanded: isGroupExpanded(myEpisodesTreeId) }"><ArrowRight /></el-icon>
-                      <el-tooltip content="新建剧集" placement="top">
-                        <el-button class="root-group-add" :icon="Plus" text circle aria-label="新建剧集" @click.stop="addEpisodeGroup" />
-                      </el-tooltip>
+                      <el-button class="root-group-add sidebar-row-action-button" :icon="Plus" text size="small" aria-label="新建剧集" @click.stop="addEpisodeGroup" />
                     </div>
                     <div v-if="isGroupExpanded(myEpisodesTreeId)" class="episode-children root-group-children">
-                      <el-dropdown
-                        :ref="(dropdown) => setEpisodeDropdownRef(episode.id, dropdown)"
-                        v-for="episode in episodeTreeUngroupedEpisodes"
-                        :key="episode.id"
-                        trigger="contextmenu"
-                        :visible="openEpisodeMenuId === episode.id"
-                        @visible-change="(visible) => handleEpisodeMenuVisibleChange(visible, episode.id)"
-                        @command="(command) => handleEpisodeCommand(command, episode)"
-                      >
-                        <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
+                      <div v-for="episode in episodeTreeUngroupedEpisodes" :key="episode.id" class="episode-tree-entry">
+                        <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @contextmenu.prevent.stop="openRowMoreMenu($event, '.episode-more-button')" @click="selectEpisode(episode)">
                           <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
                             <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="输入集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
-                            <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename(episode)" />
-                            <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelEpisodeRename(episode)" />
+                            <el-button class="rename-confirm" :icon="Check" size="small" type="success" @click="finishEpisodeRename(episode)" />
+                            <el-button class="rename-cancel" :icon="Close" size="small" type="danger" @click="cancelEpisodeRename(episode)" />
                           </div>
                           <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
-                        </div>
-                        <template #dropdown>
-                          <el-dropdown-menu>
-                            <el-dropdown-item command="summary" :icon="DataAnalysis">数据</el-dropdown-item>
-                            <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
-                            <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
-                            <el-dropdown-item v-for="(group, groupIndex) in sortedEpisodeGroups" :key="group.id" :divided="groupIndex === 0" :command="{ action: 'move', groupId: group.id }">移至 {{ group.title }}</el-dropdown-item>
-                          </el-dropdown-menu>
-                        </template>
-                      </el-dropdown>
-
-                      <section v-for="group in sortedEpisodeGroups" :key="group.id" class="episode-group-block">
-                        <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @contextmenu.prevent.stop @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
-                          <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
-                          <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
-                          <div v-if="editingGroupId === group.id" class="rename-inline" @click.stop @keydown.stop>
-                            <el-input v-model="group.title" class="episode-title-input" placeholder="输入分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
-                            <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishGroupRename" />
-                            <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelGroupRename(group)" />
-                          </div>
-                          <template v-else>
-                            <span class="group-title-text">{{ group.title }}<span class="group-episode-count"> ({{ episodesForGroup(group.id).length }})</span></span>
-                            <div class="group-row-actions" @click.stop @keydown.stop>
-                              <el-tooltip content="新建单集" placement="top"><el-button :icon="Plus" text circle size="small" aria-label="新建单集" @click="addEpisodeToGroup(group.id)" /></el-tooltip>
-                              <el-tooltip content="数据" placement="top"><el-button :icon="DataLine" text circle size="small" aria-label="分组数据" @click="handleGroupCommand('summary', group.id)" /></el-tooltip>
-                              <el-tooltip content="重命名" placement="top"><el-button :icon="EditPen" text circle size="small" aria-label="重命名分组" @click="startGroupRename(group)" /></el-tooltip>
-                              <el-tooltip content="归档" placement="top"><el-button :icon="Files" text circle size="small" aria-label="归档分组" @click="handleGroupCommand('archive', group.id)" /></el-tooltip>
-                              <el-tooltip content="删除" placement="top"><el-button :icon="Delete" type="danger" text circle size="small" aria-label="删除分组" @click="handleGroupCommand('delete', group.id)" /></el-tooltip>
-                            </div>
-                          </template>
-                        </div>
-                        <div v-if="!isGroupEmpty(group.id) && isGroupExpanded(group.id)" class="episode-children episode-list">
-                          <el-dropdown
-                            :ref="(dropdown) => setEpisodeDropdownRef(episode.id, dropdown)"
-                            v-for="episode in episodeTreeEpisodesForGroup(group.id)"
-                            :key="episode.id"
-                            trigger="contextmenu"
-                            :visible="openEpisodeMenuId === episode.id"
-                            @visible-change="(visible) => handleEpisodeMenuVisibleChange(visible, episode.id)"
-                            @command="(command) => handleEpisodeCommand(command, episode)"
-                          >
-                            <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
-                              <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
-                                <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="输入集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
-                                <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename(episode)" />
-                                <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelEpisodeRename(episode)" />
-                              </div>
-                              <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
-                            </div>
+                          <el-dropdown trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
+                            <el-button class="episode-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多单集操作" @click.stop />
                             <template #dropdown>
                               <el-dropdown-menu>
                                 <el-dropdown-item command="summary" :icon="DataAnalysis">数据</el-dropdown-item>
                                 <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
                                 <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
-                                <el-dropdown-item divided :command="{ action: 'move', groupId: null }">移至我的剧集</el-dropdown-item>
-                                <el-dropdown-item v-for="targetGroup in sortedEpisodeGroups" :key="targetGroup.id" :command="{ action: 'move', groupId: targetGroup.id }">移至 {{ targetGroup.title }}</el-dropdown-item>
+                                <el-dropdown-item v-for="(group, groupIndex) in sortedEpisodeGroups" :key="group.id" :divided="groupIndex === 0" :command="{ action: 'move', groupId: group.id }">移至 {{ group.title }}</el-dropdown-item>
                               </el-dropdown-menu>
                             </template>
                           </el-dropdown>
+                        </div>
+                      </div>
+
+                      <section v-for="group in sortedEpisodeGroups" :key="group.id" class="episode-group-block">
+                        <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @contextmenu.prevent.stop="openRowMoreMenu($event, '.group-more-button')" @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
+                          <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
+                          <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
+                          <div v-if="editingGroupId === group.id" class="rename-inline" @click.stop @keydown.stop>
+                            <el-input v-model="group.title" class="episode-title-input" placeholder="输入分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
+                            <el-button class="rename-confirm" :icon="Check" size="small" type="success" @click="finishGroupRename" />
+                            <el-button class="rename-cancel" :icon="Close" size="small" type="danger" @click="cancelGroupRename(group)" />
+                          </div>
+                          <template v-else>
+                            <span class="group-title-text">{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
+                            <div class="group-row-actions" @click.stop @keydown.stop>
+                              <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="新建单集" @click="addEpisodeToGroup(group.id)" />
+                              <el-dropdown trigger="click" @command="(command) => handleGroupCommand(command, group.id)">
+                                <el-button class="group-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多剧集操作" />
+                                <template #dropdown>
+                                  <el-dropdown-menu>
+                                    <el-dropdown-item command="summary" :icon="DataLine">数据</el-dropdown-item>
+                                    <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
+                                    <el-dropdown-item command="archive" :icon="Files">归档</el-dropdown-item>
+                                    <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
+                                  </el-dropdown-menu>
+                                </template>
+                              </el-dropdown>
+                            </div>
+                          </template>
+                        </div>
+                        <div v-if="!isGroupEmpty(group.id) && isGroupExpanded(group.id)" class="episode-children episode-list">
+                          <div v-for="episode in episodeTreeEpisodesForGroup(group.id)" :key="episode.id" class="episode-tree-entry">
+                            <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @contextmenu.prevent.stop="openRowMoreMenu($event, '.episode-more-button')" @click="selectEpisode(episode)">
+                              <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
+                                <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="输入集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
+                                <el-button class="rename-confirm" :icon="Check" size="small" type="success" @click="finishEpisodeRename(episode)" />
+                                <el-button class="rename-cancel" :icon="Close" size="small" type="danger" @click="cancelEpisodeRename(episode)" />
+                              </div>
+                              <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
+                              <el-dropdown trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
+                                <el-button class="episode-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多单集操作" @click.stop />
+                                <template #dropdown>
+                                  <el-dropdown-menu>
+                                    <el-dropdown-item command="summary" :icon="DataAnalysis">数据</el-dropdown-item>
+                                    <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
+                                    <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
+                                    <el-dropdown-item divided :command="{ action: 'move', groupId: null }">移至我的剧集</el-dropdown-item>
+                                    <el-dropdown-item v-for="targetGroup in sortedEpisodeGroups" :key="targetGroup.id" :command="{ action: 'move', groupId: targetGroup.id }">移至 {{ targetGroup.title }}</el-dropdown-item>
+                                  </el-dropdown-menu>
+                                </template>
+                              </el-dropdown>
+                            </div>
+                          </div>
                         </div>
                       </section>
                     </div>
@@ -212,52 +205,54 @@
                     </div>
                     <div v-if="!isGroupEmpty(archivedTreeId) && isGroupExpanded(archivedTreeId)" class="episode-children archived-group-children">
                       <section v-for="group in sortedArchivedEpisodeGroups" :key="group.id" class="episode-group-block archived-nested-group">
-                        <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @contextmenu.prevent.stop @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
+                        <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @contextmenu.prevent.stop="openRowMoreMenu($event, '.group-more-button')" @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
                           <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
                           <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
                           <div v-if="editingGroupId === group.id" class="rename-inline" @click.stop @keydown.stop>
                             <el-input v-model="group.title" class="episode-title-input" placeholder="输入分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
-                            <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishGroupRename" />
-                            <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelGroupRename(group)" />
+                            <el-button class="rename-confirm" :icon="Check" size="small" type="success" @click="finishGroupRename" />
+                            <el-button class="rename-cancel" :icon="Close" size="small" type="danger" @click="cancelGroupRename(group)" />
                           </div>
                           <template v-else>
-                            <span class="group-title-text">{{ group.title }}<span class="group-episode-count"> ({{ episodesForGroup(group.id).length }})</span></span>
+                            <span class="group-title-text">{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
                             <div class="group-row-actions" @click.stop @keydown.stop>
-                              <el-tooltip content="数据" placement="top"><el-button :icon="DataLine" text circle size="small" aria-label="分组数据" @click="handleGroupCommand('summary', group.id)" /></el-tooltip>
-                              <el-tooltip content="重命名" placement="top"><el-button :icon="EditPen" text circle size="small" aria-label="重命名分组" @click="startGroupRename(group)" /></el-tooltip>
-                              <el-tooltip content="取消归档" placement="top"><el-button :icon="Files" text circle size="small" aria-label="取消归档分组" @click="handleGroupCommand('archive', group.id)" /></el-tooltip>
-                              <el-tooltip content="删除" placement="top"><el-button :icon="Delete" type="danger" text circle size="small" aria-label="删除分组" @click="handleGroupCommand('delete', group.id)" /></el-tooltip>
+                              <el-dropdown trigger="click" @command="(command) => handleGroupCommand(command, group.id)">
+                                <el-button class="group-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多已归档剧集操作" />
+                                <template #dropdown>
+                                  <el-dropdown-menu>
+                                    <el-dropdown-item command="summary" :icon="DataLine">数据</el-dropdown-item>
+                                    <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
+                                    <el-dropdown-item command="archive" :icon="Files">取消归档</el-dropdown-item>
+                                    <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
+                                  </el-dropdown-menu>
+                                </template>
+                              </el-dropdown>
                             </div>
                           </template>
                         </div>
                         <div v-if="!isGroupEmpty(group.id) && isGroupExpanded(group.id)" class="episode-children episode-list">
-                          <el-dropdown
-                            :ref="(dropdown) => setEpisodeDropdownRef(episode.id, dropdown)"
-                            v-for="episode in episodesForGroup(group.id)"
-                            :key="episode.id"
-                            trigger="contextmenu"
-                            :visible="openEpisodeMenuId === episode.id"
-                            @visible-change="(visible) => handleEpisodeMenuVisibleChange(visible, episode.id)"
-                            @command="(command) => handleEpisodeCommand(command, episode)"
-                          >
-                            <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @click="selectEpisode(episode)">
+                          <div v-for="episode in episodesForGroup(group.id)" :key="episode.id" class="episode-tree-entry">
+                            <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @contextmenu.prevent.stop="openRowMoreMenu($event, '.episode-more-button')" @click="selectEpisode(episode)">
                               <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
                                 <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="输入集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
-                                <el-button class="rename-confirm" :icon="Check" circle size="small" type="success" @click="finishEpisodeRename(episode)" />
-                                <el-button class="rename-cancel" :icon="Close" circle size="small" type="danger" @click="cancelEpisodeRename(episode)" />
+                                <el-button class="rename-confirm" :icon="Check" size="small" type="success" @click="finishEpisodeRename(episode)" />
+                                <el-button class="rename-cancel" :icon="Close" size="small" type="danger" @click="cancelEpisodeRename(episode)" />
                               </div>
                               <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
+                              <el-dropdown trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
+                                <el-button class="episode-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多单集操作" @click.stop />
+                                <template #dropdown>
+                                  <el-dropdown-menu>
+                                    <el-dropdown-item command="summary" :icon="DataAnalysis">数据</el-dropdown-item>
+                                    <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
+                                    <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
+                                    <el-dropdown-item divided :command="{ action: 'move', groupId: null }">移至我的剧集</el-dropdown-item>
+                                    <el-dropdown-item v-for="targetGroup in sortedEpisodeGroups" :key="targetGroup.id" :command="{ action: 'move', groupId: targetGroup.id }">移至 {{ targetGroup.title }}</el-dropdown-item>
+                                  </el-dropdown-menu>
+                                </template>
+                              </el-dropdown>
                             </div>
-                            <template #dropdown>
-                              <el-dropdown-menu>
-                                <el-dropdown-item command="summary" :icon="DataAnalysis">数据</el-dropdown-item>
-                                <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
-                                <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
-                                <el-dropdown-item divided :command="{ action: 'move', groupId: null }">移至我的剧集</el-dropdown-item>
-                                <el-dropdown-item v-for="targetGroup in sortedEpisodeGroups" :key="targetGroup.id" :command="{ action: 'move', groupId: targetGroup.id }">移至 {{ targetGroup.title }}</el-dropdown-item>
-                              </el-dropdown-menu>
-                            </template>
-                          </el-dropdown>
+                          </div>
                         </div>
                       </section>
                     </div>
@@ -272,18 +267,14 @@
                       <section class="material-management-section">
                         <div class="material-management-heading-row">
                           <h4 class="material-management-heading">场景配置</h4>
-                          <el-tooltip content="添加素材" placement="top"><el-button :icon="Plus" type="primary" text circle size="small" aria-label="添加场景素材" @click="openEpisodeScriptDialog('materials')" /></el-tooltip>
+                          <el-button class="sidebar-row-action-button" :icon="Plus" type="primary" text size="small" aria-label="添加场景素材" @click="openEpisodeScriptDialog('materials')" />
                         </div>
                         <div class="material-management-list">
                           <div v-for="item in activeEpisode.scenes" :key="`scene-${item.name}`" class="material-management-item">
                             <span class="material-management-name" :class="{ 'is-used': isSceneUsed(item.name) }">{{ sceneAssetLabel(item) }}</span>
                             <div class="material-management-actions">
-                              <el-tooltip content="修改" placement="top">
-                                <el-button :icon="EditPen" text circle size="small" aria-label="修改场景素材" @click="openMaterialEditDialog('scenes', item.name)" />
-                              </el-tooltip>
-                              <el-tooltip content="删除" placement="top">
-                                <el-button :icon="Delete" type="danger" text circle size="small" aria-label="删除场景素材" @click="confirmRemoveMaterial('scenes', item.name)" />
-                              </el-tooltip>
+                              <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改场景素材" @click="openMaterialEditDialog('scenes', item.name)" />
+                              <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除场景素材" @click="confirmRemoveMaterial('scenes', item.name)" />
                             </div>
                           </div>
                           <div v-if="!activeEpisode.scenes.length" class="material-management-empty">暂无场景素材</div>
@@ -292,18 +283,14 @@
                       <section class="material-management-section">
                         <div class="material-management-heading-row">
                           <h4 class="material-management-heading">人物配置</h4>
-                          <el-tooltip content="添加素材" placement="top"><el-button :icon="Plus" type="primary" text circle size="small" aria-label="添加人物素材" @click="openEpisodeScriptDialog('materials')" /></el-tooltip>
+                          <el-button class="sidebar-row-action-button" :icon="Plus" type="primary" text size="small" aria-label="添加人物素材" @click="openEpisodeScriptDialog('materials')" />
                         </div>
                         <div class="material-management-list">
                           <div v-for="item in activeEpisode.characters" :key="`character-${item}`" class="material-management-item">
                             <span class="material-management-name" :class="{ 'is-used': isCharacterUsed(item) }">{{ item }}</span>
                             <div class="material-management-actions">
-                              <el-tooltip content="修改" placement="top">
-                                <el-button :icon="EditPen" text circle size="small" aria-label="修改人物素材" @click="openMaterialEditDialog('characters', item)" />
-                              </el-tooltip>
-                              <el-tooltip content="删除" placement="top">
-                                <el-button :icon="Delete" type="danger" text circle size="small" aria-label="删除人物素材" @click="confirmRemoveMaterial('characters', item)" />
-                              </el-tooltip>
+                              <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改人物素材" @click="openMaterialEditDialog('characters', item)" />
+                              <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除人物素材" @click="confirmRemoveMaterial('characters', item)" />
                             </div>
                           </div>
                           <div v-if="!activeEpisode.characters.length" class="material-management-empty">暂无人物素材</div>
@@ -369,92 +356,36 @@
             >
 
               <div class="shot-meta">
-                <div class="shot-index-area" :class="{ 'has-remark': hasShotRemark(shot) }">
+                <div class="shot-index-area">
                   <span
                     class="shot-index"
                     @dblclick.stop.prevent="copyShotNumber(shot)"
                   >
-                    <el-tooltip
-                      :content="shot.text"
-                      :disabled="!shot.text"
-                      placement="top-start"
-                      popper-class="shot-detail-tooltip"
-                    >
-                      <span class="shot-order">{{ index + 1 }}</span>
-                    </el-tooltip>
+                    <span class="shot-order">{{ index + 1 }}</span>
                     <span class="shot-number">{{ formatShotNumber(activeEpisode, index) }}</span>
                   </span>
-                  <template v-if="editingShotRemarkId === shot.id">
-                    <el-input
-                      v-model="shotRemarkDraft"
-                      class="shot-remark-input"
-                      size="small"
-                      maxlength="80"
-                      placeholder="输入备注"
-                      @click.stop
-                      @keydown.enter.prevent="saveShotRemark(shot)"
-                      @keydown.esc.prevent="cancelShotRemarkEdit"
-                    />
-                    <el-button class="shot-remark-button is-visible" :icon="Check" circle size="small" type="success" aria-label="保存分镜备注" @click.stop="saveShotRemark(shot)" />
-                    <el-button class="shot-remark-button is-visible" :icon="Close" circle size="small" type="danger" aria-label="取消编辑分镜备注" @click.stop="cancelShotRemarkEdit" />
-                  </template>
-                  <template v-else>
-                    <span v-if="hasShotRemark(shot)" class="shot-remark-text" :title="shot.remark">{{ shot.remark }}</span>
-                    <el-button
-                      class="shot-remark-button"
-                      :icon="EditPen"
-                      circle
-                      size="small"
-                      :type="hasShotRemark(shot) ? 'primary' : undefined"
-                      :aria-label="hasShotRemark(shot) ? '修改分镜备注' : '添加分镜备注'"
-                      @click.stop="startShotRemarkEdit(shot)"
-                    />
-                    <el-button
-                      v-if="hasShotRemark(shot)"
-                      class="shot-remark-button shot-remark-delete"
-                      :icon="Delete"
-                      circle
-                      size="small"
-                      type="danger"
-                      aria-label="删除分镜备注"
-                      @click.stop="deleteShotRemark(shot)"
-                    />
-                  </template>
                 </div>
                 <div class="shot-tools">
                   <el-button
                     class="shot-thirty-second-button"
                     :icon="VideoCamera"
+                    circle
                     type="primary"
                     :plain="!shot.thirtySecondMode"
                     size="small"
-                    circle
                     :title="`${shot.thirtySecondMode ? '关闭 30S 模式' : '开启 30S 模式'}；右键应用到本集全部分镜`"
                     :aria-label="shot.thirtySecondMode ? '关闭 30S 模式' : '开启 30S 模式'"
                     :aria-pressed="shot.thirtySecondMode"
                     @click.stop="shot.thirtySecondMode = !shot.thirtySecondMode"
                     @contextmenu.prevent.stop="toggleEpisodeThirtySecondModeFromShot(shot)"
                   />
-                  <el-divider class="shot-tool-divider" direction="vertical" />
-                  <el-button
-                    class="shot-status-button"
-                    :icon="Check"
-                    type="success"
-                    :plain="shot.status !== 'complete'"
-                    size="small"
-                    circle
-                    :title="`${shot.status === 'complete' ? '标记为待办' : '标记为完成'}；右键应用到本集全部分镜`"
-                    :aria-label="shot.status === 'complete' ? '标记为待办' : '标记为完成'"
-                    @click="setShotStatus(shot, shot.status !== 'complete')"
-                    @contextmenu.prevent.stop="toggleEpisodeCompletionFromShot(shot)"
-                  />
                   <el-button
                     class="shot-review-button"
                     :icon="isShotReviewed(shot) ? StarFilled : Star"
+                    circle
                     type="warning"
                     :plain="!isShotReviewed(shot)"
                     size="small"
-                    circle
                     :title="isShotReviewed(shot) ? '编辑评分' : '填写评分'"
                     :aria-label="isShotReviewed(shot) ? '编辑评分' : '填写评分'"
                     @click="openReviewDialog(shot)"
@@ -464,7 +395,7 @@
                       <el-button size="small" type="danger" @click="confirm($event)">删除</el-button>
                     </template>
                     <template #reference>
-                      <el-button :icon="Delete" type="danger" size="small" circle title="删除分镜" aria-label="删除分镜" />
+                      <el-button :icon="Delete" circle type="danger" size="small" title="删除分镜" aria-label="删除分镜" />
                     </template>
                   </el-popconfirm>
                 </div>
@@ -479,7 +410,6 @@
                         class="title-copy-button"
                         :icon="CopyDocument"
                         text
-                        circle
                         type="primary"
                         title="复制分镜详情"
                         aria-label="复制分镜详情"
@@ -493,9 +423,9 @@
                       <el-tooltip placement="top" popper-class="timing-summary-tooltip">
                         <template #content>
                           <div class="timing-summary-lines">
-                            <span>台词发音 {{ formatTimingSeconds(shotTimingAnalysis(shot).dialogueArticulationSeconds) }}</span>
-                            <span>标点停顿 {{ formatTimingSeconds(shotTimingAnalysis(shot).punctuationSeconds) }}</span>
-                            <span>异步动作 {{ formatTimingSeconds(shotTimingAnalysis(shot).asyncActionSeconds) }}</span>
+                            <span>台词发音 {{ formatTimingShare(shotTimingAnalysis(shot).dialogueArticulationSeconds, shotTimingAnalysis(shot).totalSeconds) }}</span>
+                            <span>标点停顿 {{ formatTimingShare(shotTimingAnalysis(shot).punctuationSeconds, shotTimingAnalysis(shot).totalSeconds) }}</span>
+                            <span>异步动作 {{ formatTimingShare(shotTimingAnalysis(shot).asyncActionSeconds, shotTimingAnalysis(shot).totalSeconds) }}</span>
                             <span>同步动作 {{ shotTimingAnalysis(shot).synchronousActionCount }} 段 · 0 秒</span>
                           </div>
                         </template>
@@ -560,7 +490,6 @@
                           class="title-copy-button"
                           :icon="CopyDocument"
                           text
-                          circle
                           type="primary"
                           title="复制场景配置"
                           aria-label="复制场景配置"
@@ -623,7 +552,6 @@
                             type="primary"
                             text
                             size="small"
-                            circle
                             title="删除场景配置"
                             aria-label="删除场景配置"
                           />
@@ -640,7 +568,6 @@
                           class="title-copy-button"
                           :icon="CopyDocument"
                           text
-                          circle
                           type="primary"
                           title="复制人物配置"
                           aria-label="复制人物配置"
@@ -663,7 +590,6 @@
                         class="character-drag-handle"
                         :icon="Sort"
                         text
-                        circle
                         type="primary"
                         title="拖拽排序"
                         aria-label="拖拽排序"
@@ -721,7 +647,6 @@
                             type="primary"
                             text
                             size="small"
-                            circle
                             title="删除人物配置"
                             aria-label="删除人物配置"
                           />
@@ -750,7 +675,6 @@
                         class="title-copy-button"
                         :icon="CopyDocument"
                         text
-                        circle
                         type="primary"
                         title="复制完整提示词"
                         aria-label="复制完整提示词"
@@ -1447,7 +1371,7 @@ import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
-import { ArrowDown, ArrowRight, Calendar, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, DocumentAdd, DocumentChecked, Download, EditPen, Expand, Files, Location, Microphone, Moon, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight, Calendar, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, DocumentAdd, DocumentChecked, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
@@ -1603,7 +1527,6 @@ const editingGroupId = ref<string | null>(null)
 const editingGroupOriginalTitle = ref('')
 const myEpisodesTreeId = 'my-episodes'
 const expandedGroupIds = ref<string[]>([myEpisodesTreeId])
-const openEpisodeMenuId = ref<string | null>(null)
 const activeConfigRemoveId = ref<string | null>(null)
 const materialSceneTimeOptions: MaterialSegmentedOption<SceneTime>[] = [
   { label: '白天', value: '白天', icon: Sunny },
@@ -1640,7 +1563,6 @@ const actionTimingModeOptions = [
 ]
 const actionShotCountOptions = [1, 2, 3, 4].map((value) => ({ label: String(value), value }))
 const actionSecondsPerShotOptions = [2, 3, 4, 5].map((value) => ({ label: String(value), value }))
-const episodeDropdownRefs = new Map<string, { handleClose?: () => void }>()
 type HighlightInputBinding = {
   textarea: HTMLTextAreaElement
   handler: () => void
@@ -1665,8 +1587,6 @@ const episodeScriptDialogVisible = ref(false)
 const activeReviewShot = ref<Shot | null>(null)
 const reviewSummaryEpisodeId = ref<string | null>(null)
 const activeGroupSummaryId = ref<string | null>(null)
-const editingShotRemarkId = ref<string | null>(null)
-const shotRemarkDraft = ref('')
 const reviewDraft = ref<PromptReview>(createPromptReview())
 const reviewDrawCountMode = ref<ReviewDrawCountMode>('')
 const reviewCustomDrawCount = ref<number | undefined>()
@@ -1752,9 +1672,9 @@ const dialogueOutputDraft = computed({
 })
 const highlightedDialogueText = computed(() => {
   const text = dialogueOutputDraft.value || ' '
-  const replacementTerms = dialogueView.value === 'replaced'
+  const replacementTerms = dialogueView.value === 'original'
     ? Array.from(new Set(state.globalConfig.dialogueExtraction.replacementRules
-      .flatMap((rule) => replaceDialogueText(rule.replacement, []).split('\n'))
+      .map((rule) => rule.forbidden)
       .map((term) => term.trim())
       .filter(Boolean)))
       .sort((a, b) => b.length - a.length)
@@ -1826,8 +1746,7 @@ const reviewDialogTitle = computed(() => {
     return '提示词评分'
   }
 
-  const remark = shot.remark.trim()
-  return `给 ${formatShotNumber(episode, index)}${remark ? ` ${remark}` : ''} 评分`
+  return `给 ${formatShotNumber(episode, index)} 评分`
 })
 const reviewDrawCountValue = computed(() => currentReviewDrawCount() ?? 0)
 const reviewSummaryRows = computed(() => {
@@ -2081,6 +2000,7 @@ function saveWebDavConnection(settings: WebDavSettings) {
   try {
     persistWebDavSettings(settings)
     notify.success('WebDAV 连接设置已保存')
+    globalDialogVisible.value = false
   } catch (error) { notifyWebDavError(error) }
 }
 
@@ -2622,14 +2542,6 @@ function addEpisodeGroup() {
   editingGroupId.value = group.id
 }
 
-function setEpisodeDropdownRef(id: string, dropdown: unknown) {
-  if (dropdown && typeof dropdown === 'object') {
-    episodeDropdownRefs.set(id, dropdown as { handleClose?: () => void })
-  } else {
-    episodeDropdownRefs.delete(id)
-  }
-}
-
 function setScriptHighlightRef(id: string, element: unknown) {
   if (element instanceof HTMLElement) {
     scriptHighlightRefs.set(id, element)
@@ -2906,23 +2818,15 @@ function resetMaterialSceneTransition() {
   })
 }
 
-function closeEpisodeDropdownsExcept(id: string) {
-  episodeDropdownRefs.forEach((dropdown, key) => {
-    if (key !== id) {
-      dropdown.handleClose?.()
-    }
-  })
-}
-
-function handleEpisodeMenuVisibleChange(visible: boolean, episodeId: string) {
-  openEpisodeMenuId.value = visible ? episodeId : openEpisodeMenuId.value === episodeId ? null : openEpisodeMenuId.value
-  if (visible) {
-    closeEpisodeDropdownsExcept(episodeId)
+function openRowMoreMenu(event: MouseEvent, buttonSelector: string) {
+  if (!(event.currentTarget instanceof HTMLElement)) {
+    return
   }
+
+  event.currentTarget.querySelector<HTMLButtonElement>(buttonSelector)?.click()
 }
 
 function handleEpisodeCommand(command: string | { action: 'move'; groupId: string | null }, episode: Episode) {
-  openEpisodeMenuId.value = null
   if (typeof command !== 'string') {
     if (command.action === 'move') {
       if (isArchivedEpisodeGroupId(command.groupId)) {
@@ -3589,7 +3493,7 @@ function hasModifiedShots(episode: Episode) {
   return episode.shots.some((shot) => (
     Boolean(shot.text.trim())
     || Boolean(shot.remark.trim())
-    || shot.thirtySecondMode
+    || !shot.thirtySecondMode
     || shot.connectPreviousCount > 0
     || shot.connectNextCount > 0
     || hasConfiguredScenes(shot)
@@ -3850,16 +3754,14 @@ function formatTimingSeconds(seconds: number) {
   return `${seconds.toFixed(1)} 秒`
 }
 
+function formatTimingShare(seconds: number, totalSeconds: number) {
+  const percent = totalSeconds > 0 ? Math.round(seconds / totalSeconds * 100) : 0
+  return `${formatTimingSeconds(seconds)} · 占比 ${percent}%`
+}
+
 function shotTimingTitleStats(shot: Shot) {
   const analysis = shotTimingAnalysis(shot)
-  const actionSeconds = analysis.asyncActionSeconds
-  const dialogueSeconds = analysis.dialogueArticulationSeconds + analysis.punctuationSeconds
-  const timedSeconds = actionSeconds + dialogueSeconds
-  const actionPercent = timedSeconds > 0
-    ? Math.round(actionSeconds / timedSeconds * 100)
-    : 0
-  const dialoguePercent = timedSeconds > 0 ? 100 - actionPercent : 0
-  return `动${actionPercent}% 词${dialoguePercent}% · ${analysis.totalSeconds.toFixed(1)}秒`
+  return `${analysis.totalSeconds.toFixed(1)}秒`
 }
 
 function isDurationOutsideRange(seconds: number, hasText: boolean, thirtySecondMode = false) {
@@ -4021,10 +3923,6 @@ function escapeHtml(value: string) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
 }
-function setShotStatus(shot: Shot, done: boolean) {
-  shot.status = done ? 'complete' : 'incomplete'
-}
-
 function setPositionReference(shot: Shot, value: boolean) {
   shot.usePositionReference = value
   shot.useReverseAngle = false
@@ -4044,14 +3942,6 @@ function toggleEpisodeFirstFrameModeFromShot(shot: Shot) {
     item.firstFrameMode = enabled
   })
   notify.success(`已${enabled ? '开启' : '关闭'}本集全部首帧`)
-}
-
-function toggleEpisodeCompletionFromShot(shot: Shot) {
-  const done = shot.status !== 'complete'
-  activeEpisode.value?.shots.forEach((item) => {
-    setShotStatus(item, done)
-  })
-  notify.success(`已将本集全部分镜标记为${done ? '完成' : '待办'}`)
 }
 
 function toggleEpisodeThirtySecondModeFromShot(shot: Shot) {
@@ -4157,34 +4047,6 @@ function effectiveShotText(shot: Shot) {
   ].filter(Boolean)
 
   return lines.join('\n').trim()
-}
-
-function hasShotRemark(shot: Shot) {
-  return Boolean(shot.remark.trim())
-}
-
-function startShotRemarkEdit(shot: Shot) {
-  editingShotRemarkId.value = shot.id
-  shotRemarkDraft.value = shot.remark
-}
-
-function saveShotRemark(shot: Shot) {
-  const remark = shotRemarkDraft.value.trim()
-  shot.remark = remark
-  editingShotRemarkId.value = null
-  shotRemarkDraft.value = ''
-  notify.success(remark ? '已保存分镜备注' : '已删除分镜备注')
-}
-
-function cancelShotRemarkEdit() {
-  editingShotRemarkId.value = null
-  shotRemarkDraft.value = ''
-}
-
-function deleteShotRemark(shot: Shot) {
-  shot.remark = ''
-  cancelShotRemarkEdit()
-  notify.success('已删除分镜备注')
 }
 
 function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConflict?: boolean } = {}) {
@@ -4648,6 +4510,7 @@ function organizeEpisodeScriptDraft() {
   const protectedRemarks: Array<{ marker: '---' | '+++'; remark: string }> = []
   const protectedDraft = episodeScriptDraft.value
     .replace(/\r\n/g, '\n')
+    .replace(/:/g, '：')
     .replace(/[ \t　]*(---|\+\+\+)[ \t　]*#([^#\r\n]*)#[ \t　]*/g, (_match, marker: '---' | '+++', remark: string) => {
       const placeholder = `\n__SHOT_REMARK_${protectedRemarks.length}__\n`
       protectedRemarks.push({ marker, remark })
@@ -5446,7 +5309,7 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       id: createId('shot'),
       text,
       remark: typeof shot.remark === 'string' ? shot.remark : '',
-      thirtySecondMode: typeof shot.thirtySecondMode === 'boolean' ? shot.thirtySecondMode : false,
+      thirtySecondMode: typeof shot.thirtySecondMode === 'boolean' ? shot.thirtySecondMode : true,
       unitNumber: normalizeShotUnitNumber(shot.unitNumber),
       usePositionReference: typeof shot.usePositionReference === 'boolean'
         ? Boolean(shot.usePositionReference || shot.useReverseAngle)
