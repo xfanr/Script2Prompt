@@ -60,15 +60,18 @@ interface ParsedTimingSegment {
 
 export function parseTimingSegments(text: string, characterNames: string[]): ParsedTimingSegment[] {
   const names = normalizeCharacterNames(characterNames)
-  const prefixPattern = names.length
-    ? new RegExp(`(?:${names.map(escapeRegExp).join('|')})\\s*(?:（[^）\\r\\n]*）|\\([^\\)\\r\\n]*\\))?\\s*[：:]`, 'gu')
-    : null
+  const voiceMarker = '(?:[oO][sS]|[vV][oO])'
+  const speakerPattern = names.length
+    ? `(${names.map(escapeRegExp).join('|')})\\s*(?:${voiceMarker}\\s*)?|${voiceMarker}\\s*`
+    : `${voiceMarker}\\s*`
+  const prefixPattern = new RegExp(`(?:${speakerPattern})(?:（[^）\\r\\n]*）|\\([^\\)\\r\\n]*\\))?\\s*[：:]`, 'gu')
+  const voicePrefixPattern = new RegExp(`${voiceMarker}\\s*(?:（[^）\\r\\n]*）|\\([^\\)\\r\\n]*\\))?\\s*[：:]`, 'u')
   const result: ParsedTimingSegment[] = []
 
   let lineStart = 0
   for (const line of text.split('\n')) {
     const lineEnd = lineStart + line.length
-    const prefixes = prefixPattern ? Array.from(line.matchAll(prefixPattern)) : []
+    const prefixes = Array.from(line.matchAll(prefixPattern))
 
     if (!prefixes.length) {
       const range = trimRange(text, lineStart, lineEnd)
@@ -85,7 +88,7 @@ export function parseTimingSegments(text: string, characterNames: string[]): Par
 
     const firstPrefixStart = lineStart + (prefixes[0].index ?? 0)
     const leadingAction = trimRange(text, lineStart, firstPrefixStart)
-    if (leadingAction.start < leadingAction.end) {
+    if (leadingAction.start < leadingAction.end && !prefixes.some((prefix) => voicePrefixPattern.test(prefix[0]))) {
       result.push({
         kind: 'action',
         sourceText: text.slice(leadingAction.start, leadingAction.end),
@@ -127,15 +130,15 @@ function normalizeDialogueSegment(value: Partial<DialogueTimingSegment>, sourceT
 }
 
 function normalizeActionSegment(value: Partial<ActionTimingSegment>, sourceText = ''): ActionTimingSegment {
-  const shotCount = Number.isInteger(value.shotCount) ? Math.min(4, Math.max(1, Number(value.shotCount))) : 1
-  const secondsPerShot = Number.isInteger(value.secondsPerShot)
+  const shotCount = Number.isInteger(value.shotCount) ? Math.min(5, Math.max(1, Number(value.shotCount))) : 1
+  const secondsPerShot = value.mode === 'sync' || value.secondsPerShot === 0 ? 0 : Number.isInteger(value.secondsPerShot)
     ? Math.min(5, Math.max(2, Number(value.secondsPerShot)))
     : 2
   return {
     id: typeof value.id === 'string' && value.id ? value.id : createTimingSegmentId('action'),
     kind: 'action',
     sourceText: typeof value.sourceText === 'string' ? value.sourceText : sourceText,
-    mode: value.mode === 'sync' ? 'sync' : 'async',
+    mode: secondsPerShot === 0 ? 'sync' : 'async',
     shotCount,
     secondsPerShot,
   }

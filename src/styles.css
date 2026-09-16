@@ -1554,29 +1554,31 @@ html.dark .episode-panel {
 }
 
 .script-highlight-layer mark {
-  border-radius: 3px;
+  border-radius: 0;
   color: transparent;
   font: inherit;
 }
 
+.script-highlight-layer .voice-marker {
+  background: var(--el-color-primary);
+}
+
 .script-highlight-layer .timing-segment {
   background: transparent;
-  box-shadow: none;
+  box-shadow: inset 0 -1px 0 transparent;
+  transition: box-shadow 180ms ease;
+}
+
+.script-highlight-layer .timing-segment.is-dialogue {
+  background: var(--el-color-primary-light-8);
 }
 
 .script-highlight-layer .timing-segment.is-highlighted.is-dialogue {
-  background: var(--el-color-warning-light-7);
-  box-shadow: inset 0 -1px 0 var(--el-color-warning-light-3);
+  box-shadow: inset 0 -1px 0 var(--el-color-primary);
 }
 
-.script-highlight-layer .timing-segment.is-action.is-async {
-  background: var(--el-color-primary-light-8);
-  box-shadow: inset 0 -1px 0 var(--el-color-primary-light-5);
-}
-
-.script-highlight-layer .timing-segment.is-action.is-sync {
-  background: var(--el-fill-color-dark);
-  box-shadow: inset 0 -1px 0 var(--el-border-color-darker);
+.script-highlight-layer .timing-segment.is-highlighted.is-action {
+  box-shadow: inset 0 -1px 0 var(--el-color-warning);
 }
 
 .script-highlight-layer .matched-character.without-voice {
@@ -1652,11 +1654,6 @@ html.dark .episode-panel {
   font-size: 12px;
   font-weight: 700;
   text-align: center;
-}
-
-.timing-config-result.is-sync {
-  color: var(--el-text-color-secondary);
-  background: var(--el-fill-color-light);
 }
 
 .timing-summary-lines {

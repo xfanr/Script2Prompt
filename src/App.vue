@@ -730,15 +730,6 @@
                   <span>动作计时</span>
                   <em>{{ activeTimingSegment.sourceText }}</em>
                 </div>
-                <div class="timing-config-row">
-                  <span>方式</span>
-                  <el-segmented
-                    :model-value="activeTimingSegment.mode"
-                    :options="actionTimingModeOptions"
-                    @change="updateActiveActionMode"
-                  />
-                </div>
-                <template v-if="activeTimingSegment.mode === 'async'">
                   <div class="timing-config-row">
                     <span>镜头数</span>
                     <el-segmented
@@ -758,8 +749,6 @@
                   <div class="timing-config-result">
                     {{ activeTimingSegment.shotCount }} 镜 × {{ activeTimingSegment.secondsPerShot }} 秒 = {{ activeTimingSegment.shotCount * activeTimingSegment.secondsPerShot }} 秒
                   </div>
-                </template>
-                <div v-else class="timing-config-result is-sync">与下一段台词同步 · 0 秒</div>
               </template>
             </div>
           </el-popover>
@@ -1405,7 +1394,7 @@ import {
   sumTimingAnalyses,
   type TimingAnalysis,
 } from './timing'
-import type { ActionTimingMode, AppState, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotTimingSegment } from './types'
+import type { AppState, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotTimingSegment } from './types'
 import { useAppState } from './useAppState'
 import { LocalRepository, readSyncTarget } from './storage'
 import { buildDataFiles, canonicalJson, groupFilePath, mergeDownloadedFiles } from './dataFiles'
@@ -1557,12 +1546,8 @@ const speechRateOptions = [
   { label: '中 · 6', value: 'medium' },
   { label: '快 · 7', value: 'fast' },
 ]
-const actionTimingModeOptions = [
-  { label: '同步', value: 'sync' },
-  { label: '异步', value: 'async' },
-]
-const actionShotCountOptions = [1, 2, 3, 4].map((value) => ({ label: String(value), value }))
-const actionSecondsPerShotOptions = [2, 3, 4, 5].map((value) => ({ label: String(value), value }))
+const actionShotCountOptions = [1, 2, 3, 4, 5].map((value) => ({ label: String(value), value }))
+const actionSecondsPerShotOptions = [0, 2, 3, 4, 5].map((value) => ({ label: String(value), value }))
 type HighlightInputBinding = {
   textarea: HTMLTextAreaElement
   handler: () => void
@@ -2546,6 +2531,7 @@ function setScriptHighlightRef(id: string, element: unknown) {
   if (element instanceof HTMLElement) {
     scriptHighlightRefs.set(id, element)
     syncScriptHighlightScroll(id)
+    syncTimingHighlight(id, element)
     return
   }
 
@@ -2593,6 +2579,17 @@ function syncScriptHighlightScroll(id: string) {
   highlight.scrollTop = inputRef.textarea.scrollTop
   highlight.scrollLeft = inputRef.textarea.scrollLeft
 }
+
+function syncTimingHighlight(shotId: string, element: HTMLElement) {
+  const target = activeTimingTarget.value ?? hoveredTimingTarget.value
+  element.querySelectorAll<HTMLElement>('.timing-segment').forEach((mark) => {
+    mark.classList.toggle('is-highlighted', target?.shotId === shotId && target.segmentId === mark.dataset.timingId)
+  })
+}
+
+watch([activeTimingTarget, hoveredTimingTarget], () => {
+  scriptHighlightRefs.forEach((element, shotId) => syncTimingHighlight(shotId, element))
+}, { flush: 'post' })
 
 function timingSegmentAtPoint(shot: Shot, clientX: number, clientY: number) {
   const highlight = scriptHighlightRefs.get(shot.id)
@@ -2670,17 +2667,10 @@ function updateActiveSpeechRate(value: unknown) {
   }
 }
 
-function updateActiveActionMode(value: unknown) {
-  const segment = activeTimingSegment.value
-  if (segment?.kind === 'action' && (value === 'sync' || value === 'async')) {
-    segment.mode = value as ActionTimingMode
-  }
-}
-
 function updateActiveShotCount(value: unknown) {
   const segment = activeTimingSegment.value
   const shotCount = Number(value)
-  if (segment?.kind === 'action' && Number.isInteger(shotCount) && shotCount >= 1 && shotCount <= 4) {
+  if (segment?.kind === 'action' && Number.isInteger(shotCount) && shotCount >= 1 && shotCount <= 5) {
     segment.shotCount = shotCount
   }
 }
@@ -2688,8 +2678,9 @@ function updateActiveShotCount(value: unknown) {
 function updateActiveSecondsPerShot(value: unknown) {
   const segment = activeTimingSegment.value
   const seconds = Number(value)
-  if (segment?.kind === 'action' && Number.isInteger(seconds) && seconds >= 2 && seconds <= 5) {
+  if (segment?.kind === 'action' && actionSecondsPerShotOptions.some((option) => option.value === seconds)) {
     segment.secondsPerShot = seconds
+    segment.mode = seconds === 0 ? 'sync' : 'async'
   }
 }
 
@@ -3868,20 +3859,21 @@ function highlightedShotText(shot: Shot) {
   }
 
   const resolved = resolveTimingSegments(shot.text, timingCharacterNames(shot), shot.timingSegments)
-  const highlightedTarget = activeTimingTarget.value ?? hoveredTimingTarget.value
+  const highlightPrefix = (value: string) => value.split(/((?:os|vo)(?=\s*(?:（[^）\r\n]*）|\([^\)\r\n]*\))?\s*[：:]))/gi)
+    .map((part, index) => index % 2
+      ? `<span class="voice-marker">${escapeHtml(part)}</span>`
+      : highlightCharacters(part))
+    .join('')
   const parts: string[] = []
   let cursor = 0
   resolved.forEach((segment) => {
-    parts.push(highlightCharacters(text.slice(cursor, segment.start)))
+    parts.push(highlightPrefix(text.slice(cursor, segment.start)))
     const modeClass = segment.config.kind === 'action' ? ` is-${segment.config.mode}` : ''
-    const highlightClass = highlightedTarget?.shotId === shot.id && highlightedTarget.segmentId === segment.id
-      ? ' is-highlighted'
-      : ''
     const highlightedContent = segment.kind === 'dialogue'
       ? escapeHtml(text.slice(segment.start, segment.end))
       : highlightCharacters(text.slice(segment.start, segment.end))
     parts.push(
-      `<mark class="timing-segment is-${segment.kind}${modeClass}${highlightClass}" data-timing-id="${segment.id}">`
+      `<mark class="timing-segment is-${segment.kind}${modeClass}" data-timing-id="${segment.id}">`
       + highlightedContent
       + '</mark>',
     )
