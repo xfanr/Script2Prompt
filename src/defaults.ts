@@ -1,7 +1,7 @@
-import type { AppState, CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, ReviewNotePrefixOption, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
+import type { AppState, CharacterAsset, CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, ReviewNotePrefixOption, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
-export const APP_VERSION = 8
+export const APP_VERSION = 9
 
 export function createId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -18,6 +18,39 @@ export function createSceneAsset(name = '', time: SceneTime = '白天', space: S
     time,
     space,
   }
+}
+
+export function createCharacterAsset(name = '', appearanceDescription = ''): CharacterAsset {
+  return {
+    name,
+    appearanceDescription,
+  }
+}
+
+export function normalizeCharacterAssets(value: unknown): CharacterAsset[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const assets = value.map((item) => {
+    if (typeof item === 'string') {
+      const name = item.trim()
+      return name ? createCharacterAsset(name) : null
+    }
+
+    if (!item || typeof item !== 'object') {
+      return null
+    }
+
+    const asset = item as Partial<CharacterAsset>
+    const name = typeof asset.name === 'string' ? asset.name.trim() : ''
+
+    return name
+      ? createCharacterAsset(name, typeof asset.appearanceDescription === 'string' ? asset.appearanceDescription : '')
+      : null
+  }).filter((item): item is CharacterAsset => Boolean(item))
+
+  return assets.filter((item, index, list) => list.findIndex((candidate) => candidate.name === item.name) === index)
 }
 
 export function createSceneConfig(name = '', time: SceneTime = '白天', space: SceneSpace = '室内', statusText = ''): SceneConfig {

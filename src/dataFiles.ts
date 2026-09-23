@@ -67,7 +67,11 @@ export function parseDataFile(text: string, path: string): DataFile {
       if (!object(episode) || typeof episode.id !== 'string' || !episode.id || ids.has(episode.id)
         || typeof episode.title !== 'string' || episode.groupId !== (group?.id ?? null)
         || !Array.isArray(episode.shots) || !Array.isArray(episode.characters)
-        || episode.characters.some((name: unknown) => typeof name !== 'string')
+        || episode.characters.some((character: unknown) => typeof character !== 'string' && (
+          !object(character)
+          || typeof character.name !== 'string'
+          || (character.appearanceDescription !== undefined && typeof character.appearanceDescription !== 'string')
+        ))
         || !Array.isArray(episode.scenes)) throw new Error()
       ids.add(episode.id)
       const shotIds = new Set<string>()

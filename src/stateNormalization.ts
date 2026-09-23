@@ -1,5 +1,5 @@
 import { activePromptProfile, cloneGlobalConfig, migrateLegacyGlobalConfig, normalizeGlobalConfig } from './config'
-import { APP_VERSION, createEpisode, createEpisodeProductionData, createPromptReview, createSceneAsset, createSceneConfig } from './defaults'
+import { APP_VERSION, createEpisode, createEpisodeProductionData, createPromptReview, createSceneAsset, createSceneConfig, normalizeCharacterAssets } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
 import { compactShotUnitNumbers, normalizeShotUnitNumber } from './shotNumber'
 import { reconcileTimingSegments } from './timing'
@@ -145,7 +145,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     parsed.episodes.forEach((episode) => {
       episode.groupId = groupIds.has(episode.groupId ?? '') ? episode.groupId : null
       episode.starred ??= false
-      episode.characters ??= []
+      episode.characters = normalizeCharacterAssets(episode.characters)
       episode.scenes = normalizeSceneAssets(episode.scenes)
       episode.props ??= []
       episode.productionData = normalizeEpisodeProductionData(episode.productionData)
@@ -180,7 +180,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
         const storedTimingSegments = JSON.stringify(shot.timingSegments)
         shot.timingSegments = reconcileTimingSegments(
           shot.text,
-          [...episode.characters, ...shot.characters.map((character) => character.name)],
+          [...episode.characters.map((character) => character.name), ...shot.characters.map((character) => character.name)],
           shot.timingSegments,
         )
         shot.review = normalizePromptReview(shot.review)

@@ -2,6 +2,7 @@ import { createCharacterConfig } from './defaults'
 import { activePromptProfile } from './config'
 import type {
   CharacterConfig,
+  CharacterAsset,
   DetectedCharacter,
   GlobalConfig,
   Shot,
@@ -99,7 +100,13 @@ export function mergeDetectedCharacters(
   return next
 }
 
-export function composePrompt(globalConfig: GlobalConfig, shot: Shot, promptProfileId?: string, estimatedSeconds?: number) {
+export function composePrompt(
+  globalConfig: GlobalConfig,
+  shot: Shot,
+  promptProfileId?: string,
+  estimatedSeconds?: number,
+  characterAssets: CharacterAsset[] = [],
+) {
   const profile = activePromptProfile(globalConfig, promptProfileId)
   const characterCount = shot.characters.filter((character) => character.name.trim()).length
   const sections = [
@@ -109,7 +116,7 @@ export function composePrompt(globalConfig: GlobalConfig, shot: Shot, promptProf
     ])],
     ['二、场景与角色设定', joinPromptBlocks([
       profile.sceneRolePrefix,
-      composeSceneRoleSection(shot),
+      composeSceneRoleSection(shot, characterAssets),
       profile.sceneRoleSuffix,
     ])],
     ['三、分镜详情', joinPromptBlocks([
@@ -124,10 +131,10 @@ export function composePrompt(globalConfig: GlobalConfig, shot: Shot, promptProf
     .join('\n\n')
 }
 
-function composeSceneRoleSection(shot: Shot) {
+function composeSceneRoleSection(shot: Shot, characterAssets: CharacterAsset[]) {
   return joinPromptBlocks([
     composeSceneSettings(shot),
-    composeCharacterSettings(shot),
+    composeCharacterSettings(shot, characterAssets),
   ])
 }
 
@@ -159,13 +166,20 @@ export function composeSceneSettings(shot: Shot) {
   return lines.join('\n')
 }
 
-export function composeCharacterSettings(shot: Shot) {
+export function composeCharacterSettings(shot: Shot, characterAssets: CharacterAsset[] = []) {
   const lines: string[] = []
 
   shot.characters
     .filter((character) => character.name.trim())
     .forEach((character) => {
       const parts = [`${character.name.trim()}的妆造是@`]
+      const appearanceDescription = characterAssets
+        .find((asset) => asset.name === character.name.trim())
+        ?.appearanceDescription.trim()
+
+      if (appearanceDescription) {
+        parts.push(appearanceDescription)
+      }
 
       if (character.includeVoice) {
         parts.push('音色是@')

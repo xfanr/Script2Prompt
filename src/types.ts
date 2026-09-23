@@ -67,6 +67,11 @@ export interface SceneAsset {
   space: SceneSpace
 }
 
+export interface CharacterAsset {
+  name: string
+  appearanceDescription: string
+}
+
 export interface CharacterConfig {
   id: string
   name: string
@@ -163,7 +168,7 @@ export interface Episode {
   title: string
   groupId: string | null
   starred: boolean
-  characters: string[]
+  characters: CharacterAsset[]
   scenes: SceneAsset[]
   props: string[]
   productionData: EpisodeProductionData

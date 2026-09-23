@@ -633,6 +633,14 @@ html.dark .episode-panel {
   box-shadow: 0 0 0 1px var(--el-border-color) inset;
 }
 
+.rename-inline .el-button {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: var(--el-border-radius-base);
+}
+
 .rename-inline .el-button + .el-button {
   margin-left: 0;
 }
@@ -1003,6 +1011,18 @@ html.dark .episode-panel {
   font-size: var(--el-font-size-base);
   font-weight: 900;
   line-height: 20px;
+}
+
+.material-management-heading-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.material-management-heading-actions .el-button + .el-button {
+  margin-left: 0;
 }
 
 .material-management-list {
@@ -1856,24 +1876,60 @@ html.dark .episode-panel {
 }
 
 .character-identity-controls {
-  display: grid;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
 }
 
-.character-identity-controls .el-select__wrapper {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
+.character-name-input {
+  width: 100%;
 }
 
-.character-identity-controls > .el-button {
-  border-left: 0;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
+.character-name-input .el-input__inner {
+  cursor: default;
 }
 
-.character-line .el-select,
+.character-name-input .el-input-group__append {
+  padding: 0;
+  background: var(--el-fill-color-light);
+}
+
+.character-name-input .el-input-group__append .el-button {
+  width: var(--el-component-size);
+  min-width: var(--el-component-size);
+  height: var(--el-component-size);
+  margin: 0;
+  padding: 0;
+  border-radius: 0 var(--el-border-radius-base) var(--el-border-radius-base) 0;
+}
+
+.character-name-input .el-input-group__append button.el-button--primary,
+.character-name-input .el-input-group__append button.el-button--primary:hover {
+  color: var(--el-color-white);
+  background-color: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+}
+
+.character-name-input .el-input-group__append button.el-button--danger,
+.character-name-input .el-input-group__append button.el-button--danger:hover {
+  color: var(--el-color-white);
+  background-color: var(--el-color-danger);
+  border-color: var(--el-color-danger);
+}
+
+.character-appearance-icon {
+  color: var(--el-text-color-placeholder);
+}
+
+.character-appearance-icon.has-description {
+  color: var(--el-color-primary);
+  cursor: help;
+}
+
+.character-appearance-tooltip {
+  max-width: min(420px, 85vw);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .scene-line .el-select {
   width: 100%;
 }

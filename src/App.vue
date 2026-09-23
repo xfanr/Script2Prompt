@@ -123,10 +123,10 @@
                     <div v-if="isGroupExpanded(myEpisodesTreeId)" class="episode-children root-group-children">
                       <div v-for="episode in episodeTreeUngroupedEpisodes" :key="episode.id" class="episode-tree-entry">
                         <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @contextmenu.prevent.stop="openRowMoreMenu($event, '.episode-more-button')" @click="selectEpisode(episode)">
-                          <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
+                          <div v-if="editingEpisodeId === episode.id" class="rename-inline" data-rename-kind="episode" :data-rename-id="episode.id" @click.stop @keydown.stop>
                             <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="输入集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
-                            <el-button class="rename-confirm" :icon="Check" size="small" type="success" @click="finishEpisodeRename(episode)" />
-                            <el-button class="rename-cancel" :icon="Close" size="small" type="danger" @click="cancelEpisodeRename(episode)" />
+                            <el-button class="rename-confirm" :icon="Check" size="small" type="success" aria-label="确认命名" @click="finishEpisodeRename(episode)" />
+                            <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelEpisodeRename(episode)" />
                           </div>
                           <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
                           <el-dropdown trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
@@ -147,10 +147,10 @@
                         <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @contextmenu.prevent.stop="openRowMoreMenu($event, '.group-more-button')" @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
                           <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
                           <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
-                          <div v-if="editingGroupId === group.id" class="rename-inline" @click.stop @keydown.stop>
+                          <div v-if="editingGroupId === group.id" class="rename-inline" data-rename-kind="group" :data-rename-id="group.id" @click.stop @keydown.stop>
                             <el-input v-model="group.title" class="episode-title-input" placeholder="输入分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
-                            <el-button class="rename-confirm" :icon="Check" size="small" type="success" @click="finishGroupRename" />
-                            <el-button class="rename-cancel" :icon="Close" size="small" type="danger" @click="cancelGroupRename(group)" />
+                            <el-button class="rename-confirm" :icon="Check" size="small" type="success" aria-label="确认命名" @click="finishGroupRename" />
+                            <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelGroupRename(group)" />
                           </div>
                           <template v-else>
                             <span class="group-title-text">{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
@@ -173,10 +173,10 @@
                         <div v-if="!isGroupEmpty(group.id) && isGroupExpanded(group.id)" class="episode-children episode-list">
                           <div v-for="episode in episodeTreeEpisodesForGroup(group.id)" :key="episode.id" class="episode-tree-entry">
                             <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @contextmenu.prevent.stop="openRowMoreMenu($event, '.episode-more-button')" @click="selectEpisode(episode)">
-                              <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
+                              <div v-if="editingEpisodeId === episode.id" class="rename-inline" data-rename-kind="episode" :data-rename-id="episode.id" @click.stop @keydown.stop>
                                 <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="输入集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
-                                <el-button class="rename-confirm" :icon="Check" size="small" type="success" @click="finishEpisodeRename(episode)" />
-                                <el-button class="rename-cancel" :icon="Close" size="small" type="danger" @click="cancelEpisodeRename(episode)" />
+                                <el-button class="rename-confirm" :icon="Check" size="small" type="success" aria-label="确认命名" @click="finishEpisodeRename(episode)" />
+                                <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelEpisodeRename(episode)" />
                               </div>
                               <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
                               <el-dropdown trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
@@ -208,10 +208,10 @@
                         <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @contextmenu.prevent.stop="openRowMoreMenu($event, '.group-more-button')" @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
                           <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
                           <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
-                          <div v-if="editingGroupId === group.id" class="rename-inline" @click.stop @keydown.stop>
+                          <div v-if="editingGroupId === group.id" class="rename-inline" data-rename-kind="group" :data-rename-id="group.id" @click.stop @keydown.stop>
                             <el-input v-model="group.title" class="episode-title-input" placeholder="输入分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
-                            <el-button class="rename-confirm" :icon="Check" size="small" type="success" @click="finishGroupRename" />
-                            <el-button class="rename-cancel" :icon="Close" size="small" type="danger" @click="cancelGroupRename(group)" />
+                            <el-button class="rename-confirm" :icon="Check" size="small" type="success" aria-label="确认命名" @click="finishGroupRename" />
+                            <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelGroupRename(group)" />
                           </div>
                           <template v-else>
                             <span class="group-title-text">{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
@@ -233,10 +233,10 @@
                         <div v-if="!isGroupEmpty(group.id) && isGroupExpanded(group.id)" class="episode-children episode-list">
                           <div v-for="episode in episodesForGroup(group.id)" :key="episode.id" class="episode-tree-entry">
                             <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @contextmenu.prevent.stop="openRowMoreMenu($event, '.episode-more-button')" @click="selectEpisode(episode)">
-                              <div v-if="editingEpisodeId === episode.id" class="rename-inline" @click.stop @keydown.stop>
+                              <div v-if="editingEpisodeId === episode.id" class="rename-inline" data-rename-kind="episode" :data-rename-id="episode.id" @click.stop @keydown.stop>
                                 <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="输入集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
-                                <el-button class="rename-confirm" :icon="Check" size="small" type="success" @click="finishEpisodeRename(episode)" />
-                                <el-button class="rename-cancel" :icon="Close" size="small" type="danger" @click="cancelEpisodeRename(episode)" />
+                                <el-button class="rename-confirm" :icon="Check" size="small" type="success" aria-label="确认命名" @click="finishEpisodeRename(episode)" />
+                                <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelEpisodeRename(episode)" />
                               </div>
                               <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
                               <el-dropdown trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
@@ -267,7 +267,9 @@
                       <section class="material-management-section">
                         <div class="material-management-heading-row">
                           <h4 class="material-management-heading">场景配置</h4>
-                          <el-button class="sidebar-row-action-button" :icon="Plus" type="primary" text size="small" aria-label="添加场景素材" @click="openEpisodeScriptDialog('materials')" />
+                          <div class="material-management-heading-actions">
+                            <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="添加场景素材" @click="openEpisodeScriptDialog('materials')" />
+                          </div>
                         </div>
                         <div class="material-management-list">
                           <div v-for="item in activeEpisode.scenes" :key="`scene-${item.name}`" class="material-management-item">
@@ -283,14 +285,26 @@
                       <section class="material-management-section">
                         <div class="material-management-heading-row">
                           <h4 class="material-management-heading">人物配置</h4>
-                          <el-button class="sidebar-row-action-button" :icon="Plus" type="primary" text size="small" aria-label="添加人物素材" @click="openEpisodeScriptDialog('materials')" />
+                          <div class="material-management-heading-actions">
+                            <el-tooltip content="智能识别" placement="top">
+                              <el-button
+                                class="sidebar-row-action-button"
+                                :icon="Search"
+                                text
+                                size="small"
+                                aria-label="智能识别"
+                                @click="recognizeCharacterDescriptionsFromClipboard"
+                              />
+                            </el-tooltip>
+                            <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="添加人物素材" @click="openEpisodeScriptDialog('materials')" />
+                          </div>
                         </div>
                         <div class="material-management-list">
-                          <div v-for="item in activeEpisode.characters" :key="`character-${item}`" class="material-management-item">
-                            <span class="material-management-name" :class="{ 'is-used': isCharacterUsed(item) }">{{ item }}</span>
+                          <div v-for="item in activeEpisode.characters" :key="`character-${item.name}`" class="material-management-item">
+                            <span class="material-management-name" :class="{ 'is-used': isCharacterUsed(item.name) }">{{ item.name }}</span>
                             <div class="material-management-actions">
-                              <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改人物素材" @click="openMaterialEditDialog('characters', item)" />
-                              <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除人物素材" @click="confirmRemoveMaterial('characters', item)" />
+                              <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改人物素材" @click="openMaterialEditDialog('characters', item.name)" />
+                              <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除人物素材" @click="confirmRemoveMaterial('characters', item.name)" />
                             </div>
                           </div>
                           <div v-if="!activeEpisode.characters.length" class="material-management-empty">暂无人物素材</div>
@@ -571,11 +585,21 @@
                           type="primary"
                           title="复制人物配置"
                           aria-label="复制人物配置"
-                          :disabled="!composeCharacterSettings(shot)"
+                          :disabled="!composeCharacterSettings(shot, activeEpisode.characters)"
                           @click="copyCharacterSettings(shot)"
                         />
                       </div>
-                      <el-button :icon="Plus" text type="primary" @click="addCharacterToShot(shot)">添加人物</el-button>
+                      <el-dropdown trigger="click" @command="addCharacterToShot(shot, $event)">
+                        <el-button :icon="Plus" text type="primary">添加人物</el-button>
+                        <template #dropdown>
+                          <el-dropdown-menu>
+                            <el-dropdown-item v-for="item in availableCharacterAssets(shot)" :key="item.name" :command="item.name">
+                              {{ item.name }}
+                            </el-dropdown-item>
+                            <el-dropdown-item v-if="!availableCharacterAssets(shot).length" disabled>暂无可添加的人物素材</el-dropdown-item>
+                          </el-dropdown-menu>
+                        </template>
+                      </el-dropdown>
                     </div>
                     <VueDraggable
                       v-model="shot.characters"
@@ -595,22 +619,33 @@
                         aria-label="拖拽排序"
                       />
                       <div class="character-identity-controls">
-                        <el-select v-model="character.name" placeholder="选择人物" filterable>
-                          <el-option
-                            v-for="item in activeEpisode.characters"
-                            :key="item"
-                            :label="item"
-                            :value="item"
-                            :disabled="isCharacterOptionDisabled(shot, character.id, item)"
-                          />
-                        </el-select>
-                        <el-button
-                          :type="!shot.thirtySecondMode && isVoiceOverflow(shot) && character.includeVoice ? 'danger' : character.includeVoice ? 'primary' : undefined"
-                          :icon="character.includeVoice ? Microphone : Mute"
-                          :title="character.includeVoice ? '关闭音色' : '开启音色'"
-                          :aria-label="character.includeVoice ? '关闭音色' : '开启音色'"
-                          @click="character.includeVoice = !character.includeVoice"
-                        />
+                        <el-input :model-value="character.name" class="character-name-input" readonly aria-label="人物名称">
+                          <template #prefix>
+                            <el-tooltip
+                              :content="characterAppearanceDescription(character.name)"
+                              :disabled="!characterAppearanceDescription(character.name)"
+                              placement="top"
+                              popper-class="character-appearance-tooltip"
+                            >
+                              <el-icon
+                                class="character-appearance-icon"
+                                :class="{ 'has-description': Boolean(characterAppearanceDescription(character.name)) }"
+                                :aria-label="characterAppearanceDescription(character.name) ? '查看形象描述' : '暂无形象描述'"
+                              >
+                                <component :is="characterAppearanceDescription(character.name) ? UserFilled : User" />
+                              </el-icon>
+                            </el-tooltip>
+                          </template>
+                          <template #append>
+                            <el-button
+                              :type="!shot.thirtySecondMode && isVoiceOverflow(shot) && character.includeVoice ? 'danger' : character.includeVoice ? 'primary' : undefined"
+                              :icon="character.includeVoice ? Microphone : Mute"
+                              :title="character.includeVoice ? '关闭音色' : '开启音色'"
+                              :aria-label="character.includeVoice ? '关闭音色' : '开启音色'"
+                              @click="character.includeVoice = !character.includeVoice"
+                            />
+                          </template>
+                        </el-input>
                       </div>
                       <el-input
                         v-model="character.statusText"
@@ -1153,8 +1188,8 @@
                     <template v-if="activeEpisode">
                       <div v-if="activeEpisode.characters.length" class="episode-script-current-material-row">
                         <div class="episode-script-current-material-tags">
-                          <el-tag v-for="character in activeEpisode.characters" :key="character" size="small" effect="plain">
-                            <span class="episode-script-current-material-tag-text">{{ character }}</span>
+                          <el-tag v-for="character in activeEpisode.characters" :key="character.name" size="small" effect="plain">
+                            <span class="episode-script-current-material-tag-text">{{ character.name }}</span>
                           </el-tag>
                         </div>
                       </div>
@@ -1303,6 +1338,15 @@
               @keyup.enter="confirmMaterialDialog"
             />
           </el-form-item>
+          <el-form-item v-if="materialDialogMode === 'edit' && editingMaterial?.kind === 'characters'" label="形象描述">
+            <el-input
+              v-model="materialCharacterAppearanceDraft"
+              type="textarea"
+              :rows="4"
+              resize="vertical"
+              placeholder="输入人物的外貌、服装或造型描述（选填）"
+            />
+          </el-form-item>
           <el-form-item v-if="shouldShowMaterialScenes" label="场景">
             <div class="material-scene-list">
               <div v-for="(scene, index) in materialSceneDrafts" :key="index" class="material-scene-row">
@@ -1360,10 +1404,11 @@ import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
-import { ArrowDown, ArrowRight, Calendar, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, DocumentAdd, DocumentChecked, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight, Calendar, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, DocumentAdd, DocumentChecked, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import {
   createCharacterConfig,
+  createCharacterAsset,
   createEpisode,
   createEpisodeGroup,
   createEpisodeProductionData,
@@ -1373,6 +1418,7 @@ import {
   createSceneAsset,
   createSceneConfig,
   createShot,
+  normalizeCharacterAssets,
 } from './defaults'
 import {
   buildDetectedCharacters,
@@ -1441,6 +1487,10 @@ type MaterialAddResult = {
   added: number
   skipped: number
 }
+type CharacterDescriptionImport = {
+  name: string
+  statusText: string
+}
 type MaterialDialogMode = 'add' | 'edit'
 type SidebarManagementTab = 'scripts' | 'materials'
 type EpisodeScriptTab = 'materials' | 'shots' | 'dialogue'
@@ -1500,6 +1550,7 @@ const isDarkMode = ref(document.documentElement.classList.contains('dark'))
 const materialDialogMode = ref<MaterialDialogMode>('add')
 const editingMaterial = ref<EditingMaterial | null>(null)
 const materialCharacterDraft = ref('')
+const materialCharacterAppearanceDraft = ref('')
 const materialSceneDrafts = ref<MaterialSceneDraft[]>(createMaterialSceneDrafts())
 const materialSceneTransitionsReady = ref(false)
 const batchShotSegments = ref<BatchShotSegment[]>([])
@@ -2513,9 +2564,27 @@ function cancelGroupRename(group: { title: string }) {
   finishGroupRename()
 }
 
+function focusRenameInput(kind: 'episode' | 'group', id: string, selectText: boolean) {
+  void nextTick(() => {
+    requestAnimationFrame(() => {
+      const container = Array.from(document.querySelectorAll<HTMLElement>('.rename-inline')).find(
+        (element) => element.dataset.renameKind === kind && element.dataset.renameId === id,
+      )
+      const input = container?.querySelector<HTMLInputElement>('.el-input__inner')
+
+      input?.focus()
+
+      if (selectText) {
+        input?.select()
+      }
+    })
+  })
+}
+
 function startGroupRename(group: EpisodeGroup) {
   editingGroupOriginalTitle.value = group.title
   editingGroupId.value = group.id
+  focusRenameInput('group', group.id, true)
 }
 
 function addEpisodeGroup() {
@@ -2525,6 +2594,7 @@ function addEpisodeGroup() {
   expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, myEpisodesTreeId, group.id]))
   editingGroupOriginalTitle.value = group.title
   editingGroupId.value = group.id
+  focusRenameInput('group', group.id, false)
 }
 
 function setScriptHighlightRef(id: string, element: unknown) {
@@ -2838,6 +2908,7 @@ function handleEpisodeCommand(command: string | { action: 'move'; groupId: strin
     editingEpisodeOriginalTitle.value = episode.title
     editingEpisodeNumber.value = getEpisodeNumberDraft(episode.title)
     editingEpisodeId.value = episode.id
+    focusRenameInput('episode', episode.id, true)
     return
   }
 
@@ -2962,7 +3033,10 @@ function cloneEpisodeMaterials(sourceEpisodeId: string) {
     return
   }
 
-  const characters = sourceEpisode.characters.filter((character) => !targetEpisode.characters.includes(character))
+  const existingCharacterNames = new Set(targetEpisode.characters.map((character) => character.name))
+  const characters = sourceEpisode.characters
+    .filter((character) => !existingCharacterNames.has(character.name))
+    .map((character) => createCharacterAsset(character.name, character.appearanceDescription))
   const existingSceneNames = new Set(targetEpisode.scenes.map((scene) => scene.name))
   const scenes = sourceEpisode.scenes
     .filter((scene) => !existingSceneNames.has(scene.name))
@@ -3025,6 +3099,7 @@ function createMaterialSceneDrafts(count = 1) {
 
 function resetMaterialDrafts(sceneCount = 1) {
   materialCharacterDraft.value = ''
+  materialCharacterAppearanceDraft.value = ''
   materialSceneDrafts.value = createMaterialSceneDrafts(sceneCount)
 }
 
@@ -3102,10 +3177,17 @@ function openMaterialEditDialog(kind: MaterialKind, value: string) {
   }
 
   if (kind === 'characters') {
+    const character = episode.characters.find((item) => item.name === value)
+
+    if (!character) {
+      return
+    }
+
     materialDialogMode.value = 'edit'
     editingMaterial.value = { kind, value }
     resetMaterialDrafts()
-    materialCharacterDraft.value = value
+    materialCharacterDraft.value = character.name
+    materialCharacterAppearanceDraft.value = character.appearanceDescription
   } else {
     const scene = episode.scenes.find((item) => item.name === value)
 
@@ -3138,12 +3220,12 @@ function commitMaterialEdit() {
       return false
     }
 
-    if (nextName !== editing.value && episode.characters.includes(nextName)) {
+    if (nextName !== editing.value && episode.characters.some((character) => character.name === nextName)) {
       notify.warning('本集已存在同名人物素材')
       return false
     }
 
-    renameCharacterMaterial(editing.value, nextName)
+    updateCharacterMaterial(editing.value, nextName, materialCharacterAppearanceDraft.value)
     return true
   }
 
@@ -3168,14 +3250,21 @@ function commitMaterialEdit() {
   return true
 }
 
-function renameCharacterMaterial(oldName: string, nextName: string) {
+function updateCharacterMaterial(oldName: string, nextName: string, appearanceDescription: string) {
   const episode = activeEpisode.value
 
   if (!episode) {
     return
   }
 
-  episode.characters = episode.characters.map((name) => name === oldName ? nextName : name)
+  const characterAsset = episode.characters.find((character) => character.name === oldName)
+
+  if (!characterAsset) {
+    return
+  }
+
+  characterAsset.name = nextName
+  characterAsset.appearanceDescription = appearanceDescription.trim()
   episode.shots.forEach((shot) => {
     shot.characters.forEach((character) => {
       if (character.name === oldName) {
@@ -3183,6 +3272,147 @@ function renameCharacterMaterial(oldName: string, nextName: string) {
       }
     })
   })
+}
+
+function parseCharacterDescriptionClipboard(text: string): CharacterDescriptionImport[] {
+  const normalizedText = text.replace(/\u00a0/g, ' ').trim()
+
+  if (!normalizedText) {
+    throw new Error('剪切板内容为空')
+  }
+
+  if (normalizedText.startsWith('{') || normalizedText.startsWith('[')) {
+    let value: unknown
+
+    try {
+      value = JSON.parse(normalizedText)
+    } catch {
+      try {
+        value = JSON.parse(`[${normalizedText.replace(/,\s*$/, '')}]`)
+      } catch {
+        throw new Error('JSON 格式无效')
+      }
+    }
+
+    const entries = Array.isArray(value) ? value : [value]
+
+    return entries.map((entry, index) => {
+      if (!entry || typeof entry !== 'object') {
+        throw new Error(`JSON 第 ${index + 1} 项格式无效`)
+      }
+
+      const item = entry as { name?: unknown; statusText?: unknown }
+      const name = typeof item.name === 'string' ? item.name.trim() : ''
+      const statusText = typeof item.statusText === 'string' ? item.statusText.trim() : ''
+
+      if (!name || !statusText) {
+        throw new Error(`JSON 第 ${index + 1} 项缺少 name 或 statusText`)
+      }
+
+      return { name, statusText }
+    })
+  }
+
+  return normalizedText.split(/\r?\n/).filter((line) => line.trim()).map((line, index) => {
+    const separatorIndex = line.search(/[,，]/)
+
+    if (separatorIndex < 0) {
+      throw new Error(`CSV 第 ${index + 1} 行缺少逗号`)
+    }
+
+    const name = trimCsvCell(line.slice(0, separatorIndex))
+    const statusText = trimCsvCell(line.slice(separatorIndex + 1))
+
+    if (!name || !statusText) {
+      throw new Error(`CSV 第 ${index + 1} 行缺少姓名或描述`)
+    }
+
+    return { name, statusText }
+  })
+}
+
+function trimCsvCell(value: string) {
+  const trimmed = value.trim()
+
+  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1).replace(/""/g, '"').trim()
+  }
+
+  return trimmed
+}
+
+function formatRecognitionNames(names: string[]) {
+  const visibleNames = names.slice(0, 4).join('、')
+  return names.length > 4 ? `${visibleNames} 等 ${names.length} 项` : visibleNames
+}
+
+async function recognizeCharacterDescriptionsFromClipboard() {
+  const episode = activeEpisode.value
+
+  if (!episode?.characters.length) {
+    notify.info('本集暂无人物素材')
+    return
+  }
+
+  if (!window.isSecureContext || !navigator.clipboard?.readText) {
+    notify.error('当前环境不支持读取剪切板，请使用 HTTPS 或 localhost')
+    return
+  }
+
+  let clipboardText = ''
+
+  try {
+    clipboardText = await navigator.clipboard.readText()
+  } catch {
+    notify.error('无法读取剪切板，请允许浏览器访问剪切板后重试')
+    return
+  }
+
+  let imports: CharacterDescriptionImport[]
+
+  try {
+    imports = parseCharacterDescriptionClipboard(clipboardText)
+  } catch (error) {
+    notify.warning(error instanceof Error ? error.message : '无法识别剪切板内容')
+    return
+  }
+
+  const updatedNames = new Set<string>()
+  const unmatchedNames: string[] = []
+  const ambiguousNames: string[] = []
+
+  imports.forEach((item) => {
+    const exactMatch = episode.characters.find((character) => character.name.trim() === item.name)
+    const normalizedName = normalizeCharacterNameForMatch(item.name)
+    const normalizedMatches = exactMatch ? [] : episode.characters.filter(
+      (character) => normalizeCharacterNameForMatch(character.name) === normalizedName,
+    )
+    const character = exactMatch ?? (normalizedMatches.length === 1 ? normalizedMatches[0] : null)
+
+    if (character) {
+      character.appearanceDescription = item.statusText
+      updatedNames.add(character.name)
+    } else if (normalizedMatches.length > 1) {
+      ambiguousNames.push(item.name)
+    } else {
+      unmatchedNames.push(item.name)
+    }
+  })
+
+  if (updatedNames.size) {
+    notify.success(`已识别并更新 ${updatedNames.size} 个人物形象描述`)
+  }
+
+  const issues = [
+    unmatchedNames.length ? `未匹配：${formatRecognitionNames(unmatchedNames)}` : '',
+    ambiguousNames.length ? `存在同名歧义：${formatRecognitionNames(ambiguousNames)}` : '',
+  ].filter(Boolean)
+
+  if (issues.length) {
+    notify.warning(issues.join('；'))
+  } else if (!updatedNames.size) {
+    notify.info('未识别到可更新的人物描述')
+  }
 }
 
 function renameSceneMaterial(oldName: string, nextScene: MaterialSceneDraft) {
@@ -3285,6 +3515,7 @@ function addEpisode() {
   editingEpisodeOriginalTitle.value = ''
   editingEpisodeNumber.value = ''
   editingEpisodeId.value = episode.id
+  focusRenameInput('episode', episode.id, false)
 }
 
 function addEpisodeToGroup(groupId: string) {
@@ -3397,7 +3628,7 @@ function batchShotNumber(segment: BatchShotSegment, index: number) {
 }
 
 function batchShotMatchedCharacterCount(text: string) {
-  return detectCharacters(text, activeEpisode.value?.characters ?? []).length
+  return detectCharacters(text, activeEpisode.value?.characters.map((character) => character.name) ?? []).length
 }
 
 function applyUnitSceneToEmptyShot(episode: Episode, shot: Shot, unitNumber: number, sceneDrafts: MaterialSceneDraft[]) {
@@ -3552,9 +3783,10 @@ function addCharacterMaterials(episode: Episode, value: string): MaterialAddResu
     return { added: 0, skipped: 0 }
   }
 
-  const added = items.filter((item) => !episode.characters.includes(item))
+  const existingNames = new Set(episode.characters.map((character) => character.name))
+  const added = items.filter((item) => !existingNames.has(item))
 
-  episode.characters.push(...added)
+  episode.characters.push(...added.map((name) => createCharacterAsset(name)))
 
   return {
     added: added.length,
@@ -3610,7 +3842,7 @@ function removeMaterial(kind: MaterialKind, value: string) {
   }
 
   if (kind === 'characters') {
-    episode.characters = episode.characters.filter((item) => item !== value)
+    episode.characters = episode.characters.filter((item) => item.name !== value)
     return
   }
 
@@ -3656,15 +3888,21 @@ function removeSceneFromShot(shot: Shot, id: string) {
   }
 }
 
-function addCharacterToShot(shot: Shot) {
-  const available = activeEpisode.value?.characters.filter((name) => !shot.characters.some((character) => character.name === name)) ?? []
+function availableCharacterAssets(shot: Shot) {
+  return activeEpisode.value?.characters.filter(
+    (asset) => !shot.characters.some((character) => character.name === asset.name),
+  ) ?? []
+}
 
-  if (!available.length) {
+function addCharacterToShot(shot: Shot, name: string) {
+  const asset = availableCharacterAssets(shot).find((character) => character.name === name)
+
+  if (!asset) {
     notify.info('暂无可添加的人物素材')
     return
   }
 
-  shot.characters.push(createCharacterConfig(available.length === 1 ? available[0] : ''))
+  shot.characters.push(createCharacterConfig(asset.name))
 }
 
 function removeCharacterFromShot(shot: Shot, id: string) {
@@ -3681,8 +3919,8 @@ function hideConfigRemove(id: string) {
   }
 }
 
-function isCharacterOptionDisabled(shot: Shot, currentId: string, name: string) {
-  return shot.characters.some((character) => character.id !== currentId && character.name === name)
+function characterAppearanceDescription(name: string) {
+  return activeEpisode.value?.characters.find((character) => character.name === name)?.appearanceDescription.trim() ?? ''
 }
 
 function isVoiceOverflow(shot: Shot) {
@@ -3695,7 +3933,7 @@ function hasConfiguredScenes(shot: Shot) {
 
 function timingCharacterNames(shot: Shot) {
   return Array.from(new Set([
-    ...(activeEpisode.value?.characters ?? []),
+    ...(activeEpisode.value?.characters.map((character) => character.name) ?? []),
     ...shot.characters.map((character) => character.name),
   ].map((name) => name.trim()).filter(Boolean)))
 }
@@ -3738,7 +3976,7 @@ function shotTimingAnalysis(shot: Shot): TimingAnalysis {
 }
 
 function batchTimingAnalysis(text: string) {
-  return analyzeTimingRange(text, activeEpisode.value?.characters ?? [], [])
+  return analyzeTimingRange(text, activeEpisode.value?.characters.map((character) => character.name) ?? [], [])
 }
 
 function formatTimingSeconds(seconds: number) {
@@ -4049,7 +4287,7 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
     return false
   }
 
-  const detected = detectCharacters(effectiveShotText(shot), episode.characters)
+  const detected = detectCharacters(effectiveShotText(shot), episode.characters.map((character) => character.name))
   shot.autoSyncNotice = null
 
   if (!detected.length) {
@@ -4617,6 +4855,7 @@ function promptFor(shot: Shot) {
     { ...shot, text: effectiveShotText(shot) },
     profileId,
     shotTimingAnalysis(shot).totalSeconds,
+    activeEpisode.value?.characters ?? [],
   )
 }
 
@@ -4785,7 +5024,7 @@ async function copySceneSettings(shot: Shot) {
 }
 
 async function copyCharacterSettings(shot: Shot) {
-  const copied = await copyText(composeCharacterSettings(shot))
+  const copied = await copyText(composeCharacterSettings(shot, activeEpisode.value?.characters ?? []))
 
   if (copied) {
     notify.success('已复制人物配置')
@@ -5290,7 +5529,7 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       : []
     const timingSegments = reconcileTimingSegments(
       text,
-      [...(Array.isArray(episode.characters) ? episode.characters : []), ...characters.map((character) => character.name)],
+      [...normalizeCharacterAssets(episode.characters).map((character) => character.name), ...characters.map((character) => character.name)],
       shot.timingSegments,
     )
 
@@ -5325,7 +5564,7 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
     title: episode.title || '导入单集',
     groupId,
     starred: Boolean(episode.starred),
-    characters: Array.isArray(episode.characters) ? episode.characters : [],
+    characters: normalizeCharacterAssets(episode.characters),
     scenes,
     props: [],
     productionData: normalizeEpisodeProductionData(episode.productionData),
