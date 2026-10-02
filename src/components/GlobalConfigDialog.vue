@@ -367,6 +367,7 @@ async function resetFromServer() {
     await ElMessageBox.confirm('将重新读取服务器初始配置并替换当前草稿；点击“保存”后生效。', '重置全局配置', {
       type: 'warning',
       confirmButtonText: '重置',
+      confirmButtonClass: 'button-spacing-left',
       cancelButtonText: '取消',
     })
   } catch {
@@ -406,6 +407,7 @@ async function canDiscardChanges() {
     await ElMessageBox.confirm('设置中存在尚未保存的修改，确认放弃？', '放弃修改', {
       type: 'warning',
       confirmButtonText: '放弃修改',
+      confirmButtonClass: 'button-spacing-left',
       cancelButtonText: '继续编辑',
     })
     return true

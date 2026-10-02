@@ -182,6 +182,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
           shot.text,
           [...episode.characters.map((character) => character.name), ...shot.characters.map((character) => character.name)],
           shot.timingSegments,
+          shot.firstFrameMode,
         )
         shot.review = normalizePromptReview(shot.review)
       })

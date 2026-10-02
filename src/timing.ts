@@ -1,3 +1,4 @@
+import { parseFirstFrameText } from './firstFrame'
 import type {
   ActionTimingSegment,
   DialogueSpeechRate,
@@ -58,7 +59,9 @@ interface ParsedTimingSegment {
   end: number
 }
 
-export function parseTimingSegments(text: string, characterNames: string[]): ParsedTimingSegment[] {
+export function parseTimingSegments(text: string, characterNames: string[], firstFrameMode = false): ParsedTimingSegment[] {
+  const firstFrame = firstFrameMode ? parseFirstFrameText(text) : null
+  if (firstFrame) text = firstFrame.timingText
   const names = normalizeCharacterNames(characterNames)
   const voiceMarker = '(?:[oO][sS]|[vV][oO])'
   const speakerPattern = names.length
@@ -114,7 +117,16 @@ export function parseTimingSegments(text: string, characterNames: string[]): Par
     lineStart = lineEnd + 1
   }
 
-  return result
+  const excluded = firstFrame?.range
+  if (!excluded) return result
+  return result.flatMap((segment) => {
+    if (segment.end <= excluded.start || segment.start >= excluded.end) return [segment]
+    return [
+      trimRange(text, segment.start, Math.min(segment.end, excluded.start)),
+      trimRange(text, Math.max(segment.start, excluded.end), segment.end),
+    ].filter((range) => range.start < range.end)
+      .map((range) => ({ ...segment, ...range, sourceText: text.slice(range.start, range.end) }))
+  })
 }
 
 function normalizeDialogueSegment(value: Partial<DialogueTimingSegment>, sourceText = ''): DialogueTimingSegment {
@@ -160,8 +172,9 @@ export function reconcileTimingSegments(
   text: string,
   characterNames: string[],
   existingValue: unknown,
+  firstFrameMode = false,
 ): ShotTimingSegment[] {
-  const parsed = parseTimingSegments(text, characterNames)
+  const parsed = parseTimingSegments(text, characterNames, firstFrameMode)
   const existing = normalizeTimingSegments(existingValue)
   const used = new Set<number>()
   const matches = new Map<number, ShotTimingSegment>()
@@ -206,9 +219,10 @@ export function resolveTimingSegments(
   text: string,
   characterNames: string[],
   existingValue: unknown,
+  firstFrameMode = false,
 ): ResolvedTimingSegment[] {
-  const parsed = parseTimingSegments(text, characterNames)
-  const configs = reconcileTimingSegments(text, characterNames, existingValue)
+  const parsed = parseTimingSegments(text, characterNames, firstFrameMode)
+  const configs = reconcileTimingSegments(text, characterNames, existingValue, firstFrameMode)
   return parsed.map((segment, index) => ({
     ...segment,
     id: configs[index].id,
@@ -281,18 +295,20 @@ export function analyzeTimingRange(
   timingSegments: unknown,
   rangeStart = 0,
   rangeEnd = text.length,
+  firstFrameMode = false,
 ): TimingAnalysis {
+  const timingText = firstFrameMode ? parseFirstFrameText(text).timingText : text
   const start = Math.max(0, Math.min(text.length, rangeStart))
   const end = Math.max(start, Math.min(text.length, rangeEnd))
   const analysis = createEmptyTimingAnalysis()
-  analysis.totalCharacters = countNonPunctuationCharacters(text.slice(start, end))
+  analysis.totalCharacters = countNonPunctuationCharacters(timingText.slice(start, end))
 
-  resolveTimingSegments(text, characterNames, timingSegments).forEach((segment) => {
+  resolveTimingSegments(text, characterNames, timingSegments, firstFrameMode).forEach((segment) => {
     const overlapStart = Math.max(start, segment.start)
     const overlapEnd = Math.min(end, segment.end)
     if (overlapStart >= overlapEnd) return
 
-    const overlapText = text.slice(overlapStart, overlapEnd)
+    const overlapText = timingText.slice(overlapStart, overlapEnd)
     if (segment.config.kind === 'dialogue') {
       const spokenText = spokenTextInRange(
         segment.sourceText,

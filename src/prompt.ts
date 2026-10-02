@@ -1,5 +1,6 @@
 import { createCharacterConfig } from './defaults'
 import { activePromptProfile } from './config'
+import { parseFirstFrameText } from './firstFrame'
 import type {
   CharacterConfig,
   CharacterAsset,
@@ -8,12 +9,12 @@ import type {
   Shot,
 } from './types'
 
-function firstFrameShotPrompt(estimatedSeconds = 30) {
+function firstFrameShotPrompt(content: string, estimatedSeconds = 30) {
   const endSecond = Number.isFinite(estimatedSeconds)
     ? Math.min(30, Math.max(1, Math.round(estimatedSeconds)))
     : 30
   return `00-01秒（景别只能使用远景）
-\@
+${content}
 
 01-${endSecond}秒（景别不限）`
 }
@@ -108,6 +109,7 @@ export function composePrompt(
   characterAssets: CharacterAsset[] = [],
 ) {
   const profile = activePromptProfile(globalConfig, promptProfileId)
+  const firstFrame = shot.firstFrameMode ? parseFirstFrameText(shot.text) : null
   const characterCount = shot.characters.filter((character) => character.name.trim()).length
   const sections = [
     ['一、基础设定', joinPromptBlocks([
@@ -120,9 +122,9 @@ export function composePrompt(
       profile.sceneRoleSuffix,
     ])],
     ['三、分镜详情', joinPromptBlocks([
-      shot.firstFrameMode ? firstFrameShotPrompt(estimatedSeconds) : '',
+      firstFrame ? firstFrameShotPrompt(firstFrame.content, estimatedSeconds) : '',
       profile.shotPrefix,
-      shot.text,
+      firstFrame ? firstFrame.detailText : shot.text,
     ])],
   ]
 

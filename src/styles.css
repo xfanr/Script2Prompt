@@ -604,8 +604,12 @@ html.dark .episode-panel {
   background-color: var(--el-fill-color-darker) !important;
 }
 
-.episode-tree .el-button + .el-button {
+:root .el-button + .el-button {
   margin-left: 0;
+}
+
+:root .el-button.button-spacing-left {
+  margin-left: 12px;
 }
 
 .episode-star {
@@ -641,9 +645,6 @@ html.dark .episode-panel {
   border-radius: var(--el-border-radius-base);
 }
 
-.rename-inline .el-button + .el-button {
-  margin-left: 0;
-}
 
 .sidebar-footer-actions {
   display: grid;
@@ -681,9 +682,6 @@ html.dark .episode-panel {
   font-size: 16px;
 }
 
-.sidebar-footer-actions .el-button + .el-button {
-  margin-left: 0;
-}
 
 .sidebar-footer-actions .el-button:hover,
 .sidebar-footer-actions .el-button:focus-visible {
@@ -915,9 +913,6 @@ html.dark .episode-panel {
   white-space: nowrap;
 }
 
-.stage-page-actions .el-button + .el-button {
-  margin-left: 0;
-}
 
 .stage-action-group {
   display: inline-flex;
@@ -1021,9 +1016,6 @@ html.dark .episode-panel {
   margin-left: auto;
 }
 
-.material-management-heading-actions .el-button + .el-button {
-  margin-left: 0;
-}
 
 .material-management-list {
   display: flex;
@@ -1081,9 +1073,6 @@ html.dark .episode-panel {
   pointer-events: auto;
 }
 
-.material-management-actions .el-button + .el-button {
-  margin-left: 0;
-}
 
 .material-management-empty {
   padding: 8px 0;
@@ -1341,9 +1330,6 @@ html.dark .episode-panel {
   padding: 0;
 }
 
-.shot-tools .el-button + .el-button {
-  margin-left: 0;
-}
 
 .shot-grid {
   display: grid;
@@ -1401,9 +1387,6 @@ html.dark .episode-panel {
   gap: 8px;
 }
 
-.script-title-actions .el-button + .el-button {
-  margin-left: 0;
-}
 
 .title-copy-button {
   width: 24px;
@@ -1412,6 +1395,7 @@ html.dark .episode-panel {
   flex: 0 0 auto;
   padding: 0;
 }
+
 
 .script-title-stats {
   display: inline-flex;
@@ -1744,7 +1728,6 @@ html.dark .episode-panel {
 .config-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   padding-bottom: 12px;
   border-bottom: 1px dashed var(--el-border-color-lighter);
 }
@@ -2583,9 +2566,6 @@ html.dark .episode-panel {
   gap: 10px;
 }
 
-.global-config-footer .el-button + .el-button {
-  margin-left: 0;
-}
 
 .detection-compare {
   display: grid;

@@ -4,7 +4,7 @@
       <el-alert v-if="saveError" class="storage-save-error" type="error" :closable="false" show-icon title="更改尚未保存">
         <div>{{ saveError }}</div>
         <el-button size="small" @click="saveNow">重试保存</el-button>
-        <el-button size="small" @click="exportAllEpisodes">导出备份</el-button>
+        <el-button class="button-spacing-left" size="small" @click="exportAllEpisodes">导出备份</el-button>
       </el-alert>
       <input ref="fileInputRef" class="file-input" type="file" accept="application/json,.json" multiple @change="importEpisode" />
 
@@ -430,7 +430,7 @@
                         @click="copyShotDetail(shot)"
                       />
                       <div class="script-title-actions">
-                        <el-button :icon="Search" text type="primary" @click="detectShotCharacters(shot)">识别</el-button>
+                        <el-button class="title-copy-button" :icon="Search" text type="primary" title="识别人物" aria-label="识别人物" @click="detectShotCharacters(shot)" />
                       </div>
                     </div>
                     <div class="script-title-stats">
@@ -541,7 +541,7 @@
                           <el-popconfirm v-else title="请选择同名场景状态的同步范围">
                             <template #actions="{ confirm }">
                               <el-button size="small" @click="syncSceneStatus(shot, scene, 'unit'); confirm($event)">本单元</el-button>
-                              <el-button size="small" type="primary" @click="syncSceneStatus(shot, scene, 'all'); confirm($event)">全部</el-button>
+                              <el-button class="button-spacing-left" size="small" type="primary" @click="syncSceneStatus(shot, scene, 'all'); confirm($event)">全部</el-button>
                             </template>
                             <template #reference>
                               <el-icon class="scene-status-suffix-icon" title="同步同名场景状态" aria-label="同步同名场景状态"><Refresh /></el-icon>
@@ -657,7 +657,7 @@
                           <el-popconfirm v-else title="请选择同名人物状态的同步范围">
                             <template #actions="{ confirm }">
                               <el-button size="small" @click="syncCharacterStatus(shot, character, 'unit'); confirm($event)">本单元</el-button>
-                              <el-button size="small" type="primary" @click="syncCharacterStatus(shot, character, 'all'); confirm($event)">全部</el-button>
+                              <el-button class="button-spacing-left" size="small" type="primary" @click="syncCharacterStatus(shot, character, 'all'); confirm($event)">全部</el-button>
                             </template>
                             <template #reference>
                               <el-icon class="status-sync-suffix-icon" title="同步同名人物状态" aria-label="同步同名人物状态"><Refresh /></el-icon>
@@ -837,7 +837,7 @@
         </div>
         <template #footer>
           <el-button :disabled="!detectionMergeChanged()" @click="mergeActiveDetection">合并人物</el-button>
-          <el-button type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换人物</el-button>
+          <el-button class="button-spacing-left" type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换人物</el-button>
         </template>
       </el-dialog>
       <el-dialog v-model="reviewDialogVisible" :title="reviewDialogTitle" width="820px" :show-close="false" class="review-dialog" @closed="activeReviewShot = null">
@@ -910,7 +910,7 @@
         </el-form>
         <template #footer>
           <el-button @click="clearReviewDialog">清空</el-button>
-          <el-button type="primary" @click="saveReviewDialog">保存</el-button>
+          <el-button class="button-spacing-left" type="primary" @click="saveReviewDialog">保存</el-button>
         </template>
       </el-dialog>
       <el-dialog v-model="reviewSummaryVisible" :title="reviewSummaryTitle" width="820px" :show-close="false" class="review-summary-dialog" @closed="reviewSummaryEpisodeId = null">
@@ -1298,7 +1298,7 @@
           <div class="batch-shot-footer">
             <div v-if="episodeScriptActiveTab === 'materials'" class="batch-shot-footer-actions">
               <el-button @click="addEpisodeScriptMaterialsDirectly">直接添加</el-button>
-              <el-button type="primary" @click="continueFromEpisodeScriptMaterials">下一步</el-button>
+              <el-button class="button-spacing-left" type="primary" @click="continueFromEpisodeScriptMaterials">下一步</el-button>
             </div>
             <div v-else-if="episodeScriptActiveTab === 'shots'" class="batch-shot-footer-actions">
               <el-popconfirm
@@ -1322,7 +1322,7 @@
               >
                 {{ dialogueView === 'replaced' ? '原文' : '替换' }}
               </el-button>
-              <el-button type="primary" :disabled="!dialogueOutputDraft.trim()" @click="copyExtractedDialogue">复制台词</el-button>
+              <el-button class="button-spacing-left" type="primary" :disabled="!dialogueOutputDraft.trim()" @click="copyExtractedDialogue">复制台词</el-button>
             </div>
           </div>
         </template>
@@ -1416,7 +1416,7 @@
         />
         <template #footer>
           <el-button @click="characterPasteDialogVisible = false">取消</el-button>
-          <el-button type="primary" :disabled="!characterPasteDraft.trim()" @click="confirmCharacterPaste">识别</el-button>
+          <el-button class="button-spacing-left" type="primary" :disabled="!characterPasteDraft.trim()" @click="confirmCharacterPaste">识别</el-button>
         </template>
       </el-dialog>
   </el-config-provider>
@@ -2073,7 +2073,7 @@ async function confirmWebDavItems(items: TransferItem[], deleting = false) {
     await ElMessageBox.confirm(
       items.map((item) => `${item.title}（${item.path}）：${item.reason}`).join('\n'),
       deleting ? '确认删除云端分组' : '确认覆盖云端文件',
-      { type: 'warning', confirmButtonText: deleting ? '删除云端文件' : '覆盖列出的文件', cancelButtonText: '保留云端文件', customClass: 'webdav-confirm-dialog' },
+      { type: 'warning', confirmButtonClass: 'button-spacing-left', confirmButtonText: deleting ? '删除云端文件' : '覆盖列出的文件', cancelButtonText: '保留云端文件', customClass: 'webdav-confirm-dialog' },
     )
     return true
   } catch { return false }
@@ -2121,7 +2121,7 @@ async function downloadFromWebDav(settings: WebDavSettings) {
       await ElMessageBox.confirm(
         `将下载 ${downloaded.files.size - 2} 个分组及未分组内容，替换本地同 ID 分组和全局设置（提示词、数据收集、台词规则）。本地独有分组保留。是否继续？`,
         '从 WebDAV 下载',
-        { type: 'warning', confirmButtonText: '下载并替换', cancelButtonText: '取消' },
+        { type: 'warning', confirmButtonClass: 'button-spacing-left', confirmButtonText: '下载并替换', cancelButtonText: '取消' },
       )
     } catch { return }
     if (before !== canonicalJson({ groups: state.episodeGroups, episodes: state.episodes, config: state.globalConfig })) {
@@ -2149,7 +2149,7 @@ async function migrateWebDav(settings: WebDavSettings) {
       await ElMessageBox.confirm(
         `将旧文件“${settings.legacyFilename}”拆分为 ${files.size} 个文件，直接保存在当前同步目录：${client.settings.baseUrl}。旧文件与本地数据保留；目录中已有不同的新格式数据时停止迁移。是否继续？`,
         '迁移旧版 WebDAV 文件',
-        { type: 'warning', confirmButtonText: '迁移为多文件', cancelButtonText: '取消' },
+        { type: 'warning', confirmButtonClass: 'button-spacing-left', confirmButtonText: '迁移为多文件', cancelButtonText: '取消' },
       )
     } catch { return }
     const results = await migrateLegacyFiles(client, files, () => {})
@@ -2844,6 +2844,7 @@ watch(
       id: shot.id,
       text: shot.text,
       characterNames: shot.characters.map((character) => character.name),
+      firstFrameMode: shot.firstFrameMode,
     })),
   }),
   () => activeEpisode.value?.shots.forEach(syncShotTimingSegments),
@@ -2978,6 +2979,7 @@ async function handleGroupCommand(command: string, groupId: string) {
           await ElMessageBox.confirm(warning, '归档分组', {
             type: 'warning',
             confirmButtonText: '仍要归档',
+            confirmButtonClass: 'button-spacing-left',
             cancelButtonText: '取消',
           })
         } catch {
@@ -3014,6 +3016,7 @@ async function handleGroupCommand(command: string, groupId: string) {
     await ElMessageBox.confirm('删除剧集后，组内单集将移至“我的剧集”。', '删除剧集', {
       type: 'warning',
       confirmButtonText: '删除',
+      confirmButtonClass: 'button-spacing-left',
       cancelButtonText: '取消',
     })
   } catch {
@@ -3516,6 +3519,7 @@ async function confirmRemoveMaterial(kind: MaterialKind, value: string) {
       {
         type: 'warning',
         confirmButtonText: '删除',
+        confirmButtonClass: 'button-spacing-left',
         cancelButtonText: '取消',
       },
     )
@@ -3616,6 +3620,7 @@ async function deleteEpisodeById(id: string) {
     await ElMessageBox.confirm(`确认删除“${episode.title}”？`, '删除单集', {
       type: 'warning',
       confirmButtonText: '删除',
+      confirmButtonClass: 'button-spacing-left',
       cancelButtonText: '取消',
     })
   } catch {
@@ -4010,14 +4015,14 @@ function timingCharacterNames(shot: Shot) {
 }
 
 function syncShotTimingSegments(shot: Shot) {
-  const reconciled = reconcileTimingSegments(shot.text, timingCharacterNames(shot), shot.timingSegments)
+  const reconciled = reconcileTimingSegments(shot.text, timingCharacterNames(shot), shot.timingSegments, shot.firstFrameMode)
   if (JSON.stringify(reconciled) !== JSON.stringify(shot.timingSegments)) {
     shot.timingSegments = reconciled
   }
 }
 
 function sourceShotTimingAnalysis(shot: Shot, start = 0, end = shot.text.length) {
-  return analyzeTimingRange(shot.text, timingCharacterNames(shot), shot.timingSegments, start, end)
+  return analyzeTimingRange(shot.text, timingCharacterNames(shot), shot.timingSegments, start, end, shot.firstFrameMode)
 }
 
 function shotTimingAnalysis(shot: Shot): TimingAnalysis {
@@ -4167,7 +4172,7 @@ function highlightedShotText(shot: Shot) {
     return parts.join('')
   }
 
-  const resolved = resolveTimingSegments(shot.text, timingCharacterNames(shot), shot.timingSegments)
+  const resolved = resolveTimingSegments(shot.text, timingCharacterNames(shot), shot.timingSegments, shot.firstFrameMode)
   const highlightPrefix = (value: string) => value.split(/((?:os|vo)(?=\s*(?:（[^）\r\n]*）|\([^\)\r\n]*\))?\s*[：:]))/gi)
     .map((part, index) => index % 2
       ? `<span class="voice-marker">${escapeHtml(part)}</span>`
@@ -5421,6 +5426,7 @@ async function selectImportMode(): Promise<ImportMode | null> {
     await ElMessageBox.confirm('“全部替换”会清除现有分组和单集；“新旧合并”会跳过内容完全相同的单集。', '选择导入方式', {
       type: 'warning',
       confirmButtonText: '全部替换',
+      confirmButtonClass: 'button-spacing-left',
       cancelButtonText: '新旧合并',
       distinguishCancelAndClose: true,
     })
@@ -5609,6 +5615,7 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       text,
       [...normalizeCharacterAssets(episode.characters).map((character) => character.name), ...characters.map((character) => character.name)],
       shot.timingSegments,
+      Boolean(shot.firstFrameMode),
     )
 
     return {
