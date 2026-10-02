@@ -1394,6 +1394,31 @@
           <el-button type="primary" @click="confirmMaterialDialog">{{ materialDialogConfirmText }}</el-button>
         </template>
       </el-dialog>
+      <el-dialog
+        v-model="characterPasteDialogVisible"
+        title="智能识别"
+        width="560px"
+        :show-close="false"
+        class="character-paste-dialog"
+        @opened="focusCharacterPasteInput"
+        @closed="resetCharacterPasteDialog"
+      >
+        <p class="character-paste-hint">浏览器无法自动读取剪切板，请在下方按 Ctrl+V。粘贴后会立即识别 CSV 或 JSON 内容。</p>
+        <el-input
+          ref="characterPasteInputRef"
+          v-model="characterPasteDraft"
+          type="textarea"
+          :rows="10"
+          resize="vertical"
+          placeholder="在此粘贴人物姓名和形象描述"
+          aria-label="粘贴人物形象描述"
+          @paste="handleCharacterDescriptionPaste"
+        />
+        <template #footer>
+          <el-button @click="characterPasteDialogVisible = false">取消</el-button>
+          <el-button type="primary" :disabled="!characterPasteDraft.trim()" @click="confirmCharacterPaste">识别</el-button>
+        </template>
+      </el-dialog>
   </el-config-provider>
 </template>
 
@@ -1551,6 +1576,9 @@ const materialDialogMode = ref<MaterialDialogMode>('add')
 const editingMaterial = ref<EditingMaterial | null>(null)
 const materialCharacterDraft = ref('')
 const materialCharacterAppearanceDraft = ref('')
+const characterPasteDialogVisible = ref(false)
+const characterPasteDraft = ref('')
+const characterPasteInputRef = ref<{ focus: () => void } | null>(null)
 const materialSceneDrafts = ref<MaterialSceneDraft[]>(createMaterialSceneDrafts())
 const materialSceneTransitionsReady = ref(false)
 const batchShotSegments = ref<BatchShotSegment[]>([])
@@ -3346,35 +3374,21 @@ function formatRecognitionNames(names: string[]) {
   return names.length > 4 ? `${visibleNames} 等 ${names.length} 项` : visibleNames
 }
 
-async function recognizeCharacterDescriptionsFromClipboard() {
+function applyCharacterDescriptionText(text: string) {
   const episode = activeEpisode.value
 
   if (!episode?.characters.length) {
     notify.info('本集暂无人物素材')
-    return
-  }
-
-  if (!window.isSecureContext || !navigator.clipboard?.readText) {
-    notify.error('当前环境不支持读取剪切板，请使用 HTTPS 或 localhost')
-    return
-  }
-
-  let clipboardText = ''
-
-  try {
-    clipboardText = await navigator.clipboard.readText()
-  } catch {
-    notify.error('无法读取剪切板，请允许浏览器访问剪切板后重试')
-    return
+    return false
   }
 
   let imports: CharacterDescriptionImport[]
 
   try {
-    imports = parseCharacterDescriptionClipboard(clipboardText)
+    imports = parseCharacterDescriptionClipboard(text)
   } catch (error) {
     notify.warning(error instanceof Error ? error.message : '无法识别剪切板内容')
-    return
+    return false
   }
 
   const updatedNames = new Set<string>()
@@ -3413,6 +3427,63 @@ async function recognizeCharacterDescriptionsFromClipboard() {
   } else if (!updatedNames.size) {
     notify.info('未识别到可更新的人物描述')
   }
+
+  return true
+}
+
+function openCharacterPasteDialog() {
+  characterPasteDraft.value = ''
+  characterPasteDialogVisible.value = true
+}
+
+function focusCharacterPasteInput() {
+  void nextTick(() => {
+    requestAnimationFrame(() => characterPasteInputRef.value?.focus())
+  })
+}
+
+function resetCharacterPasteDialog() {
+  characterPasteDraft.value = ''
+}
+
+function handleCharacterDescriptionPaste(event: ClipboardEvent) {
+  const text = event.clipboardData?.getData('text/plain') ?? ''
+
+  if (!text) {
+    return
+  }
+
+  event.preventDefault()
+  characterPasteDraft.value = text
+
+  if (applyCharacterDescriptionText(text)) {
+    characterPasteDialogVisible.value = false
+  }
+}
+
+function confirmCharacterPaste() {
+  if (applyCharacterDescriptionText(characterPasteDraft.value)) {
+    characterPasteDialogVisible.value = false
+  }
+}
+
+async function recognizeCharacterDescriptionsFromClipboard() {
+  if (!activeEpisode.value?.characters.length) {
+    notify.info('本集暂无人物素材')
+    return
+  }
+
+  if (window.isSecureContext && navigator.clipboard?.readText) {
+    try {
+      const clipboardText = await navigator.clipboard.readText()
+      applyCharacterDescriptionText(clipboardText)
+      return
+    } catch {
+      // Fall back to a user-initiated paste when automatic clipboard access is unavailable.
+    }
+  }
+
+  openCharacterPasteDialog()
 }
 
 function renameSceneMaterial(oldName: string, nextScene: MaterialSceneDraft) {
@@ -4874,6 +4945,7 @@ function isEditableShortcutTarget(target: EventTarget | null) {
 
 function isShortcutBlocked() {
   return materialDialogVisible.value
+    || characterPasteDialogVisible.value
     || globalDialogVisible.value
     || detectionDialogVisible.value
     || reviewDialogVisible.value
@@ -5064,8 +5136,13 @@ async function copyText(text: string) {
   }
 }
 
+function preventBrowserContextMenu(event: MouseEvent) {
+  event.preventDefault()
+}
+
 onMounted(() => {
   window.addEventListener('keydown', handleShotNumberShortcut)
+  document.addEventListener('contextmenu', preventBrowserContextMenu)
   document.addEventListener('pointerdown', handleTimingPopoverPointerDown)
   window.addEventListener('keydown', handleTimingPopoverKeydown)
   window.addEventListener('blur', closeTimingPopover)
@@ -5073,6 +5150,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleShotNumberShortcut)
+  document.removeEventListener('contextmenu', preventBrowserContextMenu)
   document.removeEventListener('pointerdown', handleTimingPopoverPointerDown)
   window.removeEventListener('keydown', handleTimingPopoverKeydown)
   window.removeEventListener('blur', closeTimingPopover)
