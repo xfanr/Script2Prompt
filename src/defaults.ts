@@ -1,7 +1,7 @@
 import type { AppState, CharacterAsset, CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, ReviewNotePrefixOption, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
-export const APP_VERSION = 9
+export const APP_VERSION = 10
 
 export function createId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -199,13 +199,14 @@ export function createEpisode(index = 1, pointCost = 0): Episode {
 
 export function createInitialState(defaultGlobalConfig: GlobalConfig): AppState {
   const globalConfig = JSON.parse(JSON.stringify(defaultGlobalConfig)) as GlobalConfig
-  const episode = createEpisode(1, globalConfig.dataCollection.defaultPointCost)
+  const episode = createEpisode(1)
 
   return {
     version: APP_VERSION,
     shotViewMode: 'expanded',
     singleExpandedShotId: null,
     globalConfig,
+    pointInvoices: [],
     episodeGroups: [],
     episodes: [episode],
     activeEpisodeId: episode.id,

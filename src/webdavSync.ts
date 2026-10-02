@@ -174,6 +174,7 @@ export function legacySnapshotFiles(text: string, defaultConfig: GlobalConfig) {
   const state = normalizeAppState({
     ...createInitialState(defaultConfig), version: APP_VERSION,
     globalConfig: config, episodeGroups: payload.episodeGroups ?? [],
+    pointInvoices: payload.pointInvoices,
     episodes: payload.episodes ?? [payload.episode],
   }, defaultConfig)
   const originalEpisodes = payload.episodes ?? [payload.episode]

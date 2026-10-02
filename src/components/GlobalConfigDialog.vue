@@ -13,7 +13,6 @@
           <el-form class="global-config-form" label-position="top" :disabled="Boolean(webDavAction)">
             <el-form-item label="WebDAV 地址">
               <el-input v-model="webDavDraft.baseUrl" placeholder="/webdav/" clearable />
-              <div class="config-field-help">填写完整同步目录地址。设置和分组文件直接保存在此目录，不再追加目录名。</div>
             </el-form-item>
             <div class="webdav-credentials-grid">
               <el-form-item label="用户名">
@@ -67,27 +66,10 @@
       <el-tab-pane label="数据收集" name="data">
         <div class="global-config-scroll-pane">
           <el-form class="global-config-form" label-position="top">
-            <el-form-item label="推荐时长范围">
-              <div class="duration-range-config slider-range-config">
-                <span>{{ durationRangeDraft[0].toFixed(1) }}</span>
-                <el-slider v-model="durationRangeDraft" range :min="3" :max="25" :step="0.5" :format-tooltip="formatDurationTooltip" />
-                <span>{{ durationRangeDraft[1].toFixed(1) }}</span>
-              </div>
-            </el-form-item>
-            <el-form-item label="新建单集默认积分成本">
-              <el-input-number
-                v-model="draft.dataCollection.defaultPointCost"
-                class="global-config-number-input"
-                :min="0"
-                :precision="4"
-                :step="0.0001"
-                controls-position="right"
-              />
-            </el-form-item>
-            <el-form-item label="评分备注前缀">
+            <el-form-item>
               <div class="dialogue-rule-config">
                 <div class="dialogue-rule-heading">
-                  <span>分类与选项将组合为评分备注前缀。</span>
+                  <span>评分备注前缀</span>
                   <el-button :icon="Plus" text type="primary" @click="addReviewNotePrefixOption">添加选项</el-button>
                 </div>
                 <div v-if="!draft.dataCollection.reviewNotePrefixOptions.length" class="empty-note">暂无评分备注前缀</div>
@@ -107,10 +89,10 @@
       <el-tab-pane label="提取台词" name="dialogue">
         <div class="global-config-scroll-pane">
           <el-form class="global-config-form" label-position="top">
-            <el-form-item label="台词替换规则">
+            <el-form-item>
               <div class="dialogue-rule-config">
                 <div class="dialogue-rule-heading">
-                  <span>所有单集共用，保存后生效；替换内容留空时删除对应词语。</span>
+                  <span>台词替换规则</span>
                   <el-button :icon="Plus" text type="primary" @click="addDialogueReplacementRule">添加规则</el-button>
                 </div>
                 <div v-if="!draft.dialogueExtraction.replacementRules.length" class="empty-note">暂无替换规则</div>
@@ -204,16 +186,6 @@ const formattedWebDavSyncTime = computed(() => {
 
   const date = new Date(webDavDraft.value.lastSyncedAt)
   return Number.isNaN(date.getTime()) ? '尚未同步' : date.toLocaleString('zh-CN', { hour12: false })
-})
-const durationRangeDraft = computed<[number, number]>({
-  get: (): [number, number] => [
-    draft.value.dataCollection.recommendedDurationRange.min,
-    draft.value.dataCollection.recommendedDurationRange.max,
-  ],
-  set: (value: [number, number]) => {
-    const [min, max] = value
-    draft.value.dataCollection.recommendedDurationRange = { min, max }
-  },
 })
 
 watch(() => props.modelValue, (visible) => {
@@ -416,7 +388,4 @@ async function canDiscardChanges() {
   }
 }
 
-function formatDurationTooltip(value: number) {
-  return value.toFixed(1) + ' 秒'
-}
 </script>

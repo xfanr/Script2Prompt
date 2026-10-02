@@ -114,6 +114,31 @@ export interface EpisodeProductionData {
   productionDate: string
 }
 
+export interface PointEpisodeReference {
+  episodeId: string
+  episodeTitle: string
+  groupTitle: string
+}
+
+export interface PointUsageRecord {
+  id: string
+  date: string
+  points: number
+  episodes: PointEpisodeReference[]
+}
+
+export interface PointInvoice {
+  id: string
+  number: string
+  rechargeDate: string
+  producer: string
+  toolType: string
+  amount: number
+  initialPoints: number
+  receivedPoints: number
+  usages: PointUsageRecord[]
+}
+
 export interface DialogueTimingSegment {
   id: string
   kind: 'dialogue'
@@ -181,6 +206,7 @@ export interface AppState {
   shotViewMode: ShotViewMode
   singleExpandedShotId: string | null
   globalConfig: GlobalConfig
+  pointInvoices: PointInvoice[]
   episodeGroups: EpisodeGroup[]
   episodes: Episode[]
   activeEpisodeId: string
@@ -194,4 +220,5 @@ export interface ExportPayload {
   episodes?: Episode[]
   episodeGroups?: EpisodeGroup[]
   globalConfigSnapshot: GlobalConfig
+  pointInvoices?: PointInvoice[]
 }

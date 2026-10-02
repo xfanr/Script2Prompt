@@ -1,7 +1,8 @@
 import { normalizeGlobalConfig } from './config'
 import { APP_VERSION } from './defaults'
 import { normalizeAppState } from './stateNormalization'
-import type { AppState, Episode, EpisodeGroup, GlobalConfig } from './types'
+import { normalizePointInvoices } from './pointLedger'
+import type { AppState, Episode, EpisodeGroup, GlobalConfig, PointInvoice } from './types'
 
 export const FILE_FORMAT_VERSION = 1
 export interface SettingsFile {
@@ -9,6 +10,7 @@ export interface SettingsFile {
   appVersion: number
   kind: 'settings'
   globalConfig: GlobalConfig
+  pointInvoices?: PointInvoice[]
 }
 export interface GroupFile {
   formatVersion: 1
@@ -25,6 +27,7 @@ export function buildDataFiles(state: AppState): Map<string, DataFile> {
   files.set('settings.json', {
     formatVersion: FILE_FORMAT_VERSION, appVersion: APP_VERSION, kind: 'settings',
     globalConfig: state.globalConfig,
+    pointInvoices: state.pointInvoices,
   })
   for (const group of [null, ...state.episodeGroups]) {
     const { promptProfileId, ...metadata } = group ?? { promptProfileId: '' }
@@ -52,6 +55,7 @@ export function parseDataFile(text: string, path: string): DataFile {
       || !Number.isInteger(value.appVersion) || value.appVersion < 1 || value.appVersion > APP_VERSION) throw new Error()
     if (path === 'settings.json') {
       if (value.kind !== 'settings' || !normalizeGlobalConfig(value.globalConfig)) throw new Error()
+      normalizePointInvoices(value.pointInvoices)
       return value as unknown as SettingsFile
     }
     if (value.kind !== 'group' || !Array.isArray(value.episodes)) throw new Error()
@@ -107,7 +111,7 @@ export function assembleDataFiles(files: Map<string, DataFile>, ui: Pick<AppStat
       episodes.push(episode)
     }
   }
-  return normalizeAppState({ ...ui, version: APP_VERSION, globalConfig: settings.globalConfig, episodeGroups: groups, episodes }, settings.globalConfig)
+  return normalizeAppState({ ...ui, version: APP_VERSION, globalConfig: settings.globalConfig, pointInvoices: settings.pointInvoices, episodeGroups: groups, episodes }, settings.globalConfig)
 }
 
 export function mergeDownloadedFiles(local: AppState, downloaded: Map<string, DataFile>) {

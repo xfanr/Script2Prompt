@@ -44,9 +44,9 @@
   "dataCollection": {
     "recommendedDurationRange": {
       "min": 4,
-      "max": 21
+      "max": 15
     },
-    "defaultPointCost": 0.007,
+    "defaultPointCost": 0,
     "reviewNotePrefixOptions": [
       {
         "id": "review-model-scene",

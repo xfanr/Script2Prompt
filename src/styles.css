@@ -690,51 +690,22 @@ html.dark .episode-panel {
 }
 
 .sidebar-footer-actions .sidebar-footer-week-picker.el-date-editor {
+  position: absolute;
+  inset: 0;
   width: 100% !important;
   min-width: 0;
   max-width: 100%;
   height: 34px;
-}
-
-.sidebar-footer-week-picker .el-input__wrapper {
-  justify-content: center;
-  padding: 0;
-  border-radius: 6px;
-  background: transparent;
-  box-shadow: none;
-  cursor: pointer;
-}
-
-.sidebar-footer-week-picker .el-input__wrapper:hover,
-.sidebar-footer-week-picker .el-input__wrapper.is-focus {
-  background: var(--el-fill-color-dark);
-  box-shadow: none;
-}
-
-.sidebar-footer-week-picker .el-input__prefix {
-  margin: 0;
-  color: var(--el-text-color-secondary);
-  font-size: 16px;
-}
-
-.sidebar-footer-week-picker .el-input__prefix-inner > :last-child {
-  margin-right: 0;
-}
-
-.sidebar-footer-week-picker:hover .el-input__prefix,
-.sidebar-footer-week-picker.is-reminder .el-input__prefix {
-  color: var(--el-color-primary);
-}
-
-.sidebar-footer-week-picker .el-input__inner {
-  position: absolute;
-  width: 1px;
   opacity: 0;
+}
+
+.sidebar-footer-actions .sidebar-footer-week-picker,
+.sidebar-footer-actions .sidebar-footer-week-picker * {
   pointer-events: none;
 }
 
-.sidebar-footer-week-picker .el-input__suffix {
-  display: none;
+.sidebar-footer-ledger-entry .el-button.is-reminder {
+  color: var(--el-color-primary);
 }
 
 .weekly-report-date-cell .el-date-table-cell__text {
@@ -1194,7 +1165,8 @@ html.dark .episode-panel {
   .material-dialog.el-dialog,
   .material-dialog .el-dialog,
   .global-config-dialog.el-dialog,
-  .global-config-dialog .el-dialog {
+  .global-config-dialog .el-dialog,
+  .point-ledger-dialog.el-dialog {
     width: calc(100vw - 24px) !important;
   }
 
@@ -2283,32 +2255,8 @@ html.dark .episode-panel {
   overflow-wrap: anywhere;
 }
 
-.compact-cost-input {
-  width: 30%;
-  flex: 0 0 30%;
-}
-
-.compact-cost-input .el-input-group__prepend {
-  padding: 0 9px;
-}
-
 .total-cost-field {
   min-width: 110px;
-}
-
-.production-date-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.episode-data-field .production-date-row .el-date-editor {
-  width: 166px;
-  flex: 0 0 166px;
-}
-
-.production-date-row .el-button {
-  flex: 0 0 auto;
 }
 
 .episode-data-field .el-date-editor {
@@ -2381,7 +2329,8 @@ html.dark .episode-panel {
 }
 
 .global-config-dialog.el-dialog,
-.global-config-dialog .el-dialog {
+.global-config-dialog .el-dialog,
+.point-ledger-dialog.el-dialog {
   display: flex;
   height: min(780px, calc(100vh - 48px));
   max-height: calc(100vh - 48px);
@@ -2396,6 +2345,23 @@ html.dark .episode-panel {
   min-height: 0;
   padding: 0;
   overflow: hidden;
+}
+
+.point-ledger-dialog .el-dialog__body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.point-ledger-dialog .global-config-scroll-pane {
+  width: 100%;
+}
+
+.point-ledger-dialog .el-dialog__header,
+.point-ledger-dialog .el-dialog__footer {
+  flex: 0 0 auto;
 }
 
 .global-config-dialog .el-dialog__header {
@@ -2465,6 +2431,131 @@ html.dark .episode-panel {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+.point-ledger-editor {
+  min-width: 0;
+}
+
+.point-ledger-toolbar,
+.point-invoice-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: var(--el-text-color-regular);
+}
+
+.point-invoice {
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-bg-color);
+}
+
+.point-ledger-toolbar > .el-button,
+.dialogue-rule-heading > .el-button {
+  margin-left: auto;
+}
+
+.point-invoice-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.point-invoice-identity,
+.point-invoice-values,
+.point-usage-row {
+  display: grid;
+  gap: 12px;
+}
+
+.point-invoice-identity {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.point-invoice-values {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.point-usage-row {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr) 166px 150px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.point-usage-row > .el-button {
+  position: absolute;
+  top: -5px;
+  right: 0;
+}
+
+.point-usage-row .el-form-item:last-of-type .el-form-item__label {
+  padding-right: 32px;
+}
+
+.point-usage-heading {
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.point-usage-heading > span {
+  flex-shrink: 0;
+}
+
+.point-usage-progress {
+  flex: 0 0 20%;
+  width: 20%;
+  min-width: 0;
+}
+
+.point-usage-heading > .el-button {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.point-usage-progress .el-progress-bar__innerText {
+  position: absolute;
+  top: 0;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  margin: 0;
+  color: var(--el-color-white);
+  text-shadow: 1px 1px 3px var(--el-color-black);
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.point-invoice .el-form-item,
+.point-invoice .el-form-item__content {
+  min-width: 0;
+}
+
+.point-invoice .el-input-number,
+.point-invoice .el-date-editor.el-input,
+.point-invoice .el-cascader {
+  width: 100%;
+}
+
+@media (max-width: 700px) {
+  .point-invoice-identity,
+  .point-invoice-values {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .point-usage-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .point-ledger-toolbar {
+    flex-wrap: wrap;
+  }
 }
 
 .webdav-sync-status {

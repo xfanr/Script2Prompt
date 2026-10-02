@@ -3,6 +3,7 @@ import { APP_VERSION, createEpisode, createEpisodeProductionData, createPromptRe
 import { normalizeStoredShotConnection } from './shotContext'
 import { compactShotUnitNumbers, normalizeShotUnitNumber } from './shotNumber'
 import { reconcileTimingSegments } from './timing'
+import { normalizePointInvoices } from './pointLedger'
 import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
 
 const shotViewModes: ShotViewMode[] = ['expanded', 'single-expanded']
@@ -133,6 +134,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
 
     parsed.globalConfig = normalizedGlobalConfig ?? cloneGlobalConfig(defaultGlobalConfig)
     parsed.version = APP_VERSION
+    parsed.pointInvoices = normalizePointInvoices(parsed.pointInvoices)
     parsed.episodeGroups ??= []
     parsed.episodeGroups.forEach((group) => {
       group.starred ??= false
@@ -190,7 +192,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     })
 
     if (!parsed.episodes.length) {
-      const episode = createEpisode(1, parsed.globalConfig.dataCollection.defaultPointCost)
+      const episode = createEpisode(1)
       parsed.episodes = [episode]
       parsed.activeEpisodeId = episode.id
     }

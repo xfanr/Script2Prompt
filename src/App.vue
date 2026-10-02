@@ -317,11 +317,14 @@
             </section>
 
             <nav class="sidebar-footer-actions" aria-label="剧本管理快捷操作">
-              <el-tooltip :content="isTodayMonday ? '选择周报（记得交周报）' : '选择并复制周报'" placement="top">
+              <div class="sidebar-footer-ledger-entry">
+                <el-tooltip :content="isTodayMonday ? '积分记录；右键选择周报（记得交周报）' : '积分记录；右键选择并复制周报'" placement="top">
+                  <el-button :icon="Calendar" text :class="{ 'is-reminder': isTodayMonday }" aria-label="积分记录" @click="openPointLedger" @contextmenu.prevent.stop="weeklyReportPickerRef?.handleOpen()" />
+                </el-tooltip>
                 <el-date-picker
+                  ref="weeklyReportPickerRef"
                   v-model="weeklyReportWeek"
                   class="sidebar-footer-week-picker"
-                  :class="{ 'is-reminder': isTodayMonday }"
                   type="week"
                   format="[第] ww [周]"
                   value-format="YYYY-MM-DD"
@@ -329,6 +332,7 @@
                   :prefix-icon="Calendar"
                   :clearable="false"
                   aria-label="选择并复制周报"
+                  :tabindex="-1"
                   @change="copyWeeklyReport"
                 >
                   <template #default="cell">
@@ -340,7 +344,7 @@
                     </div>
                   </template>
                 </el-date-picker>
-              </el-tooltip>
+              </div>
               <el-tooltip content="从云端下载" placement="top"><el-button :icon="Download" text aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="downloadFromWebDav(webDavSettings)" /></el-tooltip>
               <el-tooltip content="上传到云端" placement="top"><el-button :icon="Upload" text aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="uploadToWebDav(webDavSettings)" /></el-tooltip>
               <el-tooltip content="导入本地备份" placement="top"><el-button :icon="DocumentChecked" text aria-label="导入本地备份" @click="triggerImport" /></el-tooltip>
@@ -801,6 +805,7 @@
         @webdav-test="testWebDav"
         @webdav-migrate="migrateWebDav"
       />
+      <PointLedgerDialog v-model="pointLedgerVisible" :invoices="state.pointInvoices" :episodes="state.episodes" :episode-groups="state.episodeGroups" @save="savePointInvoices" />
       <el-dialog v-model="detectionDialogVisible" title="人物识别冲突" width="820px" :show-close="false" class="detection-dialog" @closed="cancelActiveDetection">
         <div v-if="detectionConflict" class="detection-compare">
           <div class="detection-compare-row">
@@ -947,46 +952,10 @@
           </section>
           <section class="episode-summary-card episode-cost-card">
             <el-statistic title="本集成本" :value="episodeTotalCost" :precision="4" />
-            <div class="episode-card-controls cost-controls">
-              <el-input
-                class="compact-cost-input"
-                v-model="productionPointUsageDraft"
-                size="small"
-                maxlength="8"
-                inputmode="numeric"
-                @input="updateProductionNumber('pointUsage', productionPointUsageDraft)"
-                @blur="normalizeActiveEpisodeProductionData"
-              >
-                <template #prepend>积分</template>
-              </el-input>
-              <el-input
-                class="compact-cost-input"
-                v-model="productionPointCostDraft"
-                size="small"
-                maxlength="8"
-                inputmode="decimal"
-                @input="updateProductionNumber('pointCost', productionPointCostDraft)"
-                @blur="normalizeActiveEpisodeProductionData"
-              >
-                <template #prepend>成本</template>
-              </el-input>
-            </div>
+            <div class="config-field-help">{{ reviewProductionData?.fromRecords ? '来源：积分使用记录' : '来源：历史制作数据' }}</div>
           </section>
           <section class="episode-summary-card episode-date-card">
             <el-statistic title="制作日期" :value="0" :formatter="formatEpisodeProductionDate" />
-            <div class="episode-card-controls production-date-row">
-              <el-date-picker v-model="reviewSummaryEpisode.productionData.productionDate" type="date" size="small" value-format="YYYY-MM-DD" placeholder="选择日期">
-                <template #default="cell">
-                  <div class="el-date-table-cell weekly-report-date-cell" :class="{ 'has-production': hasProductionOnPickerCell(cell) }">
-                    <span class="el-date-table-cell__text">
-                      {{ cell.text }}
-                      <i v-if="hasProductionOnPickerCell(cell)" aria-hidden="true"></i>
-                    </span>
-                  </div>
-                </template>
-              </el-date-picker>
-              <el-button type="primary" size="small" text @click="setProductionDateToday">今天</el-button>
-            </div>
           </section>
         </div>
         <el-table :data="reviewSummaryRows" max-height="430" empty-text="暂无分镜">
@@ -1427,10 +1396,13 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Component 
 import { VueDraggable } from 'vue-draggable-plus'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
+import PointLedgerDialog from './components/PointLedgerDialog.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
 import { ArrowDown, ArrowRight, Calendar, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, DocumentAdd, DocumentChecked, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
+import { effectiveProductionData, mergePointInvoices, normalizePointInvoices, remapPointInvoices } from './pointLedger'
+import type { PointInvoice } from './types'
 import {
   createCharacterConfig,
   createCharacterAsset,
@@ -1471,6 +1443,7 @@ import { LocalRepository, readSyncTarget } from './storage'
 import { buildDataFiles, canonicalJson, groupFilePath, mergeDownloadedFiles } from './dataFiles'
 import { acceptDownloadedFiles, downloadDataFiles, legacySnapshotFiles, migrateLegacyFiles, uploadDataFiles, type TransferItem, type TransferResult } from './webdavSync'
 import { notify } from './notification'
+import { copyText } from './clipboard'
 import {
   loadWebDavSettings,
   saveWebDavSettings,
@@ -1535,6 +1508,7 @@ type ImportBatch = {
   groups: unknown
   episodes: Episode[]
   globalConfig: GlobalConfig | null
+  pointInvoices: PointInvoice[]
 }
 type ReviewDrawCountMode = '' | 'one' | 'two' | 'three' | 'four'
 type ReviewSubtitleMode = '' | 'subtitled' | 'half' | 'majority' | 'subtitle-free'
@@ -1565,6 +1539,8 @@ const EmptyPageHeaderIcon: Component = () => null
 const { state, activeEpisode, saveError, saveNow, replaceState } = useAppState(props.initialState, props.repository)
 const materialDialogVisible = ref(false)
 const globalDialogVisible = ref(false)
+const pointLedgerVisible = ref(false)
+const weeklyReportPickerRef = ref<{ handleOpen: () => void; handleClose: () => void } | null>(null)
 const webDavSettings = ref<WebDavSettings>(loadWebDavSettings())
 const webDavAction = ref<WebDavAction | null>(null)
 const detectionDialogVisible = ref(false)
@@ -1675,8 +1651,6 @@ const reviewSubtitleMode = ref<ReviewSubtitleMode>('subtitle-free')
 const reviewCustomSubtitleCount = ref<number | undefined>()
 const reviewNotePrefixPath = ref<string[]>([])
 const episodeScriptDraft = ref('')
-const productionPointUsageDraft = ref('0')
-const productionPointCostDraft = ref('0.0000')
 const weeklyReportWeek = ref<Date | string | null>(null)
 const archivedTreeId = 'archived'
 const reviewRateTexts = ['拉完了', 'NPC', '人上人', '顶级', '夯']
@@ -1724,7 +1698,7 @@ const materialCloneSourceEpisodes = computed(() => {
     && (episode.groupId ?? null) === (targetEpisode.groupId ?? null)
   )))
 })
-const productionDateSet = computed(() => new Set(state.episodes.map((episode) => normalizeDateString(episode.productionData.productionDate)).filter((date): date is string => Boolean(date))))
+const productionDateSet = computed(() => new Set(state.episodes.map((episode) => normalizeDateString(productionDataFor(episode).productionDate)).filter((date): date is string => Boolean(date))))
 const detectionConflictShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === detectionConflictShotId.value) ?? null)
 const dialogueOutputDraft = computed({
   get: () => dialogueView.value === 'replaced' ? dialogueReplacedDraft.value : dialogueOriginalDraft.value,
@@ -1828,10 +1802,8 @@ const reviewSummaryRows = computed(() => {
   })) ?? []
 })
 const reviewSummary = computed(() => summarizeShots(reviewSummaryEpisode.value?.shots ?? []))
-const episodeTotalCost = computed(() => {
-  const data = reviewSummaryEpisode.value?.productionData ?? createEpisodeProductionData()
-  return data.pointUsage * data.pointCost
-})
+const reviewProductionData = computed(() => reviewSummaryEpisode.value ? productionDataFor(reviewSummaryEpisode.value) : null)
+const episodeTotalCost = computed(() => reviewProductionData.value?.totalCost ?? 0)
 const materialDialogTitle = computed(() => {
   if (materialDialogMode.value === 'add') {
     return '添加基础素材'
@@ -1852,7 +1824,7 @@ const groupSummaryStats = computed(() => summarizeEpisodeGroup(groupSummaryEpiso
 const groupProductionSummary = computed(() => summarizeProductionData(groupSummaryEpisodes.value))
 const groupSummaryRows = computed(() => groupSummaryEpisodes.value.map((episode) => {
   const summary = summarizeShots(episode.shots)
-  const data = episode.productionData ?? createEpisodeProductionData()
+  const data = productionDataFor(episode)
   const productionDate = normalizeDateString(data.productionDate)
 
   return {
@@ -1865,8 +1837,8 @@ const groupSummaryRows = computed(() => groupSummaryEpisodes.value.map((episode)
     averageText: summary.averageValue ? `${summary.averageValue} 星` : '未评分',
     averageDrawRate: summary.averageDrawRate,
     noSubtitleRate: summary.noSubtitleRate,
-    pointUsageText: formatIntegerWithCommas(data.pointUsage),
-    totalCost: formatPointCost(data.pointUsage * data.pointCost),
+    pointUsageText: formatPointUsage(data.pointUsage),
+    totalCost: formatPointCost(data.totalCost),
     productionDate: productionDate ?? '未设置',
   }
 }))
@@ -1927,16 +1899,16 @@ function summarizeEpisodeGroup(episodes: Episode[]) {
 }
 
 function summarizeProductionData(episodes: Episode[]) {
-  const pointUsage = episodes.reduce((total, episode) => total + episode.productionData.pointUsage, 0)
-  const totalCost = episodes.reduce((total, episode) => total + episode.productionData.pointUsage * episode.productionData.pointCost, 0)
+  const pointUsage = episodes.reduce((total, episode) => total + productionDataFor(episode).pointUsage, 0)
+  const totalCost = episodes.reduce((total, episode) => total + productionDataFor(episode).totalCost, 0)
   const dates = Array.from(new Set(episodes
-    .map((episode) => normalizeDateString(episode.productionData.productionDate))
+    .map((episode) => normalizeDateString(productionDataFor(episode).productionDate))
     .filter((date): date is string => Boolean(date))))
     .sort()
 
   return {
     episodeCount: episodes.length,
-    pointUsageText: formatIntegerWithCommas(pointUsage),
+    pointUsageText: formatPointUsage(pointUsage),
     averageEpisodeCost: formatPointCost(episodes.length ? totalCost / episodes.length : 0),
     totalCostValue: totalCost,
     totalCost: formatPointCost(totalCost),
@@ -1949,66 +1921,21 @@ function formatPointCost(value: number) {
   return Math.max(0, value).toFixed(4)
 }
 
-function parseProductionNumber(value: string | number) {
-  const parsed = Number(String(value).replace(/[^\d.]/g, ''))
-  return Number.isFinite(parsed) ? parsed : 0
+function productionDataFor(episode: Episode) {
+  return effectiveProductionData(episode, state.pointInvoices)
 }
 
-function updateProductionNumber(field: 'pointUsage' | 'pointCost', value: string | number) {
-  const data = reviewSummaryEpisode.value?.productionData
-
-  if (!data) {
-    return
-  }
-
-  if (field === 'pointUsage') {
-    data.pointUsage = Math.max(0, Math.round(parseProductionNumber(value)))
-    return
-  }
-
-  data.pointCost = Math.max(0, parseProductionNumber(value))
-}
-
-function normalizeActiveEpisodeProductionData() {
-  const data = reviewSummaryEpisode.value?.productionData
-
-  if (!data) {
-    return
-  }
-
-  data.pointUsage = Math.max(0, Math.round(data.pointUsage))
-  data.pointCost = Math.max(0, Number(data.pointCost.toFixed(4)))
-  productionPointUsageDraft.value = formatIntegerWithCommas(data.pointUsage)
-  productionPointCostDraft.value = data.pointCost.toFixed(4)
-}
-
-function hydrateProductionDrafts(episode = reviewSummaryEpisode.value) {
-  const data = episode?.productionData ?? createEpisodeProductionData()
-  productionPointUsageDraft.value = formatIntegerWithCommas(data.pointUsage)
-  productionPointCostDraft.value = data.pointCost.toFixed(4)
-}
-
-function setProductionDateToday() {
-  const data = reviewSummaryEpisode.value?.productionData
-
-  if (!data) {
-    return
-  }
-
-  data.productionDate = formatDateString(new Date())
+function formatPointUsage(value: number) {
+  return value.toLocaleString('en-US', { maximumFractionDigits: 4 })
 }
 
 function formatEpisodeProductionDate() {
-  const date = normalizeDateString(reviewSummaryEpisode.value?.productionData.productionDate ?? '')
+  const date = normalizeDateString(reviewProductionData.value?.productionDate ?? '')
   return date ? `${date.slice(5, 7)}月${date.slice(8, 10)}日` : '未设置'
 }
 
 function formatGroupProductionDateRange() {
   return groupProductionSummary.value.dateRange
-}
-
-function formatIntegerWithCommas(value: number) {
-  return Math.max(0, Math.round(value)).toLocaleString('en-US')
 }
 
 function formatMonthDayWithSeparator(value: string) {
@@ -2048,6 +1975,15 @@ function saveGlobalConfig(config: GlobalConfig) {
   const nextConfig = cloneGlobalConfig(config)
   remapGroupPromptProfiles(previousConfig, nextConfig)
   state.globalConfig = nextConfig
+}
+
+function openPointLedger() {
+  weeklyReportPickerRef.value?.handleClose()
+  pointLedgerVisible.value = true
+}
+
+function savePointInvoices(invoices: PointInvoice[]) {
+  state.pointInvoices = invoices
 }
 
 function persistWebDavSettings(settings: WebDavSettings) {
@@ -2114,17 +2050,17 @@ async function downloadFromWebDav(settings: WebDavSettings) {
   webDavAction.value = 'download'
   try {
     const normalized = persistWebDavSettings(settings)
-    const before = canonicalJson({ groups: state.episodeGroups, episodes: state.episodes, config: state.globalConfig })
+    const before = canonicalJson({ groups: state.episodeGroups, episodes: state.episodes, config: state.globalConfig, pointInvoices: state.pointInvoices })
     const downloaded = await downloadDataFiles(new WebDavClient(normalized))
     const next = mergeDownloadedFiles(state, downloaded.files)
     try {
       await ElMessageBox.confirm(
-        `将下载 ${downloaded.files.size - 2} 个分组及未分组内容，替换本地同 ID 分组和全局设置（提示词、数据收集、台词规则）。本地独有分组保留。是否继续？`,
+        `将下载 ${downloaded.files.size - 2} 个分组及未分组内容，替换本地同 ID 分组、全局设置（提示词、数据收集、台词规则）和积分记录。本地独有分组保留。是否继续？`,
         '从 WebDAV 下载',
         { type: 'warning', confirmButtonClass: 'button-spacing-left', confirmButtonText: '下载并替换', cancelButtonText: '取消' },
       )
     } catch { return }
-    if (before !== canonicalJson({ groups: state.episodeGroups, episodes: state.episodes, config: state.globalConfig })) {
+    if (before !== canonicalJson({ groups: state.episodeGroups, episodes: state.episodes, config: state.globalConfig, pointInvoices: state.pointInvoices })) {
       throw new Error('下载期间本地数据已变化，请重新下载后确认')
     }
     replaceState(next, {
@@ -2282,7 +2218,7 @@ function groupSortTitle(group: EpisodeGroup) {
 function latestGroupProductionDate(groupId: string) {
   return state.episodes.reduce((latest, episode) => {
     if (episode.groupId !== groupId) return latest
-    const date = normalizeDateString(episode.productionData.productionDate) ?? ''
+    const date = normalizeDateString(productionDataFor(episode).productionDate) ?? ''
     return date > latest ? date : latest
   }, '')
 }
@@ -2452,7 +2388,7 @@ function formatUnitLabel(unitNumber: number) {
 function collectWeeklyReportEntries(range: WeeklyReportRange) {
   return state.episodes
     .map((episode): WeeklyReportEntry | null => {
-      const date = normalizeDateString(episode.productionData.productionDate)
+      const date = normalizeDateString(productionDataFor(episode).productionDate)
 
       if (!date || date < range.start || date > range.end) {
         return null
@@ -3038,7 +2974,7 @@ async function handleGroupCommand(command: string, groupId: string) {
 function archiveGroupWarningMessage(groupId: string) {
   const episodes = episodesForGroup(groupId)
   const unreviewedEpisodes = episodes.filter((episode) => episode.shots.some((shot) => !isShotReviewed(shot)))
-  const missingDateEpisodes = episodes.filter((episode) => !normalizeDateString(episode.productionData.productionDate))
+  const missingDateEpisodes = episodes.filter((episode) => !normalizeDateString(productionDataFor(episode).productionDate))
   const lines = [
     unreviewedEpisodes.length ? `未完成评分：${archiveEpisodeList(unreviewedEpisodes)}` : '',
     missingDateEpisodes.length ? `未填写制作日期：${archiveEpisodeList(missingDateEpisodes)}` : '',
@@ -3581,7 +3517,7 @@ function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: S
 function addEpisode() {
   const targetGroupId = getSelectedEpisodeGroupId()
   const targetTreeId = targetGroupId ?? 'ungrouped'
-  const episode = createEpisode(1, state.globalConfig.dataCollection.defaultPointCost)
+  const episode = createEpisode(1)
   episode.title = ''
   episode.groupId = targetGroupId
   pendingEpisode.value = episode
@@ -3628,6 +3564,11 @@ async function deleteEpisodeById(id: string) {
   }
 
   const index = state.episodes.findIndex((item) => item.id === id)
+  state.pointInvoices.forEach((invoice) => invoice.usages.forEach((usage) => usage.episodes.forEach((reference) => {
+    if (reference.episodeId !== id) return
+    reference.episodeTitle = episode.title
+    reference.groupTitle = getEpisodeGroupTitle(episode.groupId)
+  })))
   state.episodes.splice(index, 1)
 
   if (state.activeEpisodeId === id) {
@@ -4070,9 +4011,8 @@ function shotTimingTitleStats(shot: Shot) {
 }
 
 function isDurationOutsideRange(seconds: number, hasText: boolean, thirtySecondMode = false) {
-  const min = Math.min(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
-  const max = Math.max(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
-    * (thirtySecondMode ? 2 : 1)
+  const min = 4
+  const max = 15 * (thirtySecondMode ? 2 : 1)
   return { warn: hasText && (seconds < min || seconds > max) }
 }
 
@@ -4106,9 +4046,8 @@ function promptPreviewWarnings(shot: Shot) {
   }
 
   const seconds = shotTimingAnalysis(shot).totalSeconds
-  const min = Math.min(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
-  const max = Math.max(state.globalConfig.dataCollection.recommendedDurationRange.min, state.globalConfig.dataCollection.recommendedDurationRange.max)
-    * (shot.thirtySecondMode ? 2 : 1)
+  const min = 4
+  const max = 15 * (shot.thirtySecondMode ? 2 : 1)
 
   if (text && (seconds < min || seconds > max)) {
     warnings.push(`推荐时长 ${formatTimingSeconds(seconds)}，超出推荐范围 ${formatTimingSeconds(min)}～${formatTimingSeconds(max)}`)
@@ -4790,7 +4729,6 @@ function saveReviewDialog() {
 
 function openReviewSummary(episode = activeEpisode.value) {
   reviewSummaryEpisodeId.value = episode?.id ?? null
-  hydrateProductionDrafts(episode)
   reviewSummaryVisible.value = true
 }
 
@@ -4952,6 +4890,7 @@ function isShortcutBlocked() {
   return materialDialogVisible.value
     || characterPasteDialogVisible.value
     || globalDialogVisible.value
+    || pointLedgerVisible.value
     || detectionDialogVisible.value
     || reviewDialogVisible.value
     || reviewSummaryVisible.value
@@ -5111,36 +5050,6 @@ async function copyCharacterSettings(shot: Shot) {
   notify.error('复制失败，请手动选择文本复制')
 }
 
-async function copyText(text: string) {
-  if (window.isSecureContext && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text)
-      return true
-    } catch {
-      // Fall through to the legacy copy path for restricted browser contexts.
-    }
-  }
-
-  const textarea = document.createElement('textarea')
-  textarea.value = text
-  textarea.setAttribute('readonly', '')
-  textarea.style.position = 'fixed'
-  textarea.style.top = '0'
-  textarea.style.left = '-9999px'
-  textarea.style.opacity = '0'
-  document.body.appendChild(textarea)
-  textarea.focus()
-  textarea.select()
-
-  try {
-    return document.execCommand('copy')
-  } catch {
-    return false
-  } finally {
-    document.body.removeChild(textarea)
-  }
-}
-
 function preventBrowserContextMenu(event: MouseEvent) {
   event.preventDefault()
 }
@@ -5213,6 +5122,7 @@ function exportPayload(): ExportPayload {
       starred: isEpisodeAutoStarred(episode),
     })) as Episode[],
     globalConfigSnapshot: JSON.parse(JSON.stringify(state.globalConfig)),
+    pointInvoices: JSON.parse(JSON.stringify(state.pointInvoices)),
   }
 }
 
@@ -5296,10 +5206,13 @@ async function importEpisode(event: Event) {
     return
   }
 
+  const previousInvoices = JSON.stringify(state.pointInvoices)
   const importedCount = applyImportBatches(batches, importMode)
 
   if (importedCount) {
     notify.success(`已导入 ${importedCount} 个单集`)
+  } else if (JSON.stringify(state.pointInvoices) !== previousInvoices) {
+    notify.success('已导入积分记录')
   } else {
     notify.info('暂无可导入的新单集')
   }
@@ -5323,6 +5236,7 @@ function parseImportPayload(value: unknown): ImportBatch {
     groups: payload.episodeGroups,
     episodes,
     globalConfig,
+    pointInvoices: normalizePointInvoices(payload.pointInvoices),
   }
 }
 
@@ -5332,13 +5246,14 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
   if (importMode === 'replace') {
     state.episodeGroups = []
     state.episodes = []
+    state.pointInvoices = []
     state.activeEpisodeId = ''
     selectedEpisodeGroupId.value = null
     expandedGroupIds.value = [myEpisodesTreeId]
   }
 
   let importedCount = 0
-  const existingEpisodeSignatures = new Set(state.episodes.map((episode) => episodeComparableSignature(episode)))
+  const existingEpisodeSignatures = new Map(state.episodes.map((episode) => [episodeImportSignature(episode, state.episodeGroups), episode.id]))
 
   batches.forEach((batch) => {
     const importedGroups = normalizeImportedEpisodeGroups(
@@ -5348,18 +5263,15 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
     )
     const groupIdMap = new Map(importedGroups.map((group) => [group.sourceId, group.group.id]))
     const importedEpisodes = batch.episodes.map((episode) => normalizeImportedEpisode(episode, groupIdMap))
-    const episodesToImport = importMode === 'replace'
-      ? importedEpisodes
-      : importedEpisodes.filter((episode) => {
-        const signature = episodeComparableSignature(episode)
-
-        if (existingEpisodeSignatures.has(signature)) {
-          return false
-        }
-
-        existingEpisodeSignatures.add(signature)
-        return true
-      })
+    const episodeIdMap = new Map<string, string>()
+    const episodesToImport = importedEpisodes.filter((episode, index) => {
+      const signature = episodeImportSignature(episode, importedGroups.map((item) => item.group))
+      const existingId = importMode === 'merge' ? existingEpisodeSignatures.get(signature) : undefined
+      episodeIdMap.set(batch.episodes[index].id, existingId ?? episode.id)
+      if (existingId) return false
+      existingEpisodeSignatures.set(signature, episode.id)
+      return true
+    })
     const usedGroupIds = new Set(episodesToImport.map((episode) => episode.groupId).filter((id): id is string => Boolean(id)))
 
     importedGroups
@@ -5389,10 +5301,11 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
       selectEpisode(episode)
       importedCount += 1
     })
+    state.pointInvoices = mergePointInvoices(state.pointInvoices, remapPointInvoices(batch.pointInvoices, episodeIdMap), new Set(state.episodes.map((episode) => episode.id)))
   })
 
   if (!state.episodes.length) {
-    const episode = createEpisode(1, state.globalConfig.dataCollection.defaultPointCost)
+    const episode = createEpisode(1)
     state.episodes = [episode]
     selectEpisode(episode)
   }
@@ -5517,6 +5430,11 @@ function episodeComparableSignature(episode: Episode) {
       review: normalizePromptReview(shot.review),
     })),
   })
+}
+
+function episodeImportSignature(episode: Episode, groups: EpisodeGroup[]) {
+  const group = groups.find((item) => item.id === episode.groupId)
+  return JSON.stringify([group?.title ?? null, group?.archived ?? false, episodeComparableSignature(episode)])
 }
 
 function normalizeImportedShotScene(scene: unknown, assets: SceneAsset[]): SceneConfig | null {

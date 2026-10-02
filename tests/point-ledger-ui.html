@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>积分记录 UI 测试（内存存储）</title>
+<div id="app"></div>
+<script type="module">
+  import { createApp } from 'vue'
+  import ElementPlus from 'element-plus'
+  import zhCn from 'element-plus/es/locale/lang/zh-cn'
+  import 'element-plus/dist/index.css'
+  import 'element-plus/theme-chalk/dark/css-vars.css'
+  import '../src/styles.css'
+  import App from '../src/App.vue'
+  import { normalizeGlobalConfig } from '../src/config'
+  import { createEpisode, createEpisodeGroup, createInitialState } from '../src/defaults'
+  import { LocalRepository } from '../src/storage'
+  import { createPointInvoice, createPointUsage } from '../src/pointLedger'
+  import { MemoryStorage } from './point-ledger.ts'
+  if (new URLSearchParams(location.search).has('capture-export')) {
+    window.showSaveFilePicker = async () => ({ createWritable: async () => ({
+      write: async (blob) => {
+        const output = document.createElement('pre')
+        output.id = 'exported-json'
+        output.textContent = await blob.text()
+        document.body.append(output)
+      },
+      close: async () => {},
+    }) })
+  }
+  const config = normalizeGlobalConfig(await (await fetch('/config/default-config.json')).json())
+  const state = createInitialState(config)
+  const group = createEpisodeGroup(config.prompt.activeProfileId)
+  group.title = '积分测试剧'
+  state.episodeGroups = [group]
+  state.episodes = [createEpisode(1), createEpisode(2), createEpisode(3)]
+  state.episodes.forEach((episode) => { episode.groupId = group.id })
+  state.activeEpisodeId = state.episodes[0].id
+  state.episodes[0].productionData = { pointUsage: 100, pointCost: 0.1, productionDate: '2025-01-01' }
+  if (new URLSearchParams(location.search).has('selection')) {
+    const archived = createEpisodeGroup(config.prompt.activeProfileId)
+    archived.title = '已归档测试剧'
+    archived.archived = true
+    state.episodeGroups.unshift(archived)
+    const other = createEpisode(4)
+    other.groupId = archived.id
+    state.episodes.push(other)
+  }
+  if (new URLSearchParams(location.search).has('seed')) {
+    const invoice = createPointInvoice([])
+    Object.assign(invoice, { amount: 100, initialPoints: 1000, receivedPoints: 1000 })
+    const usage = createPointUsage()
+    Object.assign(usage, { date: '2026-10-02', points: 100,
+      episodes: state.episodes.slice(0, 2).map((episode) => ({ episodeId: episode.id, episodeTitle: episode.title, groupTitle: group.title })) })
+    invoice.usages = [usage]
+    if (new URLSearchParams(location.search).has('legacy')) {
+      const other = state.episodes[3]
+      usage.episodes.push({ episodeId: other.id, episodeTitle: other.title, groupTitle: '已归档测试剧' })
+    }
+    state.pointInvoices = [invoice]
+  }
+  const repository = new LocalRepository(new MemoryStorage())
+  repository.save(state)
+  createApp(App, { initialGlobalConfig: config, initialState: state, repository })
+    .use(ElementPlus, { locale: zhCn }).mount('#app')
+</script>
+</html>
