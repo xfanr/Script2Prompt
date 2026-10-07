@@ -2098,36 +2098,56 @@ html.dark .episode-panel {
   grid-column: span 2;
 }
 
-.group-production-cards {
+.group-summary-inputs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 14px;
 }
 
-.group-prompt-profile-card {
-  align-items: stretch;
+.group-summary-names,
+.group-summary-options {
+  display: grid;
+  grid-template-columns: minmax(0, 24fr) repeat(2, minmax(0, 38fr));
+  gap: 12px;
+  align-items: center;
 }
 
-.group-prompt-profile-title {
-  color: var(--el-text-color-regular);
-  font-size: 13px;
-  line-height: 20px;
+.group-summary-names .group-full-name {
+  grid-column: span 2;
 }
 
-.group-prompt-profile-name {
-  overflow: hidden;
-  color: var(--el-text-color-primary);
-  font-size: 22px;
-  font-weight: 900;
-  line-height: 28px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.group-summary-inputs .el-input {
+  min-width: 0;
 }
 
-.group-prompt-profile-selector {
+.group-summary-profile {
+  min-width: 0;
   width: 100%;
-  margin-top: auto;
+}
+
+.group-summary-inputs .el-input-group__prepend,
+.group-summary-inputs .el-input-group__append {
+  padding: 0 10px;
+}
+
+.group-summary-commission .el-input-group__append .el-button {
+  height: 30px;
+  margin: 0;
+  padding: 0;
+  min-width: 40px;
+}
+
+.group-summary-commission.is-received .el-input-group__append {
+  background-color: var(--el-color-primary);
+  color: var(--el-color-white);
+}
+
+.group-summary-options.is-ungrouped {
+  grid-template-columns: 1fr;
+}
+
+.group-statistic-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .episode-card-controls {
@@ -2483,7 +2503,7 @@ html.dark .episode-panel {
 
 .point-usage-row {
   position: relative;
-  grid-template-columns: minmax(0, 1fr) 166px 150px;
+  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr));
   align-items: center;
   margin-top: 12px;
 }
@@ -2524,6 +2544,7 @@ html.dark .episode-panel {
   left: 8px;
   display: flex;
   align-items: center;
+  gap: 8px;
   height: 100%;
   margin: 0;
   color: var(--el-color-white);
@@ -3217,8 +3238,13 @@ html.dark .episode-panel {
     grid-column: auto;
   }
 
-  .group-production-cards {
+  .group-summary-names,
+  .group-summary-options {
     grid-template-columns: 1fr;
+  }
+
+  .group-summary-names .group-full-name {
+    grid-column: auto;
   }
 
   .episode-data-panel,

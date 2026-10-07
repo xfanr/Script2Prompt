@@ -1,7 +1,7 @@
 import type { AppState, CharacterAsset, CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, ReviewNotePrefixOption, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
-export const APP_VERSION = 10
+export const APP_VERSION = 12
 
 export function createId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -171,9 +171,11 @@ export function createEpisodeGroup(promptProfileId: string): EpisodeGroup {
   return {
     id: createId('group'),
     title: '新分组',
+    fullName: '',
     starred: false,
     archived: false,
     promptProfileId,
+    results: { playCount: 0, commission: 0, received: false },
   }
 }
 

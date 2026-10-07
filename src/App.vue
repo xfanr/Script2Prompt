@@ -14,7 +14,13 @@
             <div class="brand-mark"><img :src="brandIconUrl" alt="Script2Prompt" /></div>
             <div class="brand-text">
               <strong>短剧提示词工作台</strong>
-              <span>Script2Prompt</span>
+              <el-tooltip v-if="pendingResults.total > 0" placement="bottom">
+                <template #content>
+                  <div v-for="description in pendingResults.descriptions" :key="description">{{ description }}</div>
+                </template>
+                <span>{{ pendingResults.total }}</span>
+              </el-tooltip>
+              <span v-else>Script2Prompt</span>
             </div>
             <div class="brand-tools">
               <el-segmented v-model="isDarkMode" :options="themeModeOptions" class="theme-switch" aria-label="主题切换" @change="setDarkMode">
@@ -39,7 +45,7 @@
               <span class="stage-page-title">
                 <el-dropdown trigger="click" popper-class="stage-title-switch-dropdown" @command="switchActiveEpisodeGroup">
                   <button class="stage-title-switch-trigger" type="button" title="切换剧本" aria-label="切换剧本">
-                    <span>《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》</span>
+                    <span><GroupPlayMedal :play-count="groupPlayCount(activeEpisode.groupId)" />《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》</span>
                   </button>
                   <template #dropdown>
                     <el-dropdown-menu>
@@ -49,7 +55,7 @@
                         :command="group.id"
                         :disabled="group.id === activeEpisode.groupId || !hasEpisodesInGroup(group.id)"
                       >
-                        <span class="stage-title-switch-option">《{{ group.title }}》<small v-if="!hasEpisodesInGroup(group.id)">无单集</small></span>
+                        <span class="stage-title-switch-option"><GroupPlayMedal :play-count="group.results.playCount" />《{{ group.title }}》<small v-if="!hasEpisodesInGroup(group.id)">无单集</small></span>
                         <el-icon v-if="group.id === activeEpisode.groupId" class="stage-title-switch-check"><Check /></el-icon>
                       </el-dropdown-item>
                     </el-dropdown-menu>
@@ -153,7 +159,7 @@
                             <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelGroupRename(group)" />
                           </div>
                           <template v-else>
-                            <span class="group-title-text">{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
+                            <span class="group-title-text"><GroupPlayMedal :play-count="group.results.playCount" />{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
                             <div class="group-row-actions" @click.stop @keydown.stop>
                               <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="新建单集" @click="addEpisodeToGroup(group.id)" />
                               <el-dropdown trigger="click" @command="(command) => handleGroupCommand(command, group.id)">
@@ -214,7 +220,7 @@
                             <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelGroupRename(group)" />
                           </div>
                           <template v-else>
-                            <span class="group-title-text">{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
+                            <span class="group-title-text"><GroupPlayMedal :play-count="group.results.playCount" />{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
                             <div class="group-row-actions" @click.stop @keydown.stop>
                               <el-dropdown trigger="click" @command="(command) => handleGroupCommand(command, group.id)">
                                 <el-button class="group-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多已归档剧集操作" />
@@ -987,7 +993,32 @@
         </el-table>
       </el-dialog>
       <el-dialog v-model="groupSummaryVisible" title="整剧数据" width="820px" :show-close="false" class="group-summary-dialog" @closed="activeGroupSummaryId = null">
-        <p class="group-summary-subtitle">{{ groupSummarySubtitle }}</p>
+        <p class="group-summary-subtitle"><GroupPlayMedal :play-count="activeGroupSummary?.results.playCount" />{{ groupSummarySubtitle }}</p>
+        <div class="group-summary-inputs">
+          <div class="group-summary-names">
+            <el-input v-if="activeGroupSummary" v-model="activeGroupSummary.title" size="default" aria-label="简称" @focus="groupSummaryOriginalTitle = activeGroupSummary.title" @blur="finishGroupSummaryRename" @keyup.enter="finishGroupSummaryRename">
+              <template #prepend>简称</template>
+            </el-input>
+            <el-input v-else model-value="未分组" size="default" readonly aria-label="简称">
+              <template #prepend>简称</template>
+            </el-input>
+            <el-input v-if="activeGroupSummary" v-model="activeGroupSummary.fullName" class="group-full-name" size="default" aria-label="全称">
+              <template #prepend>全称</template>
+            </el-input>
+          </div>
+          <div class="group-summary-options" :class="{ 'is-ungrouped': !activeGroupSummary }">
+            <el-input v-if="activeGroupSummary" :model-value="String(activeGroupSummary.results.playCount)" size="default" inputmode="numeric" aria-label="播放量（万次播放）" @update:model-value="updateGroupResult('playCount', $event)">
+              <template #prepend>播放</template>
+            </el-input>
+            <el-input v-if="activeGroupSummary" :model-value="String(activeGroupSummary.results.commission)" class="group-summary-commission" :class="{ 'is-received': activeGroupSummary.results.received }" size="default" inputmode="numeric" aria-label="提成" @update:model-value="updateGroupResult('commission', $event)">
+              <template #prepend>提成</template>
+              <template #append>
+                <el-button :type="activeGroupSummary.results.received ? 'primary' : 'default'" :aria-pressed="activeGroupSummary.results.received" @click="activeGroupSummary.results.received = !activeGroupSummary.results.received">到账</el-button>
+              </template>
+            </el-input>
+            <el-segmented v-model="groupPromptProfileId" class="group-summary-profile" :options="promptProfileOptions" size="default" aria-label="提示词方案" />
+          </div>
+        </div>
         <div class="episode-summary-cards group-statistic-cards">
           <section class="episode-summary-card">
             <el-statistic title="平均分" :value="groupSummaryStats.averageValue" :precision="1" />
@@ -1011,17 +1042,6 @@
             </div>
           </section>
           <section class="episode-summary-card">
-            <el-statistic title="无字幕率" :value="groupSummaryStats.noSubtitleRateValue">
-              <template #suffix>%</template>
-            </el-statistic>
-            <div class="episode-statistic-detail">
-              <span>无字幕次数 {{ groupSummaryStats.noSubtitleTotal }}</span>
-              <span>总抽卡数 {{ groupSummaryStats.drawTotal }}</span>
-            </div>
-          </section>
-        </div>
-        <div class="group-production-cards">
-          <section class="episode-summary-card">
             <el-statistic title="整剧成本" :value="groupProductionSummary.totalCostValue" :precision="4" />
             <div class="episode-statistic-detail">
               <span>平均单集 {{ groupProductionSummary.averageEpisodeCost }}</span>
@@ -1033,17 +1053,6 @@
             <div class="episode-statistic-detail">
               <span>总制作天数 {{ groupProductionSummary.productionDays }}</span>
             </div>
-          </section>
-          <section class="episode-summary-card group-prompt-profile-card">
-            <div class="group-prompt-profile-title">提示词方案</div>
-            <div class="group-prompt-profile-name">{{ groupPromptProfile.name }}</div>
-            <el-segmented
-              v-model="groupPromptProfileId"
-              class="group-prompt-profile-selector"
-              :options="promptProfileOptions"
-              size="small"
-              aria-label="提示词方案"
-            />
           </section>
         </div>
         <el-table :data="groupSummaryTableRows" max-height="430" empty-text="暂无单集" scrollbar-always-on :row-class-name="groupSummaryRowClass">
@@ -1397,11 +1406,13 @@ import { VueDraggable } from 'vue-draggable-plus'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import PointLedgerDialog from './components/PointLedgerDialog.vue'
+import GroupPlayMedal from './components/GroupPlayMedal.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
 import { ArrowDown, ArrowRight, Calendar, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, DocumentAdd, DocumentChecked, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { effectiveProductionData, mergePointInvoices, normalizePointInvoices, remapPointInvoices } from './pointLedger'
+import { normalizeGroupResults, pendingGroupResults } from './groupResults'
 import type { PointInvoice } from './types'
 import {
   createCharacterConfig,
@@ -1627,6 +1638,7 @@ const episodeScriptDialogVisible = ref(false)
 const activeReviewShot = ref<Shot | null>(null)
 const reviewSummaryEpisodeId = ref<string | null>(null)
 const activeGroupSummaryId = ref<string | null>(null)
+const groupSummaryOriginalTitle = ref('')
 const reviewDraft = ref<PromptReview>(createPromptReview())
 const reviewDrawCountMode = ref<ReviewDrawCountMode>('')
 const reviewCustomDrawCount = ref<number | undefined>()
@@ -1746,6 +1758,7 @@ const reviewNoteCascaderOptions = computed(() => {
 })
 const reviewSummaryEpisode = computed(() => state.episodes.find((episode) => episode.id === reviewSummaryEpisodeId.value) ?? activeEpisode.value ?? null)
 const activeGroupSummary = computed(() => state.episodeGroups.find((group) => group.id === activeGroupSummaryId.value) ?? null)
+const pendingResults = computed(() => pendingGroupResults(state.episodeGroups))
 const groupSummaryEpisodes = computed(() => activeGroupSummaryId.value === 'ungrouped'
   ? sortedUngroupedEpisodes.value
   : activeGroupSummaryId.value ? episodesForGroup(activeGroupSummaryId.value) : [])
@@ -1765,7 +1778,6 @@ const groupPromptProfileId = computed<string>({
     }
   },
 })
-const groupPromptProfile = computed(() => activePromptProfile(state.globalConfig, groupPromptProfileId.value))
 const reviewSummaryTitle = computed(() => {
   const episode = reviewSummaryEpisode.value
 
@@ -2374,6 +2386,10 @@ function getEpisodeGroupTitle(groupId: string | null) {
   }
 
   return state.episodeGroups.find((group) => group.id === groupId)?.title ?? '未分组'
+}
+
+function groupPlayCount(groupId: string | null) {
+  return state.episodeGroups.find((group) => group.id === groupId)?.results.playCount ?? 0
 }
 
 function sceneAssetLabel(scene: SceneAsset) {
@@ -4738,7 +4754,22 @@ function openGroupSummary(groupId: string) {
   }
 
   activeGroupSummaryId.value = groupId
+  groupSummaryOriginalTitle.value = activeGroupSummary.value?.title ?? ''
   groupSummaryVisible.value = true
+}
+
+function finishGroupSummaryRename() {
+  const group = activeGroupSummary.value
+  if (!group) return
+  group.title = group.title.trim() || groupSummaryOriginalTitle.value
+  groupSummaryOriginalTitle.value = group.title
+}
+
+function updateGroupResult(field: 'playCount' | 'commission', value: string) {
+  const group = activeGroupSummary.value
+  if (!group) return
+  const number = Number(value)
+  group.results[field] = Number.isFinite(number) ? Math.max(0, Math.round(number)) : 0
 }
 
 function openEpisodeScriptDialog(tab: EpisodeScriptTab) {
@@ -5503,7 +5534,9 @@ function normalizeImportedEpisodeGroups(
           id: createId('group'),
           title,
           starred: Boolean(value.starred),
+          fullName: typeof value.fullName === 'string' ? value.fullName : '',
           archived: Boolean(value.archived),
+          results: normalizeGroupResults(value.results),
           promptProfileId: mapPromptProfileId(value.promptProfileId, sourceConfig, targetConfig),
         },
       }

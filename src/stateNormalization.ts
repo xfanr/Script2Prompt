@@ -4,6 +4,7 @@ import { normalizeStoredShotConnection } from './shotContext'
 import { compactShotUnitNumbers, normalizeShotUnitNumber } from './shotNumber'
 import { reconcileTimingSegments } from './timing'
 import { normalizePointInvoices } from './pointLedger'
+import { normalizeGroupResults } from './groupResults'
 import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
 
 const shotViewModes: ShotViewMode[] = ['expanded', 'single-expanded']
@@ -139,6 +140,8 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     parsed.episodeGroups.forEach((group) => {
       group.starred ??= false
       group.archived ??= false
+      group.fullName = typeof group.fullName === 'string' ? group.fullName : ''
+      group.results = normalizeGroupResults(group.results)
       group.promptProfileId = activePromptProfile(parsed.globalConfig, group.promptProfileId).id
     })
 

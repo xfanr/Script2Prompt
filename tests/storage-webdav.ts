@@ -5,6 +5,8 @@ import { LocalRepository, STORE_PREFIX, readSyncTarget, updateSyncTarget, recove
 import { WebDavClient, parseWebDavListing, type WebDavSettings } from '../src/webdav'
 import { acceptDownloadedFiles, downloadDataFiles, legacySnapshotFiles, migrateLegacyFiles, uploadDataFiles, type UploadOptions } from '../src/webdavSync'
 import type { AppState, GlobalConfig } from '../src/types'
+import { normalizeAppState } from '../src/stateNormalization'
+import { normalizeGroupResults, pendingGroupResults } from '../src/groupResults'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -119,6 +121,61 @@ export async function runTests() {
   }
   const upload = (dav: MockDav, f: ReturnType<typeof fixture>, overrides: Partial<UploadOptions> = {}) =>
     uploadDataFiles(dav.client(), buildDataFiles(f.state), options(f.storage, f.state, overrides))
+
+  await test('Group results migrate from version 10 and normalize numeric values', () => {
+    const old = clone(fixture().state)
+    old.version = 10
+    old.episodeGroups.forEach((group) => {
+      delete (group as Partial<typeof group>).results
+      delete (group as Partial<typeof group>).fullName
+    })
+    const migrated = normalizeAppState(old, config)
+    assert(migrated.version === 12, 'version not migrated')
+    assert(migrated.episodeGroups.every((group) => canonicalJson(group.results) === canonicalJson({ playCount: 0, commission: 0, received: false })), 'legacy defaults incorrect')
+    assert(migrated.episodeGroups.every((group) => group.fullName === ''), 'legacy full name incorrect')
+    assert(canonicalJson(normalizeGroupResults({ playCount: 12.34, commission: 8.9, received: true })) === canonicalJson({ playCount: 12, commission: 9, received: true }), 'numeric precision incorrect')
+    assert(canonicalJson(normalizeGroupResults({ playCount: -2, commission: Infinity, received: 'true' })) === canonicalJson({ playCount: 0, commission: 0, received: false }), 'invalid values not normalized')
+  })
+  await test('Pending commission includes archived groups and reacts to receipt, renaming and deletion', () => {
+    const groups = fixture().state.episodeGroups
+    groups[0].title = 'B'; groups[1].title = 'A'
+    groups[0].results = { playCount: 1, commission: 100, received: false }
+    groups[1].results = { playCount: 3, commission: 200, received: false }
+    const pending = pendingGroupResults(groups)
+    assert(pending.total === 300 && pending.descriptions[0] === '《A》：3 万次播放', 'archive or sorting incorrect')
+    groups[1].results.received = true
+    groups[0].title = 'Renamed'
+    assert(pendingGroupResults(groups).total === 100 && pendingGroupResults(groups).descriptions[0].includes('Renamed'), 'receipt or rename not reflected')
+    assert(pendingGroupResults(groups.slice(1)).total === 0, 'deleted group still counted')
+    groups[0].results.commission = 0
+    assert(pendingGroupResults(groups).descriptions.length === 0, 'zero commission included')
+  })
+  await test('Group results persist locally, through JSON and WebDAV round trips', async () => {
+    const f = fixture()
+    f.state.episodeGroups[1].results = { playCount: 123, commission: 900, received: false }
+    f.state.episodeGroups[1].fullName = 'Full drama title'
+    f.repository.save(f.state)
+    const loaded = new LocalRepository(f.storage).load(config)
+    assert(loaded.episodeGroups[1].results.commission === 900, 'local results lost')
+    assert(loaded.episodeGroups[1].fullName === 'Full drama title', 'local full name lost')
+    assert(normalizeAppState(clone(f.state), config).episodeGroups[1].results.playCount === 123, 'JSON results lost')
+    assert(normalizeAppState(clone(f.state), config).episodeGroups[1].fullName === 'Full drama title', 'JSON full name lost')
+    const dav = new MockDav()
+    await upload(dav, f)
+    const remote = await downloadDataFiles(dav.client())
+    const restored = mergeDownloadedFiles(createInitialState(config), remote.files)
+    assert(canonicalJson(restored.episodeGroups.find((group) => group.id === f.state.episodeGroups[1].id)?.results) === canonicalJson(f.state.episodeGroups[1].results), 'WebDAV results lost')
+    assert(restored.episodeGroups.find((group) => group.id === f.state.episodeGroups[1].id)?.fullName === 'Full drama title', 'WebDAV full name lost')
+  })
+  await test('Version 11 full name migration is stable and retains existing results', () => {
+    const old = clone(fixture().state)
+    old.version = 11
+    delete (old.episodeGroups[0] as Partial<typeof old.episodeGroups[0]>).fullName
+    old.episodeGroups[0].results = { playCount: 42, commission: 1000, received: true }
+    const next = normalizeAppState(old, config)
+    assert(next.episodeGroups[0].fullName === '' && next.episodeGroups[0].results.commission === 1000, 'version 11 migration lost metadata')
+    assert(canonicalJson(normalizeAppState(clone(next), config)) === canonicalJson(next), 'migration is not stable')
+  })
 
   await test('Legacy migration retains original, IDs, archived groups and independent files', () => {
     const f = fixture()

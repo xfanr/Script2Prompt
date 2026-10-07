@@ -180,12 +180,20 @@ export interface Shot {
   undoCharacters: CharacterConfig[] | null
 }
 
+export interface GroupResults {
+  playCount: number
+  commission: number
+  received: boolean
+}
+
 export interface EpisodeGroup {
   id: string
   title: string
+  fullName: string
   starred: boolean
   archived: boolean
   promptProfileId: string
+  results: GroupResults
 }
 
 export interface Episode {

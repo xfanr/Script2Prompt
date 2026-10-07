@@ -4,7 +4,7 @@
       <el-button :icon="Plus" type="primary" text @click="addInvoice">添加发票</el-button>
     </div>
     <el-empty v-if="!modelValue.length" description="暂无积分记录" :image-size="70" />
-    <el-form v-for="invoice in modelValue" :key="invoice.id" class="point-invoice" label-position="top">
+    <el-form v-for="invoice in modelValue" :key="invoice.id" class="point-invoice" label-position="top" hide-required-asterisk>
       <div class="point-invoice-heading">
         <strong>{{ invoice.number || '发票' }}</strong>
         <div class="point-invoice-actions">
@@ -28,8 +28,9 @@
       </div>
       <div class="point-ledger-toolbar point-usage-heading">
         <span>积分详情</span>
-        <el-progress class="point-usage-progress" :percentage="Math.min(100, usagePercentage(invoice))" :stroke-width="20" text-inside striped>
-          <span>{{ Math.round(usagePercentage(invoice)) }}% {{ invoiceUsedPoints(invoice).toLocaleString() }}/{{ (invoice.initialPoints + invoice.receivedPoints).toLocaleString() }}</span>
+        <el-progress class="point-usage-progress" :percentage="Math.min(100, usagePercentage(invoice))" :stroke-width="20" text-inside>
+          <span>{{ Math.round(usagePercentage(invoice)) }}%</span>
+          <span>{{ formatProgressPoints(invoiceUsedPoints(invoice)) }}/{{ formatProgressPoints(invoice.initialPoints + invoice.receivedPoints) }}</span>
         </el-progress>
         <el-button :icon="Plus" text type="primary" @click="invoice.usages.unshift(createPointUsage())">添加使用记录</el-button>
       </div>
@@ -47,7 +48,7 @@
           />
         </el-form-item>
         <el-form-item label="使用日期" required><el-date-picker v-model="usage.date" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" /></el-form-item>
-        <el-form-item label="使用总积分" required><el-input-number v-model="usage.points" :min="1" :precision="0" :controls="false" align="left" /></el-form-item>
+        <el-form-item label="消耗积分" required><el-input-number v-model="usage.points" :min="1" :precision="0" :controls="false" align="left" /></el-form-item>
         <el-button :icon="Delete" text type="danger" aria-label="删除使用记录" @click="removeUsage(invoice, usage)" />
       </div>
     </el-form>
@@ -87,6 +88,10 @@ function formatPrice(invoice: PointInvoice) {
 function usagePercentage(invoice: PointInvoice) {
   const total = invoice.initialPoints + invoice.receivedPoints
   return total > 0 ? invoiceUsedPoints(invoice) / total * 100 : 0
+}
+
+function formatProgressPoints(points: number) {
+  return points > 1000 ? `${points / 1000}k` : String(points)
 }
 
 function sortedUsages(invoice: PointInvoice) {

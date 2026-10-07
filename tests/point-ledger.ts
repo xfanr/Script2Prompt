@@ -87,7 +87,7 @@ export async function runPointLedgerTests() {
     old.version = 9
     delete old.pointInvoices
     const loaded = normalizeAppState(old, config)
-    assert(loaded.version === 10 && !loaded.pointInvoices.length, 'legacy migration')
+    assert(loaded.version === 12 && !loaded.pointInvoices.length, 'legacy migration')
     assert(loaded.episodes[0].productionData.productionDate === '2025-01-01', 'legacy date changed')
     const files = buildDataFiles(state)
     const settings = files.get('settings.json')!

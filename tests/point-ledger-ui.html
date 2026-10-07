@@ -35,6 +35,7 @@
   state.episodeGroups = [group]
   state.episodes = [createEpisode(1), createEpisode(2), createEpisode(3)]
   state.episodes.forEach((episode) => { episode.groupId = group.id })
+  if (new URLSearchParams(location.search).has('ungrouped')) state.episodes[0].groupId = null
   state.activeEpisodeId = state.episodes[0].id
   state.episodes[0].productionData = { pointUsage: 100, pointCost: 0.1, productionDate: '2025-01-01' }
   if (new URLSearchParams(location.search).has('selection')) {
