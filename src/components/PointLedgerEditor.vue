@@ -6,7 +6,7 @@
     <el-empty v-if="!modelValue.length" description="暂无积分记录" :image-size="70" />
     <el-form v-for="invoice in modelValue" :key="invoice.id" class="point-invoice" label-position="top" hide-required-asterisk>
       <div class="point-invoice-heading">
-        <strong>{{ invoice.number || '发票' }}</strong>
+        <strong>{{ invoiceHeading(invoice) }}</strong>
         <div class="point-invoice-actions">
           <el-tooltip content="导出发票数据" placement="top">
             <el-button :icon="Share" text type="primary" aria-label="导出发票数据" @click="exportInvoice(invoice)" />
@@ -28,29 +28,42 @@
       </div>
       <div class="point-ledger-toolbar point-usage-heading">
         <span>积分详情</span>
-        <el-progress class="point-usage-progress" :percentage="Math.min(100, usagePercentage(invoice))" :stroke-width="20" text-inside>
+        <el-progress class="point-usage-progress" :percentage="Math.min(100, usagePercentage(invoice))" :stroke-width="20" text-inside striped>
           <span>{{ Math.round(usagePercentage(invoice)) }}%</span>
-          <span>{{ formatProgressPoints(invoiceUsedPoints(invoice)) }}/{{ formatProgressPoints(invoice.initialPoints + invoice.receivedPoints) }}</span>
         </el-progress>
         <el-button :icon="Plus" text type="primary" @click="invoice.usages.unshift(createPointUsage())">添加使用记录</el-button>
       </div>
       <el-alert v-if="invoiceUsedPoints(invoice) > invoice.initialPoints + invoice.receivedPoints" type="warning" :closable="false" show-icon title="使用积分超过充值总积分，仍可保存" />
-      <div v-if="!invoice.usages.length" class="empty-note">暂无使用记录</div>
-      <div v-for="usage in sortedUsages(invoice)" :key="usage.id" class="point-usage-row">
-        <el-form-item label="制作剧集" required>
-          <el-cascader
-            :model-value="usage.episodes.map((reference) => reference.episodeId)"
-            :options="episodeOptions(usage)"
-            :props="{ multiple: true, emitPath: false }"
-            collapse-tags collapse-tags-tooltip filterable clearable
-            placeholder="选择剧集及单集"
-            @update:model-value="selectEpisodes(usage, $event)"
-          />
-        </el-form-item>
-        <el-form-item label="使用日期" required><el-date-picker v-model="usage.date" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" /></el-form-item>
-        <el-form-item label="消耗积分" required><el-input-number v-model="usage.points" :min="1" :precision="0" :controls="false" align="left" /></el-form-item>
-        <el-button :icon="Delete" text type="danger" aria-label="删除使用记录" @click="removeUsage(invoice, usage)" />
-      </div>
+      <el-table class="point-usage-table" :data="sortedUsages(invoice)" row-key="id" table-layout="auto" show-summary :summary-method="() => usageSummary(invoice)" empty-text="暂无使用记录">
+        <el-table-column label="制作剧集" min-width="320">
+          <template #default="{ row: usage }">
+            <el-cascader
+              :model-value="(usage as PointUsageRecord).episodes.map((reference) => reference.episodeId)"
+              :options="episodeOptions(usage as PointUsageRecord)"
+              :props="{ multiple: true, emitPath: false }"
+              collapse-tags collapse-tags-tooltip filterable clearable
+              placeholder="选择剧集及单集"
+              aria-label="制作剧集"
+              @update:model-value="selectEpisodes(usage as PointUsageRecord, $event)"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="使用天数" width="170">
+          <template #default="{ row: usage }">
+            <el-date-picker v-model="usage.date" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" aria-label="使用日期" />
+          </template>
+        </el-table-column>
+        <el-table-column label="消耗积分" width="112">
+          <template #default="{ row: usage }">
+            <el-input-number v-model="usage.points" :min="1" :precision="0" :controls="false" align="left" aria-label="消耗积分" />
+          </template>
+        </el-table-column>
+        <el-table-column label="删除" width="56" align="center" class-name="point-usage-actions">
+          <template #default="{ row: usage }">
+            <el-button :icon="Delete" text type="danger" size="small" aria-label="删除使用记录" @click="removeUsage(invoice, usage as PointUsageRecord)" />
+          </template>
+        </el-table-column>
+      </el-table>
     </el-form>
   </div>
 </template>
@@ -90,8 +103,15 @@ function usagePercentage(invoice: PointInvoice) {
   return total > 0 ? invoiceUsedPoints(invoice) / total * 100 : 0
 }
 
-function formatProgressPoints(points: number) {
-  return points > 1000 ? `${points / 1000}k` : String(points)
+function invoiceHeading(invoice: PointInvoice) {
+  return [invoice.toolType.trim(), invoice.number.trim().slice(-6)].filter(Boolean).join(' · ') || '发票'
+}
+
+function usageSummary(invoice: PointInvoice) {
+  const episodeCount = new Set(invoice.usages.flatMap((usage) => usage.episodes.map((reference) => reference.episodeId))).size
+  const dates = new Set(invoice.usages.map((usage) => usage.date).filter((date) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date))
+  return [`${episodeCount}集`, `${dates.size}天`, String(invoiceUsedPoints(invoice)), '']
 }
 
 function sortedUsages(invoice: PointInvoice) {

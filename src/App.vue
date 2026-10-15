@@ -323,6 +323,8 @@
             </section>
 
             <nav class="sidebar-footer-actions" aria-label="剧本管理快捷操作">
+              <el-tooltip content="从云端下载" placement="top"><el-button :icon="Download" text aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="downloadFromWebDav(webDavSettings)" /></el-tooltip>
+              <el-tooltip content="上传到云端" placement="top"><el-button :icon="Upload" text aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="uploadToWebDav(webDavSettings)" /></el-tooltip>
               <div class="sidebar-footer-ledger-entry">
                 <el-tooltip :content="isTodayMonday ? '积分记录；右键选择周报（记得交周报）' : '积分记录；右键选择并复制周报'" placement="top">
                   <el-button :icon="Calendar" text :class="{ 'is-reminder': isTodayMonday }" aria-label="积分记录" @click="openPointLedger" @contextmenu.prevent.stop="weeklyReportPickerRef?.handleOpen()" />
@@ -351,10 +353,6 @@
                   </template>
                 </el-date-picker>
               </div>
-              <el-tooltip content="从云端下载" placement="top"><el-button :icon="Download" text aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="downloadFromWebDav(webDavSettings)" /></el-tooltip>
-              <el-tooltip content="上传到云端" placement="top"><el-button :icon="Upload" text aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="uploadToWebDav(webDavSettings)" /></el-tooltip>
-              <el-tooltip content="导入本地备份" placement="top"><el-button :icon="DocumentChecked" text aria-label="导入本地备份" @click="triggerImport" /></el-tooltip>
-              <el-tooltip content="下载备份文件" placement="top"><el-button :icon="DocumentAdd" text aria-label="下载备份文件" @click="exportAllEpisodes" /></el-tooltip>
             </nav>
 
           </template>
@@ -598,6 +596,17 @@
                           :disabled="!composeCharacterSettings(shot, activeEpisode.characters)"
                           @click="copyCharacterSettings(shot)"
                         />
+                        <el-dropdown trigger="click" @command="cloneShotCharacters(shot, $event)">
+                          <el-button class="title-copy-button" :icon="Files" text type="primary" title="克隆人物配置" aria-label="克隆人物配置" />
+                          <template #dropdown>
+                            <el-dropdown-menu>
+                              <el-dropdown-item v-for="item in characterCloneSources(shot)" :key="item.shot.id" :command="item.shot.id" :disabled="!item.shot.characters.length">
+                                {{ formatShotNumber(activeEpisode, item.index) }} · {{ item.shot.characters.length }} 人
+                              </el-dropdown-item>
+                              <el-dropdown-item v-if="!characterCloneSources(shot).some((item) => item.shot.characters.length)" disabled>暂无可克隆的人物配置</el-dropdown-item>
+                            </el-dropdown-menu>
+                          </template>
+                        </el-dropdown>
                       </div>
                       <el-dropdown trigger="click" @command="addCharacterToShot(shot, $event)">
                         <el-button :icon="Plus" text type="primary">添加人物</el-button>
@@ -1409,7 +1418,7 @@ import PointLedgerDialog from './components/PointLedgerDialog.vue'
 import GroupPlayMedal from './components/GroupPlayMedal.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
-import { ArrowDown, ArrowRight, Calendar, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, DocumentAdd, DocumentChecked, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight, Calendar, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { effectiveProductionData, mergePointInvoices, normalizePointInvoices, remapPointInvoices } from './pointLedger'
 import { normalizeGroupResults, pendingGroupResults } from './groupResults'
@@ -1435,6 +1444,8 @@ import {
   composeSceneSettings,
   countNonPunctuationCharacters,
   detectCharacters,
+  findPhoneVoiceMatches,
+  formatPhoneVoiceText,
   mergeDetectedCharacters,
   normalizeCharacterNameForMatch,
 } from './prompt'
@@ -3942,6 +3953,27 @@ function removeCharacterFromShot(shot: Shot, id: string) {
   shot.characters = shot.characters.filter((character) => character.id !== id)
 }
 
+function characterCloneSources(target: Shot) {
+  return activeEpisode.value?.shots.map((shot, index) => ({ shot, index }))
+    .filter((item) => item.shot.id !== target.id) ?? []
+}
+
+function cloneShotCharacters(target: Shot, sourceId: string) {
+  const source = characterCloneSources(target).find((item) => item.shot.id === sourceId)?.shot
+  if (!source?.characters.length) return
+
+  const voices = new Map(target.characters.map((character) => [character.name, character.includeVoice]))
+  target.characters = source.characters.map((character) => ({
+    ...character,
+    id: createId('character'),
+    includeVoice: voices.get(character.name) ?? character.includeVoice,
+  }))
+  target.pendingDetection = null
+  target.autoSyncNotice = null
+  target.undoCharacters = null
+  notify.success('已克隆人物配置')
+}
+
 function showConfigRemove(id: string) {
   activeConfigRemoveId.value = id
 }
@@ -4098,6 +4130,7 @@ function promptPreviewStatus(shot: Shot): { type: 'success' | 'warning'; message
 
 function highlightedShotText(shot: Shot) {
   const text = shot.text || ' '
+  const phoneVoices = findPhoneVoiceMatches(text)
   const characters = shot.characters
     .map((character) => {
       const name = character.name.trim()
@@ -4127,6 +4160,21 @@ function highlightedShotText(shot: Shot) {
     return parts.join('')
   }
 
+  const highlightRange = (start: number, end: number, render: (value: string) => string) => {
+    const parts: string[] = []
+    let cursor = start
+    phoneVoices.forEach((match) => {
+      const matchStart = Math.max(start, match.index)
+      const matchEnd = Math.min(end, match.index + match[0].length)
+      if (matchStart >= matchEnd) return
+      parts.push(render(text.slice(cursor, matchStart)))
+      parts.push(`<mark class="phone-voice-marker">${escapeHtml(text.slice(matchStart, matchEnd))}</mark>`)
+      cursor = matchEnd
+    })
+    parts.push(render(text.slice(cursor, end)))
+    return parts.join('')
+  }
+
   const resolved = resolveTimingSegments(shot.text, timingCharacterNames(shot), shot.timingSegments, shot.firstFrameMode)
   const highlightPrefix = (value: string) => value.split(/((?:os|vo)(?=\s*(?:（[^）\r\n]*）|\([^\)\r\n]*\))?\s*[：:]))/gi)
     .map((part, index) => index % 2
@@ -4136,11 +4184,10 @@ function highlightedShotText(shot: Shot) {
   const parts: string[] = []
   let cursor = 0
   resolved.forEach((segment) => {
-    parts.push(highlightPrefix(text.slice(cursor, segment.start)))
+    parts.push(highlightRange(cursor, segment.start, highlightPrefix))
     const modeClass = segment.config.kind === 'action' ? ` is-${segment.config.mode}` : ''
-    const highlightedContent = segment.kind === 'dialogue'
-      ? escapeHtml(text.slice(segment.start, segment.end))
-      : highlightCharacters(text.slice(segment.start, segment.end))
+    const highlightedContent = highlightRange(segment.start, segment.end,
+      segment.kind === 'dialogue' ? escapeHtml : highlightCharacters)
     parts.push(
       `<mark class="timing-segment is-${segment.kind}${modeClass}" data-timing-id="${segment.id}">`
       + highlightedContent
@@ -4148,7 +4195,7 @@ function highlightedShotText(shot: Shot) {
     )
     cursor = segment.end
   })
-  parts.push(highlightCharacters(text.slice(cursor)))
+  parts.push(highlightRange(cursor, text.length, highlightCharacters))
   return parts.join('')
 }
 
@@ -5049,7 +5096,7 @@ async function copyWeeklyReport(value: Date | string | null = weeklyReportWeek.v
 }
 
 async function copyShotDetail(shot: Shot) {
-  const copied = await copyText(effectiveShotText(shot))
+  const copied = await copyText(formatPhoneVoiceText(effectiveShotText(shot)))
 
   if (copied) {
     notify.success('已复制分镜详情')
@@ -5118,11 +5165,6 @@ function namesText(names: string[]) {
 function sameNames(left: string[], right: string[]) {
   return left.length === right.length && left.every((name) => right.includes(name))
 }
-
-function triggerImport() {
-  fileInputRef.value?.click()
-}
-
 
 async function exportAllEpisodes() {
   const filename = `${archiveFilename()}.json`

@@ -523,7 +523,6 @@ html.dark .episode-panel {
 .group-title-text {
   min-width: 0;
   flex: 1 1 auto;
-  overflow: hidden;
   font-size: var(--el-font-size-base);
   line-height: 20px;
   text-overflow: ellipsis;
@@ -649,7 +648,7 @@ html.dark .episode-panel {
 .sidebar-footer-actions {
   display: grid;
   flex: 0 0 auto;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
   margin: 0 -14px -14px;
   padding: 5px 4px;
@@ -1390,6 +1389,7 @@ html.dark .episode-panel {
 }
 
 .shot-connection-slider.el-slider.is-vertical {
+  display: none;
   box-sizing: border-box;
   width: 36px;
   min-height: 0;
@@ -1419,7 +1419,8 @@ html.dark .episode-panel {
   min-width: 0;
 }
 
-.prompt-preview-status {
+.prompt-preview-status.el-icon {
+  display: none;
   flex: 0 0 auto;
   font-size: 17px;
 }
@@ -1548,6 +1549,10 @@ html.dark .episode-panel {
 
 .script-highlight-layer .voice-marker {
   background: var(--el-color-primary);
+}
+
+.script-highlight-layer .phone-voice-marker {
+  background: var(--el-color-warning-light-7);
 }
 
 .script-highlight-layer .timing-segment {
@@ -2487,8 +2492,7 @@ html.dark .episode-panel {
 }
 
 .point-invoice-identity,
-.point-invoice-values,
-.point-usage-row {
+.point-invoice-values {
   display: grid;
   gap: 12px;
 }
@@ -2499,23 +2503,6 @@ html.dark .episode-panel {
 
 .point-invoice-values {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.point-usage-row {
-  position: relative;
-  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr));
-  align-items: center;
-  margin-top: 12px;
-}
-
-.point-usage-row > .el-button {
-  position: absolute;
-  top: -5px;
-  right: 0;
-}
-
-.point-usage-row .el-form-item:last-of-type .el-form-item__label {
-  padding-right: 32px;
 }
 
 .point-usage-heading {
@@ -2564,14 +2551,30 @@ html.dark .episode-panel {
   width: 100%;
 }
 
+.point-usage-table .el-cascader__tags {
+  flex-wrap: nowrap;
+}
+
+.point-usage-table .el-cascader__tags > .el-tag {
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.point-usage-table .el-cascader__tags > .el-tag + .el-tag {
+  flex-shrink: 0;
+}
+
+.point-usage-table .point-usage-actions .cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-overflow: clip;
+}
+
 @media (max-width: 700px) {
   .point-invoice-identity,
   .point-invoice-values {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .point-usage-row {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .point-ledger-toolbar {

@@ -24,6 +24,17 @@ type CharacterMatchCandidate = {
   matchName: string
 }
 
+const PHONE_VOICE_PATTERN = /手机vo(?:（([^（）()\r\n]*)）|\(([^（）()\r\n]*)\)|(?![（(]))/giu
+
+export function findPhoneVoiceMatches(text: string) {
+  return Array.from(text.matchAll(PHONE_VOICE_PATTERN))
+}
+
+export function formatPhoneVoiceText(text: string) {
+  return text.replace(PHONE_VOICE_PATTERN, (_match, chineseContent: string | undefined, englishContent: string | undefined) =>
+    `手机传来的VO（${[chineseContent ?? englishContent, '音色参考@'].filter(Boolean).join('，')}）`)
+}
+
 export function countNonPunctuationCharacters(text: string) {
   return Array.from(text.replace(/[\p{P}\p{S}\s]/gu, '')).length
 }
@@ -109,7 +120,8 @@ export function composePrompt(
   characterAssets: CharacterAsset[] = [],
 ) {
   const profile = activePromptProfile(globalConfig, promptProfileId)
-  const firstFrame = shot.firstFrameMode ? parseFirstFrameText(shot.text) : null
+  const text = formatPhoneVoiceText(shot.text)
+  const firstFrame = shot.firstFrameMode ? parseFirstFrameText(text) : null
   const characterCount = shot.characters.filter((character) => character.name.trim()).length
   const sections = [
     ['一、基础设定', joinPromptBlocks([
@@ -124,7 +136,7 @@ export function composePrompt(
     ['三、分镜详情', joinPromptBlocks([
       firstFrame ? firstFrameShotPrompt(firstFrame.content, estimatedSeconds) : '',
       profile.shotPrefix,
-      firstFrame ? firstFrame.detailText : shot.text,
+      firstFrame ? firstFrame.detailText : text,
     ])],
   ]
 
