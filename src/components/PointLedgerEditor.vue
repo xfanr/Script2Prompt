@@ -4,16 +4,23 @@
       <el-button :icon="Plus" type="primary" text @click="addInvoice">添加发票</el-button>
     </div>
     <el-empty v-if="!modelValue.length" description="暂无积分记录" :image-size="70" />
-    <el-form v-for="invoice in modelValue" :key="invoice.id" class="point-invoice" label-position="top" hide-required-asterisk>
+    <div v-for="invoice in modelValue" :key="invoice.id" class="point-invoice">
       <div class="point-invoice-heading">
-        <strong>{{ invoiceHeading(invoice) }}</strong>
+        <strong class="point-invoice-title">{{ invoiceHeading(invoice) }}</strong>
         <div class="point-invoice-actions">
-          <el-tooltip content="导出发票数据" placement="top">
-            <el-button :icon="Share" text type="primary" aria-label="导出发票数据" @click="exportInvoice(invoice)" />
+          <el-tooltip :content="invoice.reimbursed ? '取消报销' : '报销'" placement="top">
+            <el-button :icon="Tickets" text type="primary" :bg="invoice.reimbursed" :aria-pressed="invoice.reimbursed" aria-label="报销" @click="toggleReimbursed(invoice)" />
           </el-tooltip>
-          <el-button :icon="Delete" text type="danger" aria-label="删除发票" @click="removeInvoice(invoice)" />
+          <el-tooltip content="精简导出" placement="top">
+            <el-button :icon="DocumentCopy" text type="primary" aria-label="精简导出" @click="exportInvoice(invoice, 'simple')" />
+          </el-tooltip>
+          <el-tooltip content="完整导出" placement="top">
+            <el-button :icon="Share" text type="primary" aria-label="完整导出" @click="exportInvoice(invoice, 'full')" />
+          </el-tooltip>
+          <el-button :icon="Delete" text type="primary" aria-label="删除发票" @click="removeInvoice(invoice)" />
         </div>
       </div>
+      <el-form v-if="!invoice.reimbursed" label-position="top" hide-required-asterisk>
       <div class="point-invoice-identity">
         <el-form-item label="发票号码" required><el-input v-model="invoice.number" placeholder="请输入发票号码" /></el-form-item>
         <el-form-item label="充值日期"><el-date-picker :model-value="invoice.rechargeDate" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" @update:model-value="invoice.rechargeDate = typeof $event === 'string' ? $event : ''" /></el-form-item>
@@ -34,18 +41,26 @@
         <el-button :icon="Plus" text type="primary" @click="invoice.usages.unshift(createPointUsage())">添加使用记录</el-button>
       </div>
       <el-alert v-if="invoiceUsedPoints(invoice) > invoice.initialPoints + invoice.receivedPoints" type="warning" :closable="false" show-icon title="使用积分超过充值总积分，仍可保存" />
-      <el-table class="point-usage-table" :data="sortedUsages(invoice)" row-key="id" table-layout="auto" show-summary :summary-method="() => usageSummary(invoice)" empty-text="暂无使用记录">
-        <el-table-column label="制作剧集" min-width="320">
+      <el-table class="point-usage-table" :data="sortedUsages(invoice)" row-key="id" table-layout="fixed" show-summary :summary-method="() => usageSummary(invoice)" empty-text="暂无使用记录">
+        <el-table-column label="制作剧集" min-width="240">
           <template #default="{ row: usage }">
             <el-cascader
+              v-if="activeUsageId === usage.id"
+              :ref="(instance) => { episodeSelector = instance as CascaderInstance | null }"
               :model-value="(usage as PointUsageRecord).episodes.map((reference) => reference.episodeId)"
-              :options="episodeOptions(usage as PointUsageRecord)"
-              :props="{ multiple: true, emitPath: false }"
+              :options="activeEpisodeOptions"
+              :props="episodeSelectorProps"
               collapse-tags collapse-tags-tooltip filterable clearable
               placeholder="选择剧集及单集"
               aria-label="制作剧集"
               @update:model-value="selectEpisodes(usage as PointUsageRecord, $event)"
+              @visible-change="handleSelectorVisibleChange"
+              @blur="activeUsageId = null"
             />
+            <el-button v-else class="point-episode-trigger" text :class="{ 'is-placeholder': !usage.episodes.length }" :title="episodeSelectionLabel(usage as PointUsageRecord)" aria-label="制作剧集" @click="openEpisodeSelector(usage as PointUsageRecord)">
+              <span class="point-episode-selection">{{ episodeSelectionLabel(usage as PointUsageRecord) || '选择剧集及单集' }}</span>
+              <span v-if="usage.episodes.length" class="point-episode-count">，共{{ usage.episodes.length }}集</span>
+            </el-button>
           </template>
         </el-table-column>
         <el-table-column label="使用天数" width="170">
@@ -60,32 +75,112 @@
         </el-table-column>
         <el-table-column label="删除" width="56" align="center" class-name="point-usage-actions">
           <template #default="{ row: usage }">
-            <el-button :icon="Delete" text type="danger" size="small" aria-label="删除使用记录" @click="removeUsage(invoice, usage as PointUsageRecord)" />
+            <el-button :icon="Delete" text type="primary" size="small" aria-label="删除使用记录" @click="removeUsage(invoice, usage as PointUsageRecord)" />
           </template>
         </el-table-column>
       </el-table>
-    </el-form>
+      </el-form>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ElMessageBox } from 'element-plus'
-import { Delete, Plus, Share } from '@element-plus/icons-vue'
-import { canSelectPointEpisode, createPointInvoice, createPointUsage, formatPointInvoiceExport, invoicePointPrice, invoiceUsedPoints } from '../pointLedger'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { ElMessageBox, type CascaderInstance } from 'element-plus'
+import { Delete, DocumentCopy, Plus, Share, Tickets } from '@element-plus/icons-vue'
+import { canSelectPointEpisode, createPointInvoice, createPointUsage, formatPointInvoiceExport, invoicePointPrice, invoiceUsedPoints, resolvePointEpisode } from '../pointLedger'
 import { copyText } from '../clipboard'
 import { notify } from '../notification'
 import type { Episode, EpisodeGroup, PointInvoice, PointUsageRecord } from '../types'
 
 const props = defineProps<{ modelValue: PointInvoice[]; episodes: Episode[]; groups: EpisodeGroup[] }>()
 const emit = defineEmits<{ 'update:modelValue': [value: PointInvoice[]] }>()
+const activeUsageId = ref<string | null>(null)
+const episodeSelector = ref<CascaderInstance | null>(null)
+const episodeSelectorProps = { multiple: true, emitPath: false }
+const episodeById = computed(() => new Map(props.episodes.map((episode) => [episode.id, episode])))
+const episodeOptionGroups = computed(() => {
+  const grouped = new Map<string, Episode[]>()
+  for (const episode of props.episodes) {
+    const groupId = episode.groupId ?? 'ungrouped'
+    const episodes = grouped.get(groupId) ?? []
+    episodes.push(episode)
+    grouped.set(groupId, episodes)
+  }
+  return [{ id: 'ungrouped', title: '未分组', archived: false }, ...props.groups]
+    .sort((a, b) => Number(a.archived) - Number(b.archived))
+    .map((group) => ({
+      value: group.id,
+      label: `${group.title}${group.archived ? '（已归档）' : ''}`,
+      children: (grouped.get(group.id) ?? []).sort((a, b) => a.title.localeCompare(b.title, 'zh-CN', { numeric: true }))
+        .map((episode) => ({ value: episode.id, label: episode.title })),
+    })).filter((group) => group.children.length)
+})
+const activeEpisodeOptions = computed(() => {
+  const usage = props.modelValue.flatMap((invoice) => invoice.usages).find((usage) => usage.id === activeUsageId.value)
+  if (!usage) return []
+  const selectedIds = new Set(usage.episodes.map((reference) => reference.episodeId))
+  const selectedGroups = new Set(usage.episodes.map((reference) => resolvePointEpisode(reference, props.episodes, props.groups).groupId))
+  const options = episodeOptionGroups.value.map((group) => {
+    const groupAllowed = !selectedGroups.size || (selectedGroups.size === 1 && selectedGroups.has(group.value))
+    const children = group.children.map((episode) => ({ ...episode, disabled: !groupAllowed && !selectedIds.has(episode.value) }))
+    return { ...group, children, disabled: children.every((episode) => episode.disabled) }
+  })
+  const missing = usage.episodes.filter((reference) => !episodeById.value.has(reference.episodeId))
+  if (missing.length) options.push({ value: 'deleted', label: '已删除', disabled: true, children: missing.map((reference) => ({
+    value: reference.episodeId, label: `${reference.groupTitle} · ${reference.episodeTitle}（已删除）`, disabled: true,
+  })) })
+  return options
+})
+
+function toggleReimbursed(invoice: PointInvoice) {
+  invoice.reimbursed = !invoice.reimbursed
+  activeUsageId.value = null
+}
+
+function episodeSelectionLabel(usage: PointUsageRecord) {
+  const groups = new Map<string, { id: string; title: string; episodes: string[] }>()
+  for (const reference of usage.episodes) {
+    const resolved = resolvePointEpisode(reference, props.episodes, props.groups)
+    let group = groups.get(resolved.groupId)
+    if (!group) {
+      group = { id: resolved.groupId, title: resolved.groupTitle, episodes: [] }
+      groups.set(resolved.groupId, group)
+    }
+    const title = resolved.episodeTitle.replace(/^第\s*(\d+)\s*集$/, '$1')
+    group.episodes.push(`${title}${resolved.deleted ? '（已删除）' : ''}`)
+  }
+  return [...groups.values()].map((group) => `《${group.title}》${group.episodes.join('/')}`).join('；')
+}
+
+async function openEpisodeSelector(usage: PointUsageRecord) {
+  activeUsageId.value = usage.id
+  await nextTick()
+  episodeSelector.value?.focus()
+  episodeSelector.value?.togglePopperVisible(true)
+}
+
+function handleSelectorVisibleChange(visible: boolean) {
+  if (!visible) activeUsageId.value = null
+}
+
+function handleSelectorEscape(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || !activeUsageId.value) return
+  event.preventDefault()
+  event.stopPropagation()
+  activeUsageId.value = null
+}
+
+onMounted(() => window.addEventListener('keydown', handleSelectorEscape, true))
+onUnmounted(() => window.removeEventListener('keydown', handleSelectorEscape, true))
 
 function addInvoice() {
   emit('update:modelValue', [createPointInvoice(props.modelValue), ...props.modelValue])
 }
 
-async function exportInvoice(invoice: PointInvoice) {
+async function exportInvoice(invoice: PointInvoice, mode: 'full' | 'simple') {
   try {
-    const text = formatPointInvoiceExport(invoice, props.episodes, props.groups)
+    const text = formatPointInvoiceExport(invoice, props.episodes, props.groups, mode)
     if (!text) { notify.info('暂无可导出的使用记录'); return }
     if (await copyText(text)) notify.success('已复制发票数据')
     else notify.error('复制失败，请重试')
@@ -111,30 +206,11 @@ function usageSummary(invoice: PointInvoice) {
   const episodeCount = new Set(invoice.usages.flatMap((usage) => usage.episodes.map((reference) => reference.episodeId))).size
   const dates = new Set(invoice.usages.map((usage) => usage.date).filter((date) =>
     /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date))
-  return [`${episodeCount}集`, `${dates.size}天`, String(invoiceUsedPoints(invoice)), '']
+  return [`合计：${episodeCount}集`, `合计：${dates.size}天`, `合计：${invoiceUsedPoints(invoice)}`, '']
 }
 
 function sortedUsages(invoice: PointInvoice) {
   return invoice.usages.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-}
-
-function episodeOptions(usage: PointUsageRecord) {
-  const groups = [{ id: 'ungrouped', title: '未分组', archived: false }, ...props.groups]
-    .sort((a, b) => Number(a.archived) - Number(b.archived))
-  const options = groups.map((group) => ({
-    value: group.id,
-    label: `${group.title}${group.archived ? '（已归档）' : ''}`,
-    children: props.episodes.filter((episode) => (episode.groupId ?? 'ungrouped') === group.id)
-      .slice().sort((a, b) => a.title.localeCompare(b.title, 'zh-CN', { numeric: true }))
-      .map((episode) => ({ value: episode.id, label: episode.title, disabled: !canSelectPointEpisode(usage,
-        { episodeId: episode.id, episodeTitle: episode.title, groupTitle: group.title }, props.episodes, props.groups) })),
-  })).filter((group) => group.children.length)
-    .map((group) => ({ ...group, disabled: group.children.every((episode) => episode.disabled) }))
-  const missing = usage.episodes.filter((reference) => !props.episodes.some((episode) => episode.id === reference.episodeId))
-  if (missing.length) options.push({ value: 'deleted', label: '已删除', disabled: true, children: missing.map((reference) => ({
-    value: reference.episodeId, label: `${reference.groupTitle} · ${reference.episodeTitle}（已删除）`, disabled: true,
-  })) })
-  return options
 }
 
 function selectEpisodes(usage: PointUsageRecord, value: unknown) {

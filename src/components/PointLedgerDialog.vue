@@ -40,13 +40,19 @@ function save() {
 }
 
 async function handleBeforeClose(done: () => void) {
-  if (JSON.stringify(draft.value) !== initialSignature.value) {
-    try {
-      await ElMessageBox.confirm('积分记录中存在尚未保存的修改，确认放弃？', '放弃修改', {
-        type: 'warning', confirmButtonText: '放弃修改', cancelButtonText: '继续编辑', confirmButtonClass: 'button-spacing-left',
-      })
-    } catch { return }
+  if (JSON.stringify(draft.value) === initialSignature.value) {
+    done()
+    return
   }
-  done()
+  try {
+    await ElMessageBox.confirm('积分记录中存在尚未保存的修改，是否保存？', '未保存的更改', {
+      type: 'warning', confirmButtonText: '保存更改', cancelButtonText: '放弃更改', confirmButtonClass: 'button-spacing-left',
+      distinguishCancelAndClose: true, closeOnClickModal: false,
+    })
+  } catch (action) {
+    if (action === 'cancel') done()
+    return
+  }
+  save()
 }
 </script>

@@ -63,6 +63,10 @@ export function createSceneConfig(name = '', time: SceneTime = '白天', space: 
   }
 }
 
+export function normalizeShotSceneSelection(scenes: SceneConfig[]): SceneConfig[] {
+  return [scenes.find((scene) => scene.name.trim()) ?? scenes[0] ?? createSceneConfig()]
+}
+
 export function createDialogueReplacementRule(forbidden = '', replacement = ''): DialogueReplacementRule {
   return {
     id: createId('dialogue-rule'),

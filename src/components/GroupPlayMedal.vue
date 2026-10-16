@@ -13,11 +13,14 @@ withDefaults(defineProps<{ playCount?: number }>(), { playCount: 0 })
 
 <style scoped>
 .group-play-medal {
+  flex-shrink: 0;
+  color: var(--el-color-danger);
+}
+
+.group-play-medal:not(.episode-star) {
   transform: scale(1.5);
   margin-right: 4px;
   vertical-align: -0.125em;
-  flex-shrink: 0;
-  color: var(--el-color-danger);
 }
 
 .group-play-medal.is-info {

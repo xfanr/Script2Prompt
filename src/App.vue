@@ -45,7 +45,7 @@
               <span class="stage-page-title">
                 <el-dropdown trigger="click" popper-class="stage-title-switch-dropdown" @command="switchActiveEpisodeGroup">
                   <button class="stage-title-switch-trigger" type="button" title="切换剧本" aria-label="切换剧本">
-                    <span><GroupPlayMedal :play-count="groupPlayCount(activeEpisode.groupId)" />《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》</span>
+                    <span>《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》</span>
                   </button>
                   <template #dropdown>
                     <el-dropdown-menu>
@@ -55,7 +55,7 @@
                         :command="group.id"
                         :disabled="group.id === activeEpisode.groupId || !hasEpisodesInGroup(group.id)"
                       >
-                        <span class="stage-title-switch-option"><GroupPlayMedal :play-count="group.results.playCount" />《{{ group.title }}》<small v-if="!hasEpisodesInGroup(group.id)">无单集</small></span>
+                        <span class="stage-title-switch-option">《{{ group.title }}》<small v-if="!hasEpisodesInGroup(group.id)">无单集</small></span>
                         <el-icon v-if="group.id === activeEpisode.groupId" class="stage-title-switch-check"><Check /></el-icon>
                       </el-dropdown-item>
                     </el-dropdown-menu>
@@ -159,8 +159,9 @@
                             <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelGroupRename(group)" />
                           </div>
                           <template v-else>
-                            <span class="group-title-text"><GroupPlayMedal :play-count="group.results.playCount" />{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
+                            <span class="group-title-text">{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
                             <div class="group-row-actions" @click.stop @keydown.stop>
+                              <GroupPlayMedal class="episode-star" :play-count="group.results.playCount" />
                               <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="新建单集" @click="addEpisodeToGroup(group.id)" />
                               <el-dropdown trigger="click" @command="(command) => handleGroupCommand(command, group.id)">
                                 <el-button class="group-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多剧集操作" />
@@ -220,8 +221,9 @@
                             <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelGroupRename(group)" />
                           </div>
                           <template v-else>
-                            <span class="group-title-text"><GroupPlayMedal :play-count="group.results.playCount" />{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
+                            <span class="group-title-text">{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
                             <div class="group-row-actions" @click.stop @keydown.stop>
+                              <GroupPlayMedal class="episode-star" :play-count="group.results.playCount" />
                               <el-dropdown trigger="click" @command="(command) => handleGroupCommand(command, group.id)">
                                 <el-button class="group-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多已归档剧集操作" />
                                 <template #dropdown>
@@ -290,7 +292,7 @@
                       </section>
                       <section class="material-management-section">
                         <div class="material-management-heading-row">
-                          <h4 class="material-management-heading">人物配置</h4>
+                          <h4 class="material-management-heading">角色配置</h4>
                           <div class="material-management-heading-actions">
                             <el-tooltip content="智能识别" placement="top">
                               <el-button
@@ -302,18 +304,18 @@
                                 @click="recognizeCharacterDescriptionsFromClipboard"
                               />
                             </el-tooltip>
-                            <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="添加人物素材" @click="openEpisodeScriptDialog('materials')" />
+                            <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="添加角色" @click="openEpisodeScriptDialog('materials')" />
                           </div>
                         </div>
                         <div class="material-management-list">
                           <div v-for="item in activeEpisode.characters" :key="`character-${item.name}`" class="material-management-item">
                             <span class="material-management-name" :class="{ 'is-used': isCharacterUsed(item.name) }">{{ item.name }}</span>
                             <div class="material-management-actions">
-                              <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改人物素材" @click="openMaterialEditDialog('characters', item.name)" />
-                              <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除人物素材" @click="confirmRemoveMaterial('characters', item.name)" />
+                              <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改角色" @click="openMaterialEditDialog('characters', item.name)" />
+                              <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除角色" @click="confirmRemoveMaterial('characters', item.name)" />
                             </div>
                           </div>
-                          <div v-if="!activeEpisode.characters.length" class="material-management-empty">暂无人物素材</div>
+                          <div v-if="!activeEpisode.characters.length" class="material-management-empty">暂无角色</div>
                         </div>
                       </section>
                     </div>
@@ -438,7 +440,17 @@
                         @click="copyShotDetail(shot)"
                       />
                       <div class="script-title-actions">
-                        <el-button class="title-copy-button" :icon="Search" text type="primary" title="识别人物" aria-label="识别人物" @click="detectShotCharacters(shot)" />
+                        <el-button class="title-copy-button" :icon="Search" text type="primary" title="识别角色" aria-label="识别角色" @click="detectShotCharacters(shot)" />
+                        <el-button
+                          type="primary"
+                          text
+                          :bg="shot.firstFrameMode"
+                          :icon="VideoPlay"
+                          :title="`${shot.firstFrameMode ? '关闭首帧' : '开启首帧'}；右键应用到本集全部分镜`"
+                          :aria-label="shot.firstFrameMode ? '关闭首帧' : '开启首帧'"
+                          @click="shot.firstFrameMode = !shot.firstFrameMode"
+                          @contextmenu.prevent.stop="toggleEpisodeFirstFrameModeFromShot(shot)"
+                        >首帧</el-button>
                       </div>
                     </div>
                     <div class="script-title-stats">
@@ -475,7 +487,7 @@
                           type="textarea"
                           :rows="9"
                           resize="vertical"
-                          placeholder="输入或粘贴分镜正文，建议控制在 40～120 字。点击“识别”可匹配本集人物。"
+                          placeholder="输入或粘贴分镜正文，建议控制在 40～120 字。点击“识别”可匹配本集角色。"
                           @input="syncShotTimingSegments(shot)"
                         />
                       </div>
@@ -504,130 +516,81 @@
                 </section>
 
                 <section class="shot-cell config-cell">
-                  <div class="config-group">
-                    <div class="config-heading">
-                      <div class="scene-heading-title">
-                        <span>场景配置</span>
-                        <el-button
-                          class="title-copy-button"
-                          :icon="CopyDocument"
-                          text
-                          type="primary"
-                          title="复制场景配置"
-                          aria-label="复制场景配置"
-                          :disabled="!composeSceneSettings(shot)"
-                          @click="copySceneSettings(shot)"
-                        />
-                        <el-button
-                          type="primary"
-                          text
-                          :bg="shot.usePositionReference"
-                          :icon="Camera"
-                          :title="`${shot.usePositionReference ? '关闭定位图' : '开启定位图'}；右键应用到本集全部分镜`"
-                          :aria-label="shot.usePositionReference ? '关闭定位图' : '开启定位图'"
-                          @click="setPositionReference(shot, !shot.usePositionReference)"
-                          @contextmenu.prevent.stop="toggleEpisodePositionReferenceFromShot(shot)"
-                        >定位</el-button>
-                      </div>
-                      <el-button :icon="Plus" text type="primary" @click="addSceneToShot(shot)">添加场景</el-button>
-                    </div>
-                    <div v-if="!shot.scenes.length" class="empty-note">暂无场景配置</div>
-                    <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line">
-                      <el-select v-model="scene.name" placeholder="选择场景" filterable @change="syncSceneFromAsset(scene)">
-                        <template #label="{ label }">
-                          {{ scene.name || label }}
-                        </template>
-                        <el-option v-for="item in activeEpisode.scenes" :key="item.name" :label="sceneAssetLabel(item)" :value="item.name" />
-                      </el-select>
-                      <el-input
-                        v-model="scene.statusText"
-                        class="scene-status-input"
-                        placeholder="输入场景状态"
-                      >
-                        <template #suffix>
-                          <el-icon v-if="!scene.name.trim()" class="scene-status-suffix-icon is-disabled" title="请先选择场景" aria-label="请先选择场景"><Refresh /></el-icon>
-                          <el-popconfirm v-else title="请选择同名场景状态的同步范围">
-                            <template #actions="{ confirm }">
-                              <el-button size="small" @click="syncSceneStatus(shot, scene, 'unit'); confirm($event)">本单元</el-button>
-                              <el-button class="button-spacing-left" size="small" type="primary" @click="syncSceneStatus(shot, scene, 'all'); confirm($event)">全部</el-button>
-                            </template>
-                            <template #reference>
-                              <el-icon class="scene-status-suffix-icon" title="同步同名场景状态" aria-label="同步同名场景状态"><Refresh /></el-icon>
-                            </template>
-                          </el-popconfirm>
-                        </template>
-                      </el-input>
-                      <el-popconfirm
-                        title="确认删除这条场景配置？"
-                        @show="showConfigRemove(scene.id)"
-                        @hide="hideConfigRemove(scene.id)"
-                        @confirm="removeSceneFromShot(shot, scene.id)"
-                      >
-                        <template #actions="{ confirm }">
-                          <el-button size="small" type="danger" @click="confirm($event)">删除</el-button>
-                        </template>
-                        <template #reference>
-                          <el-button
-                            class="config-remove-button"
-                            :class="{ 'is-popconfirm-open': activeConfigRemoveId === scene.id }"
-                            :icon="Delete"
-                            type="primary"
-                            text
-                            size="small"
-                            title="删除场景配置"
-                            aria-label="删除场景配置"
-                          />
-                        </template>
-                      </el-popconfirm>
-                    </div>
-                  </div>
-
                   <div class="config-group character-config-group">
                     <div class="config-heading character-heading">
                       <div class="character-heading-title">
-                        <span>人物配置</span>
+                        <span>场景与角色</span>
                         <el-button
                           class="title-copy-button"
                           :icon="CopyDocument"
                           text
                           type="primary"
-                          title="复制人物配置"
-                          aria-label="复制人物配置"
+                          title="复制角色配置"
+                          aria-label="复制角色配置"
                           :disabled="!composeCharacterSettings(shot, activeEpisode.characters)"
                           @click="copyCharacterSettings(shot)"
                         />
                         <el-dropdown trigger="click" @command="cloneShotCharacters(shot, $event)">
-                          <el-button class="title-copy-button" :icon="Files" text type="primary" title="克隆人物配置" aria-label="克隆人物配置" />
+                          <el-button class="title-copy-button" :icon="Files" text type="primary" title="克隆角色配置" aria-label="克隆角色配置" />
                           <template #dropdown>
                             <el-dropdown-menu>
                               <el-dropdown-item v-for="item in characterCloneSources(shot)" :key="item.shot.id" :command="item.shot.id" :disabled="!item.shot.characters.length">
                                 {{ formatShotNumber(activeEpisode, item.index) }} · {{ item.shot.characters.length }} 人
                               </el-dropdown-item>
-                              <el-dropdown-item v-if="!characterCloneSources(shot).some((item) => item.shot.characters.length)" disabled>暂无可克隆的人物配置</el-dropdown-item>
+                              <el-dropdown-item v-if="!characterCloneSources(shot).some((item) => item.shot.characters.length)" disabled>暂无可克隆的角色配置</el-dropdown-item>
                             </el-dropdown-menu>
                           </template>
                         </el-dropdown>
                       </div>
-                      <el-dropdown trigger="click" @command="addCharacterToShot(shot, $event)">
-                        <el-button :icon="Plus" text type="primary">添加人物</el-button>
-                        <template #dropdown>
-                          <el-dropdown-menu>
-                            <el-dropdown-item v-for="item in availableCharacterAssets(shot)" :key="item.name" :command="item.name">
-                              {{ item.name }}
-                            </el-dropdown-item>
-                            <el-dropdown-item v-if="!availableCharacterAssets(shot).length" disabled>暂无可添加的人物素材</el-dropdown-item>
-                          </el-dropdown-menu>
-                        </template>
-                      </el-dropdown>
+                      <div class="character-heading-actions">
+                        <el-dropdown trigger="click" @command="addCharacterToShot(shot, $event)">
+                          <el-button class="title-copy-button" :icon="Plus" text type="primary" title="添加角色" aria-label="添加角色" />
+                          <template #dropdown>
+                            <el-dropdown-menu>
+                              <el-dropdown-item v-for="item in availableCharacterAssets(shot)" :key="item.name" :command="item.name">
+                                {{ item.name }}
+                              </el-dropdown-item>
+                              <el-dropdown-item v-if="!availableCharacterAssets(shot).length" disabled>暂无可添加的角色</el-dropdown-item>
+                            </el-dropdown-menu>
+                          </template>
+                        </el-dropdown>
+                        <el-dropdown trigger="click" @command="removeCharacterFromShot(shot, $event)">
+                          <el-button class="title-copy-button" :icon="Delete" text type="primary" title="删除角色" aria-label="删除角色" :disabled="!shot.characters.length" />
+                          <template #dropdown>
+                            <el-dropdown-menu>
+                              <el-dropdown-item v-for="character in shot.characters" :key="character.id" :command="character.id">{{ character.name }}</el-dropdown-item>
+                            </el-dropdown-menu>
+                          </template>
+                        </el-dropdown>
+                      </div>
+                    </div>
+                    <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line">
+                      <el-select v-model="scene.name" placeholder="选择场景" aria-label="选择场景" @change="syncSceneFromAsset(scene)">
+                        <template #label="{ label }">{{ scene.name ? sceneAssetLabel(scene) : label }}</template>
+                        <el-option v-for="item in activeEpisode.scenes" :key="item.name" :label="sceneAssetLabel(item)" :value="item.name" />
+                      </el-select>
+                      <el-input v-model="scene.statusText" class="scene-status-input" placeholder="输入场景状态" />
+                      <el-button
+                        class="config-edit-button"
+                        :icon="EditPen"
+                        type="primary"
+                        text
+                        size="small"
+                        title="修改场景素材"
+                        aria-label="修改场景素材"
+                        :disabled="!activeEpisode.scenes.some((item) => item.name === scene.name)"
+                        @click="openMaterialEditDialog('scenes', scene.name)"
+                      />
                     </div>
                     <VueDraggable
                       v-model="shot.characters"
                       class="character-config-list"
                       :animation="150"
+                      :bubble-scroll="false"
                       handle=".character-drag-handle"
                       ghost-class="character-drag-ghost"
                     >
-                      <div v-if="!shot.characters.length" class="empty-note">暂无人物配置</div>
+                      <div v-if="!shot.characters.length" class="empty-note">暂无角色配置</div>
                       <div v-for="character in shot.characters" :key="character.id" class="config-line character-line">
                       <el-button
                         class="character-drag-handle"
@@ -638,7 +601,7 @@
                         aria-label="拖拽排序"
                       />
                       <div class="character-identity-controls">
-                        <el-input :model-value="character.name" class="character-name-input" readonly aria-label="人物名称">
+                        <el-input :model-value="character.name" class="character-name-input" readonly aria-label="角色名称">
                           <template #prefix>
                             <el-tooltip
                               :content="characterAppearanceDescription(character.name)"
@@ -669,43 +632,32 @@
                       <el-input
                         v-model="character.statusText"
                         class="character-status-input"
-                        placeholder="输入人物状态"
+                        placeholder="输入角色状态"
                       >
                         <template #suffix>
-                          <el-icon v-if="!character.name.trim()" class="status-sync-suffix-icon is-disabled" title="请先选择人物" aria-label="请先选择人物"><Refresh /></el-icon>
-                          <el-popconfirm v-else title="请选择同名人物状态的同步范围">
+                          <el-icon v-if="!character.name.trim()" class="status-sync-suffix-icon is-disabled" title="请先选择角色" aria-label="请先选择角色"><Refresh /></el-icon>
+                          <el-popconfirm v-else title="请选择同名角色状态的同步范围">
                             <template #actions="{ confirm }">
                               <el-button size="small" @click="syncCharacterStatus(shot, character, 'unit'); confirm($event)">本单元</el-button>
                               <el-button class="button-spacing-left" size="small" type="primary" @click="syncCharacterStatus(shot, character, 'all'); confirm($event)">全部</el-button>
                             </template>
                             <template #reference>
-                              <el-icon class="status-sync-suffix-icon" title="同步同名人物状态" aria-label="同步同名人物状态"><Refresh /></el-icon>
+                              <el-icon class="status-sync-suffix-icon" title="同步同名角色状态" aria-label="同步同名角色状态"><Refresh /></el-icon>
                             </template>
                           </el-popconfirm>
                         </template>
                       </el-input>
-                      <el-popconfirm
-                        title="确认删除这条人物配置？"
-                        @show="showConfigRemove(character.id)"
-                        @hide="hideConfigRemove(character.id)"
-                        @confirm="removeCharacterFromShot(shot, character.id)"
-                      >
-                        <template #actions="{ confirm }">
-                          <el-button size="small" type="danger" @click="confirm($event)">删除</el-button>
-                        </template>
-                        <template #reference>
-                          <el-button
-                            class="config-remove-button"
-                            :class="{ 'is-popconfirm-open': activeConfigRemoveId === character.id }"
-                            :icon="Delete"
-                            type="primary"
-                            text
-                            size="small"
-                            title="删除人物配置"
-                            aria-label="删除人物配置"
-                          />
-                        </template>
-                      </el-popconfirm>
+                      <el-button
+                        class="config-edit-button"
+                        :icon="EditPen"
+                        type="primary"
+                        text
+                        size="small"
+                        title="修改角色"
+                        aria-label="修改角色"
+                        :disabled="!activeEpisode.characters.some((item) => item.name === character.name)"
+                        @click="openMaterialEditDialog('characters', character.name)"
+                      />
                       </div>
                     </VueDraggable>
                   </div>
@@ -734,16 +686,6 @@
                         aria-label="复制完整提示词"
                         @click="copyPrompt(shot)"
                       />
-                      <el-button
-                        type="primary"
-                        text
-                        :bg="shot.firstFrameMode"
-                        :icon="VideoPlay"
-                        :title="`${shot.firstFrameMode ? '关闭首帧' : '开启首帧'}；右键应用到本集全部分镜`"
-                        :aria-label="shot.firstFrameMode ? '关闭首帧' : '开启首帧'"
-                        @click="shot.firstFrameMode = !shot.firstFrameMode"
-                        @contextmenu.prevent.stop="toggleEpisodeFirstFrameModeFromShot(shot)"
-                      >首帧</el-button>
                     </span>
                   </div>
                   <pre>{{ promptFor(shot) }}</pre>
@@ -821,7 +763,7 @@
         @webdav-migrate="migrateWebDav"
       />
       <PointLedgerDialog v-model="pointLedgerVisible" :invoices="state.pointInvoices" :episodes="state.episodes" :episode-groups="state.episodeGroups" @save="savePointInvoices" />
-      <el-dialog v-model="detectionDialogVisible" title="人物识别冲突" width="820px" :show-close="false" class="detection-dialog" @closed="cancelActiveDetection">
+      <el-dialog v-model="detectionDialogVisible" title="角色识别冲突" width="820px" :show-close="false" class="detection-dialog" @closed="cancelActiveDetection">
         <div v-if="detectionConflict" class="detection-compare">
           <div class="detection-compare-row">
             <span>当前配置</span>
@@ -856,8 +798,8 @@
           </div>
         </div>
         <template #footer>
-          <el-button :disabled="!detectionMergeChanged()" @click="mergeActiveDetection">合并人物</el-button>
-          <el-button class="button-spacing-left" type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换人物</el-button>
+          <el-button :disabled="!detectionMergeChanged()" @click="mergeActiveDetection">合并角色</el-button>
+          <el-button class="button-spacing-left" type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换角色</el-button>
         </template>
       </el-dialog>
       <el-dialog v-model="reviewDialogVisible" :title="reviewDialogTitle" width="820px" :show-close="false" class="review-dialog" @closed="activeReviewShot = null">
@@ -1116,11 +1058,11 @@
                   </el-dropdown>
                 </div>
                 <el-form class="episode-script-material-form" label-position="top">
-                  <el-form-item label="人物">
+                  <el-form-item label="角色">
                     <el-input
                       v-model="materialCharacterDraft"
                       clearable
-                      placeholder="输入单个或多个人物名称"
+                      placeholder="输入单个或多个角色名称"
                       @keyup.enter="continueFromEpisodeScriptMaterials"
                     />
                   </el-form-item>
@@ -1255,7 +1197,7 @@
                   type="textarea"
                   :rows="16"
                   resize="none"
-                  placeholder="粘贴或输入包含人物名称及冒号的剧本文字"
+                  placeholder="粘贴或输入包含角色名称及冒号的剧本文字"
                   @input="syncEpisodeScriptDraft"
                 />
               </div>
@@ -1316,7 +1258,7 @@
       </el-dialog>
       <el-dialog v-model="materialDialogVisible" :title="materialDialogTitle" width="820px" :show-close="false" class="material-dialog" @closed="handleMaterialDialogClosed">
         <el-form class="material-form" label-position="top">
-          <el-form-item v-if="shouldShowMaterialCharacters" label="人物">
+          <el-form-item v-if="shouldShowMaterialCharacters" label="角色">
             <el-input
               v-model="materialCharacterDraft"
               class="material-character-input"
@@ -1331,7 +1273,7 @@
               type="textarea"
               :rows="4"
               resize="vertical"
-              placeholder="输入人物的外貌、服装或造型描述（选填）"
+              placeholder="输入角色的外貌、服装或造型描述（选填）"
             />
           </el-form-item>
           <el-form-item v-if="shouldShowMaterialScenes" label="场景">
@@ -1397,8 +1339,8 @@
           type="textarea"
           :rows="10"
           resize="vertical"
-          placeholder="在此粘贴人物姓名和形象描述"
-          aria-label="粘贴人物形象描述"
+          placeholder="在此粘贴角色姓名和形象描述"
+          aria-label="粘贴角色形象描述"
           @paste="handleCharacterDescriptionPaste"
         />
         <template #footer>
@@ -1418,7 +1360,7 @@ import PointLedgerDialog from './components/PointLedgerDialog.vue'
 import GroupPlayMedal from './components/GroupPlayMedal.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
-import { ArrowDown, ArrowRight, Calendar, Camera, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { effectiveProductionData, mergePointInvoices, normalizePointInvoices, remapPointInvoices } from './pointLedger'
 import { normalizeGroupResults, pendingGroupResults } from './groupResults'
@@ -1436,12 +1378,12 @@ import {
   createSceneConfig,
   createShot,
   normalizeCharacterAssets,
+  normalizeShotSceneSelection,
 } from './defaults'
 import {
   buildDetectedCharacters,
   composeCharacterSettings,
   composePrompt,
-  composeSceneSettings,
   countNonPunctuationCharacters,
   detectCharacters,
   findPhoneVoiceMatches,
@@ -1593,7 +1535,6 @@ const editingGroupId = ref<string | null>(null)
 const editingGroupOriginalTitle = ref('')
 const myEpisodesTreeId = 'my-episodes'
 const expandedGroupIds = ref<string[]>([myEpisodesTreeId])
-const activeConfigRemoveId = ref<string | null>(null)
 const materialSceneTimeOptions: MaterialSegmentedOption<SceneTime>[] = [
   { label: '白天', value: '白天', icon: Sunny },
   { label: '深夜', value: '深夜', icon: Moon },
@@ -1832,10 +1773,10 @@ const materialDialogTitle = computed(() => {
     return '添加基础素材'
   }
 
-  return editingMaterial.value?.kind === 'characters' ? '修改人物素材' : '修改场景素材'
+  return editingMaterial.value?.kind === 'characters' ? '修改角色' : '修改场景素材'
 })
 const materialDialogConfirmText = computed(() => materialDialogMode.value === 'add' ? '添加' : '保存')
-const materialCharacterPlaceholder = computed(() => materialDialogMode.value === 'add' ? '输入单个或多个人物名称' : '请输入人物名称')
+const materialCharacterPlaceholder = computed(() => materialDialogMode.value === 'add' ? '输入单个或多个角色名称' : '请输入角色名称')
 const shouldShowMaterialCharacters = computed(() => materialDialogMode.value === 'add' || editingMaterial.value?.kind === 'characters')
 const shouldShowMaterialScenes = computed(() => materialDialogMode.value === 'add' || editingMaterial.value?.kind === 'scenes')
 const groupSummarySubtitle = computed(() => {
@@ -2397,10 +2338,6 @@ function getEpisodeGroupTitle(groupId: string | null) {
   }
 
   return state.episodeGroups.find((group) => group.id === groupId)?.title ?? '未分组'
-}
-
-function groupPlayCount(groupId: string | null) {
-  return state.episodeGroups.find((group) => group.id === groupId)?.results.playCount ?? 0
 }
 
 function sceneAssetLabel(scene: SceneAsset) {
@@ -3210,12 +3147,12 @@ function commitMaterialEdit() {
     const nextName = materialCharacterDraft.value.trim()
 
     if (!nextName) {
-      notify.warning('请输入人物名称')
+      notify.warning('请输入角色名称')
       return false
     }
 
     if (nextName !== editing.value && episode.characters.some((character) => character.name === nextName)) {
-      notify.warning('本集已存在同名人物素材')
+      notify.warning('本集已存在同名角色')
       return false
     }
 
@@ -3318,7 +3255,7 @@ function parseCharacterDescriptionClipboard(text: string): CharacterDescriptionI
     const statusText = trimCsvCell(line.slice(separatorIndex + 1))
 
     if (!name || !statusText) {
-      throw new Error(`CSV 第 ${index + 1} 行缺少姓名或描述`)
+      throw new Error(`CSV 第 ${index + 1} 行缺少角色名称或描述`)
     }
 
     return { name, statusText }
@@ -3344,7 +3281,7 @@ function applyCharacterDescriptionText(text: string) {
   const episode = activeEpisode.value
 
   if (!episode?.characters.length) {
-    notify.info('本集暂无人物素材')
+    notify.info('本集暂无角色')
     return false
   }
 
@@ -3380,7 +3317,7 @@ function applyCharacterDescriptionText(text: string) {
   })
 
   if (updatedNames.size) {
-    notify.success(`已识别并更新 ${updatedNames.size} 个人物形象描述`)
+    notify.success(`已识别并更新 ${updatedNames.size} 个角色形象描述`)
   }
 
   const issues = [
@@ -3391,7 +3328,7 @@ function applyCharacterDescriptionText(text: string) {
   if (issues.length) {
     notify.warning(issues.join('；'))
   } else if (!updatedNames.size) {
-    notify.info('未识别到可更新的人物描述')
+    notify.info('未识别到可更新的角色描述')
   }
 
   return true
@@ -3435,7 +3372,7 @@ function confirmCharacterPaste() {
 
 async function recognizeCharacterDescriptionsFromClipboard() {
   if (!activeEpisode.value?.characters.length) {
-    notify.info('本集暂无人物素材')
+    notify.info('本集暂无角色')
     return
   }
 
@@ -3477,8 +3414,8 @@ function renameSceneMaterial(oldName: string, nextScene: MaterialSceneDraft) {
 async function confirmRemoveMaterial(kind: MaterialKind, value: string) {
   try {
     await ElMessageBox.confirm(
-      kind === 'characters' ? '确认删除这条人物素材？' : '确认删除这条场景素材？',
-      kind === 'characters' ? '删除人物素材' : '删除场景素材',
+      kind === 'characters' ? '确认删除此角色？' : '确认删除这条场景素材？',
+      kind === 'characters' ? '删除角色' : '删除场景素材',
       {
         type: 'warning',
         confirmButtonText: '删除',
@@ -3491,30 +3428,6 @@ async function confirmRemoveMaterial(kind: MaterialKind, value: string) {
   }
 
   removeMaterial(kind, value)
-}
-
-function syncSceneStatus(sourceShot: Shot, source: SceneConfig, scope: StatusSyncScope) {
-  const episode = activeEpisode.value
-  const name = source.name.trim()
-
-  if (!episode || !name) {
-    return
-  }
-
-  const sourceUnitNumber = normalizeShotUnitNumber(sourceShot.unitNumber)
-  let count = 0
-  const targetShots = scope === 'unit'
-    ? episode.shots.filter((shot) => normalizeShotUnitNumber(shot.unitNumber) === sourceUnitNumber)
-    : episode.shots
-  targetShots.forEach((shot) => {
-    shot.scenes.forEach((scene) => {
-      if (scene.name === name) {
-        scene.statusText = source.statusText ?? ''
-        count += 1
-      }
-    })
-  })
-  notify.success(scope === 'unit' ? `已同步本单元场景状态，共 ${count} 项` : `已同步全篇场景状态，共 ${count} 项`)
 }
 
 function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: StatusSyncScope) {
@@ -3538,7 +3451,7 @@ function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: S
       }
     })
   })
-  notify.success(scope === 'unit' ? `已同步本单元人物状态，共 ${count} 项` : `已同步全篇人物状态，共 ${count} 项`)
+  notify.success(scope === 'unit' ? `已同步本单元角色状态，共 ${count} 项` : `已同步全篇角色状态，共 ${count} 项`)
 }
 
 function addEpisode() {
@@ -3769,7 +3682,6 @@ function hasModifiedShots(episode: Episode) {
         ? segment.speechRate !== 'medium'
         : segment.mode !== 'async' || segment.shotCount !== 1 || segment.secondsPerShot !== 2
     ))
-    || !shot.usePositionReference
     || shot.firstFrameMode
     || shot.status !== 'incomplete'
     || !isReviewDefault(shot.review)
@@ -3893,26 +3805,6 @@ function removeMaterial(kind: MaterialKind, value: string) {
   episode.scenes = episode.scenes.filter((item) => item.name !== value)
 }
 
-function addSceneToShot(shot: Shot) {
-  const episodeScenes = activeEpisode.value?.scenes ?? []
-  const blankScene = shot.scenes.find((scene) => !scene.name.trim())
-
-  if (episodeScenes.length === 1) {
-    const [scene] = episodeScenes
-    if (blankScene) {
-      blankScene.name = scene.name
-      blankScene.time = scene.time
-      blankScene.space = scene.space
-      return
-    }
-
-    shot.scenes.push(createSceneConfig(scene.name, scene.time, scene.space))
-    return
-  }
-
-  shot.scenes.push(createSceneConfig())
-}
-
 function syncSceneFromAsset(scene: SceneConfig) {
   const selected = activeEpisode.value?.scenes.find((item) => item.name === scene.name)
 
@@ -3922,14 +3814,6 @@ function syncSceneFromAsset(scene: SceneConfig) {
 
   scene.time = selected.time
   scene.space = selected.space
-}
-
-function removeSceneFromShot(shot: Shot, id: string) {
-  shot.scenes = shot.scenes.filter((scene) => scene.id !== id)
-
-  if (!shot.scenes.length) {
-    shot.scenes.push(createSceneConfig())
-  }
 }
 
 function availableCharacterAssets(shot: Shot) {
@@ -3942,7 +3826,7 @@ function addCharacterToShot(shot: Shot, name: string) {
   const asset = availableCharacterAssets(shot).find((character) => character.name === name)
 
   if (!asset) {
-    notify.info('暂无可添加的人物素材')
+    notify.info('暂无可添加的角色')
     return
   }
 
@@ -3971,17 +3855,7 @@ function cloneShotCharacters(target: Shot, sourceId: string) {
   target.pendingDetection = null
   target.autoSyncNotice = null
   target.undoCharacters = null
-  notify.success('已克隆人物配置')
-}
-
-function showConfigRemove(id: string) {
-  activeConfigRemoveId.value = id
-}
-
-function hideConfigRemove(id: string) {
-  if (activeConfigRemoveId.value === id) {
-    activeConfigRemoveId.value = null
-  }
+  notify.success('已克隆角色配置')
 }
 
 function characterAppearanceDescription(name: string) {
@@ -4078,7 +3952,7 @@ function promptPreviewWarnings(shot: Shot) {
   const text = effectiveShotText(shot)
 
   if (!configuredCharacters.length) {
-    warnings.push('未配置人物')
+    warnings.push('未配置角色')
   }
 
   if (!hasConfiguredScenes(shot)) {
@@ -4086,11 +3960,7 @@ function promptPreviewWarnings(shot: Shot) {
   }
 
   if (!shot.thirtySecondMode && isVoiceOverflow(shot)) {
-    warnings.push('音色人物超过 3 人')
-  }
-
-  if (configuredCharacters.length > 3 && !shot.usePositionReference) {
-    warnings.push('多角色建议启用定位图')
+    warnings.push('发生角色超过 3 个')
   }
 
   const seconds = shotTimingAnalysis(shot).totalSeconds
@@ -4231,19 +4101,6 @@ function escapeHtml(value: string) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
 }
-function setPositionReference(shot: Shot, value: boolean) {
-  shot.usePositionReference = value
-  shot.useReverseAngle = false
-}
-
-function toggleEpisodePositionReferenceFromShot(shot: Shot) {
-  const enabled = !shot.usePositionReference
-  activeEpisode.value?.shots.forEach((item) => {
-    setPositionReference(item, enabled)
-  })
-  notify.success(`已${enabled ? '开启' : '关闭'}本集全部定位图`)
-}
-
 function toggleEpisodeFirstFrameModeFromShot(shot: Shot) {
   const enabled = !shot.firstFrameMode
   activeEpisode.value?.shots.forEach((item) => {
@@ -4371,7 +4228,7 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
   if (!detected.length) {
     shot.pendingDetection = null
     if (!options.silent) {
-      notify.info('未识别到本集人物')
+      notify.info('未识别到本集角色')
     }
     return false
   }
@@ -4386,7 +4243,7 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
     shot.characters = buildDetectedCharacters(detected)
     shot.pendingDetection = null
     if (!options.silent) {
-      notify.success('已识别并添加人物配置')
+      notify.success('已识别并添加角色配置')
     }
     return true
   }
@@ -4396,7 +4253,7 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
 
   if (sameNames(currentNames, replaceNames) && !voiceSuggestions.length) {
     if (!options.silent) {
-      notify.success('人物配置与识别结果一致')
+      notify.success('角色配置与识别结果一致')
     }
     return true
   }
@@ -4462,7 +4319,7 @@ function mergeActiveDetection() {
   }
 
   shot.characters = mergeDetectedCharacters(shot.characters, shot.pendingDetection.detected, true)
-  notify.success('已合并人物配置')
+  notify.success('已合并角色配置')
   shot.pendingDetection = null
   detectionConflictShotId.value = null
   detectionDialogVisible.value = false
@@ -4481,7 +4338,7 @@ function replaceActiveDetection() {
   }
 
   shot.characters = buildDetectedCharacters(shot.pendingDetection.detected)
-  notify.success('已替换人物配置')
+  notify.success('已替换角色配置')
   shot.pendingDetection = null
   detectionConflictShotId.value = null
   detectionDialogVisible.value = false
@@ -5063,10 +4920,10 @@ async function copyPrompt(shot: Shot) {
 
   if (copied) {
     const status = promptPreviewStatus(shot)
-    const message = `已复制 ${shotCopyLabel(shot)} 提示词`
+    const message = `已复制 ${shotCopyLabel(shot)}`
 
     if (status.type === 'warning') {
-      notify.warning(`${message}，但存在预览警告`)
+      notify.warning(`${message}\n${status.message}`)
     } else {
       notify.success(message)
     }
@@ -5106,22 +4963,11 @@ async function copyShotDetail(shot: Shot) {
   notify.error('复制失败，请手动选择文本复制')
 }
 
-async function copySceneSettings(shot: Shot) {
-  const copied = await copyText(composeSceneSettings(shot))
-
-  if (copied) {
-    notify.success('已复制场景配置')
-    return
-  }
-
-  notify.error('复制失败，请手动选择文本复制')
-}
-
 async function copyCharacterSettings(shot: Shot) {
   const copied = await copyText(composeCharacterSettings(shot, activeEpisode.value?.characters ?? []))
 
   if (copied) {
-    notify.success('已复制人物配置')
+    notify.success('已复制角色配置')
     return
   }
 
@@ -5544,7 +5390,7 @@ function normalizeImportedShotScenes(scenes: unknown, assets: SceneAsset[]): Sce
     .map((scene) => normalizeImportedShotScene(scene, assets))
     .filter((scene): scene is SceneConfig => Boolean(scene))
 
-  return normalized.length ? normalized : [createSceneConfig()]
+  return normalizeShotSceneSelection(normalized)
 }
 
 function normalizeImportedEpisodeGroups(
@@ -5620,9 +5466,7 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       remark: typeof shot.remark === 'string' ? shot.remark : '',
       thirtySecondMode: typeof shot.thirtySecondMode === 'boolean' ? shot.thirtySecondMode : true,
       unitNumber: normalizeShotUnitNumber(shot.unitNumber),
-      usePositionReference: typeof shot.usePositionReference === 'boolean'
-        ? Boolean(shot.usePositionReference || shot.useReverseAngle)
-        : true,
+      usePositionReference: true,
       useReverseAngle: false,
       firstFrameMode: Boolean(shot.firstFrameMode),
       pendingDetection: null,

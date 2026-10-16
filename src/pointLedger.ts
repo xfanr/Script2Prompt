@@ -11,7 +11,7 @@ export function createPointInvoice(invoices: PointInvoice[]): PointInvoice {
     const match = /^未开票(\d+)$/.exec(invoice.number)
     return Math.max(max, match ? Number(match[1]) : 0)
   }, 0) + 1
-  return { id: createId('invoice'), number: `未开票${next}`, rechargeDate: todayDate(), producer: '杨云帆', toolType: 'updream', amount: 0, initialPoints: 0, receivedPoints: 0, usages: [] }
+  return { id: createId('invoice'), reimbursed: false, number: `未开票${next}`, rechargeDate: todayDate(), producer: '杨云帆', toolType: 'updream', amount: 0, initialPoints: 0, receivedPoints: 0, usages: [] }
 }
 
 export function createPointUsage(): PointUsageRecord {
@@ -46,7 +46,7 @@ export function canSelectPointEpisode(usage: PointUsageRecord, reference: PointE
   return !selectedGroups.size || (selectedGroups.size === 1 && selectedGroups.has(resolvePointEpisode(reference, episodes, groups).groupId))
 }
 
-export function formatPointInvoiceExport(source: PointInvoice, episodes: Episode[], groups: EpisodeGroup[]) {
+export function formatPointInvoiceExport(source: PointInvoice, episodes: Episode[], groups: EpisodeGroup[], mode: 'full' | 'simple' = 'full') {
   const invoice = normalizePointInvoices([source])[0]!
   if (!invoice.usages.length) return ''
   const price = invoicePointPrice(invoice)!
@@ -67,15 +67,15 @@ export function formatPointInvoiceExport(source: PointInvoice, episodes: Episode
     }
   }
   const date = invoice.rechargeDate ? `${Number(invoice.rechargeDate.slice(5, 7))}月${Number(invoice.rechargeDate.slice(8, 10))}日` : ''
-  let remaining = invoice.amount
+  let remaining = invoice.initialPoints + invoice.receivedPoints
   return [...rows.values()].sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title, 'zh-CN', { numeric: true }))
     .map((row) => {
       const cost = row.points * price
-      remaining -= cost
+      remaining -= row.points
       const titles = [...row.episodes.values()].sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true })).join('/')
-      return [invoice.number, invoice.producer, `《${row.title}》`, invoice.toolType, date,
-        invoice.amount.toFixed(2), invoice.initialPoints + invoice.receivedPoints, price.toFixed(4),
-        Number(row.points.toFixed(2)), cost.toFixed(2), `《${row.title}》${titles}，共${row.episodes.size}集`, remaining.toFixed(2)]
+      const details = [Number(row.points.toFixed(2)), cost.toFixed(2), `《${row.title}》${titles}，共${row.episodes.size}集`, Number(remaining.toFixed(2))]
+      return (mode === 'simple' ? details : [invoice.number, invoice.producer, `《${row.title}》`, invoice.toolType, date,
+        invoice.amount.toFixed(2), invoice.initialPoints + invoice.receivedPoints, price.toFixed(4), ...details])
         .map((value) => String(value).replace(/[\t\r\n]+/g, ' ')).join('\t')
     }).join('\n')
 }
@@ -100,6 +100,7 @@ export function normalizePointInvoices(value: unknown): PointInvoice[] {
       || typeof invoice.number !== 'string' || !invoice.number.trim()
       || (invoice.producer !== undefined && typeof invoice.producer !== 'string')
       || (invoice.toolType !== undefined && typeof invoice.toolType !== 'string')
+      || (invoice.reimbursed !== undefined && typeof invoice.reimbursed !== 'boolean')
       || !validDate(invoice.rechargeDate, true) || !nonnegative(invoice.amount)
       || !nonnegative(invoice.initialPoints) || !Number.isInteger(invoice.initialPoints)
       || !nonnegative(invoice.receivedPoints) || !Number.isInteger(invoice.receivedPoints)
@@ -120,7 +121,7 @@ export function normalizePointInvoices(value: unknown): PointInvoice[] {
       return { ...usage, episodes }
     })
     if (usages.length && invoicePointPrice(invoice) === null) throw new Error(`发票“${invoice.number}”总积分为零，不能保存使用记录`)
-    return { ...invoice, number: invoice.number.trim(), producer: invoice.producer ?? '杨云帆', toolType: invoice.toolType ?? 'updream', amount: Number(invoice.amount.toFixed(2)), usages }
+    return { ...invoice, reimbursed: invoice.reimbursed ?? false, number: invoice.number.trim(), producer: invoice.producer ?? '杨云帆', toolType: invoice.toolType ?? 'updream', amount: Number(invoice.amount.toFixed(2)), usages }
   })
 }
 
@@ -187,7 +188,7 @@ export function mergePointInvoices(current: PointInvoice[], incoming: PointInvoi
       signatures.add(signature)
       usages.push(usage)
     }
-    result[index] = { ...existing, usages }
+    result[index] = { ...existing, reimbursed: existing.reimbursed || invoice.reimbursed, usages }
   }
   return result
 }

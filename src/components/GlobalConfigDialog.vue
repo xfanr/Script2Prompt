@@ -47,7 +47,7 @@
             </el-form-item>
             <el-form-item label="基础设定后缀">
               <el-input v-model="selectedProfile.baseSuffix" />
-              <div class="config-field-help">仅在当前分镜配置的有效人物超过 2 个时追加。</div>
+              <div class="config-field-help">仅在当前分镜配置的有效角色超过 2 个时追加。</div>
             </el-form-item>
             <el-form-item label="场景与角色设定前缀">
               <el-input v-model="selectedProfile.sceneRolePrefix" />

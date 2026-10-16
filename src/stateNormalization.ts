@@ -1,5 +1,5 @@
 import { activePromptProfile, cloneGlobalConfig, migrateLegacyGlobalConfig, normalizeGlobalConfig } from './config'
-import { APP_VERSION, createEpisode, createEpisodeProductionData, createPromptReview, createSceneAsset, createSceneConfig, normalizeCharacterAssets } from './defaults'
+import { APP_VERSION, createEpisode, createEpisodeProductionData, createPromptReview, createSceneAsset, createSceneConfig, normalizeCharacterAssets, normalizeShotSceneSelection } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
 import { compactShotUnitNumbers, normalizeShotUnitNumber } from './shotNumber'
 import { reconcileTimingSegments } from './timing'
@@ -65,7 +65,7 @@ function normalizeShotScenes(scenes: unknown, assets: SceneAsset[]): SceneConfig
     .filter((scene): scene is SceneConfig => Boolean(scene) && typeof scene === 'object')
     .map((scene) => normalizeShotScene(scene, assets))
 
-  return normalized.length ? normalized : [createSceneConfig()]
+  return normalizeShotSceneSelection(normalized)
 }
 
 function normalizePromptReview(review: unknown): PromptReview {
@@ -170,11 +170,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
           index < shots.length - 1,
         ))
         shot.scenes = normalizeShotScenes(shot.scenes, episode.scenes)
-        const hadStoredPositionReference = typeof shot.usePositionReference === 'boolean'
-        const hadReverseAngle = Boolean(shot.useReverseAngle)
-        shot.usePositionReference = hadStoredPositionReference
-          ? Boolean(shot.usePositionReference || hadReverseAngle)
-          : true
+        shot.usePositionReference = true
         shot.useReverseAngle = false
         const hadStoredFirstFrameMode = typeof shot.firstFrameMode === 'boolean'
         shot.firstFrameMode = hadStoredFirstFrameMode ? shot.firstFrameMode : false

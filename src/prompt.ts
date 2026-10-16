@@ -173,9 +173,7 @@ export function composeSceneSettings(shot: Shot) {
       lines.push(`分镜场景设定在${parts.join('，')}。`)
     })
 
-  if (shot.usePositionReference) {
-    lines.push('多角色位置参考@（仅参考图中人物在空间中的位置，人物动作、姿态、情绪均以分镜详情为准）。')
-  }
+  lines.push('多角色位置参考@（仅参考图中角色在空间中的位置，角色动作、姿态、情绪均以分镜详情为准）。')
 
   return lines.join('\n')
 }

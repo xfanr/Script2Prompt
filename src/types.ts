@@ -129,6 +129,7 @@ export interface PointUsageRecord {
 
 export interface PointInvoice {
   id: string
+  reimbursed: boolean
   number: string
   rechargeDate: string
   producer: string

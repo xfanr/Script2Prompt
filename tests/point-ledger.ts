@@ -125,6 +125,26 @@ export async function runPointLedgerTests() {
     const restored = assembleDataFiles(legacySnapshotFiles(snapshot, config), state)
     assert(canonicalJson(restored.pointInvoices) === canonicalJson(state.pointInvoices), 'legacy snapshot ledger dropped')
   })
+  await test('Reimbursement defaults migrate and survive storage, import and deduplication', () => {
+    const legacy = clone(invoice) as any
+    delete legacy.reimbursed
+    assert(normalizePointInvoices([legacy])[0].reimbursed === false, 'legacy invoice marked reimbursed')
+    assert(createPointInvoice([]).reimbursed === false, 'new invoice marked reimbursed')
+    const paid = { ...invoice, reimbursed: true }
+    const updated = { ...state, pointInvoices: [paid] }
+    const repository = new LocalRepository(new MemoryStorage())
+    repository.save(updated)
+    assert(repository.load(config).pointInvoices[0].reimbursed, 'reimbursement lost in storage')
+    assert(assembleDataFiles(buildDataFiles(updated), state).pointInvoices[0].reimbursed, 'reimbursement lost in data files')
+    assert(remapPointInvoices(normalizePointInvoices(clone([paid])), new Map())[0].reimbursed, 'reimbursement lost in import')
+    const ids = new Set(state.episodes.map((item) => item.id))
+    for (const [current, incoming] of [[invoice, paid], [paid, invoice]]) {
+      const merged = mergePointInvoices([current], [incoming], ids)
+      assert(merged.length === 1 && merged[0].reimbursed, 'reimbursement change duplicates or resets invoice')
+      assert(merged[0].usages.length === 1, 'reimbursement change duplicates usage')
+    }
+    assert(!invoice.reimbursed, 'merge mutated current invoice')
+  })
   await test('Import remaps targets; repeated imports deduplicate; differing invoices survive', () => {
     const ids = new Map(state.episodes.map((item, index) => [item.id, `target-${index}`]))
     const imported = remapPointInvoices([invoice], ids)
@@ -155,7 +175,7 @@ export async function runPointLedgerTests() {
     assert(close(effectiveProductionData(restored.episodes[0], restored.pointInvoices).totalCost,
       effectiveProductionData(episode, state.pointInvoices).totalCost), 'restored costs differ')
   })
-  await test('TSV export groups dramas, sorts first dates and subtracts unrounded costs', () => {
+  await test('Full and simple TSV exports group dramas, sort first dates and subtract points', () => {
     const episodes = [createEpisode(38), createEpisode(39), createEpisode(40), createEpisode(9), createEpisode(10)]
     episodes.forEach((item, index) => { item.groupId = index < 3 ? 'a' : 'b' })
     const groups = [
@@ -174,8 +194,12 @@ export async function runPointLedgerTests() {
     assert(rows[0][4] === '9月18日' && rows[0][7] === '0.0905' && rows[0][8] === '4605', 'format or aggregation wrong')
     assert(rows[0][10] === '《A》38/39/40，共3集', 'episode deduplication wrong')
     assert(rows[0][9] === (4605 * 999 / 11039).toFixed(2), 'rounded unit price used')
-    assert(rows[1][11] === (999 - (4605 + 527) * 999 / 11039).toFixed(2), 'remaining money incorrect')
+    assert(rows[0][11] === '6434' && rows[1][11] === '5907', 'remaining points incorrect')
+    const simpleRows = formatPointInvoiceExport(exported, episodes, groups, 'simple').split('\n').map((line) => line.split('\t'))
+    assert(simpleRows.length === 2 && simpleRows.every((row, index) => row.length === 4
+      && JSON.stringify(row) === JSON.stringify(rows[index].slice(8))), 'simple export must contain only the four detail columns')
     assert(!formatPointInvoiceExport({ ...exported, usages: [] }, episodes, groups), 'empty export')
+    assert(!formatPointInvoiceExport({ ...exported, usages: [] }, episodes, groups, 'simple'), 'empty simple export')
   })
   await test('Cross-drama export preserves deleted shares, custom titles and negative balances', () => {
     const moved = { ...episode, title: 'special\tname\n', groupId: 'moved' }
@@ -189,7 +213,9 @@ export async function runPointLedgerTests() {
     assert(rows.every((row) => row.length === 12 && row[4] === ''), 'unsafe text or blank date changed TSV columns')
     assert(rows.find((row) => row[2] === '《Moved》')![8] === '3.33', 'share lost')
     assert(rows.find((row) => row[2] === '《Old》')![10] === '《Old》02（已删除）/03（已删除），共2集', 'deleted references lost')
-    assert(rows[1][11] === '-23.33', 'negative balance or fractional calculation wrong')
+    assert(rows[0][11] === '-0.33' && rows[1][11] === '-7', 'negative point balance or fractional calculation wrong')
+    const simpleRows = formatPointInvoiceExport(exported, [moved], groups, 'simple').split('\n').map((line) => line.split('\t'))
+    assert(simpleRows.every((row, index) => JSON.stringify(row) === JSON.stringify(rows[index].slice(8))), 'simple export lost legacy references or point balances')
     let rejected = false
     try { formatPointInvoiceExport({ ...exported, initialPoints: 0 }, [moved], groups) } catch { rejected = true }
     assert(rejected, 'invalid export accepted')

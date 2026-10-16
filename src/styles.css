@@ -539,12 +539,12 @@ html.dark .episode-panel {
   flex: 0 0 auto;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
+  gap: 8px;
   margin-left: auto;
 }
 
 .root-group-add,
-.group-row-actions {
+.group-row-actions .sidebar-row-action-button {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
@@ -553,8 +553,8 @@ html.dark .episode-panel {
 
 .episode-group-row:hover .root-group-add,
 .episode-group-row:focus-within .root-group-add,
-.episode-group-row:hover > .group-row-actions,
-.episode-group-row:focus-within > .group-row-actions {
+.episode-group-row:hover > .group-row-actions .sidebar-row-action-button,
+.episode-group-row:focus-within > .group-row-actions .sidebar-row-action-button {
   visibility: visible;
   opacity: 1;
   pointer-events: auto;
@@ -611,9 +611,18 @@ html.dark .episode-panel {
   margin-left: 12px;
 }
 
-.episode-star {
-  flex: 0 0 auto;
+.sidebar .episode-star {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  align-items: center;
+  justify-content: center;
   margin-left: auto;
+}
+
+.el-notification__content {
+  white-space: pre-line;
 }
 
 .rename-inline {
@@ -1697,7 +1706,7 @@ html.dark .episode-panel {
   width: calc(100% + 32px);
   gap: 10px;
   margin-left: -16px;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 0 28px;
   scrollbar-width: none;
 }
@@ -1713,9 +1722,19 @@ html.dark .episode-panel {
   border-bottom: 0;
 }
 
+.character-config-group {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.character-config-group > .config-heading,
+.character-config-group > .scene-line {
+  flex-shrink: 0;
+}
+
 .config-heading,
-.scene-heading-title,
-.character-heading-title {
+.character-heading-title,
+.character-heading-actions {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1729,7 +1748,6 @@ html.dark .episode-panel {
   align-items: center;
 }
 
-.scene-heading-title,
 .character-heading-title {
   min-width: 0;
 }
@@ -1744,20 +1762,28 @@ html.dark .episode-panel {
   box-sizing: border-box;
   width: calc(100% + 56px);
   max-height: 272px;
+  min-height: 0;
+  flex: 0 1 auto;
   flex-direction: column;
   gap: 8px;
   margin-left: -28px;
   padding: 0 28px;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   scrollbar-width: none;
+}
+
+.character-config-list > .character-line {
+  flex-shrink: 0;
 }
 
 .scene-line {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(100px, 0.65fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(100px, 0.65fr);
   align-items: center;
   gap: 8px;
+  margin-bottom: 8px;
 }
 
 .scene-config-meta {
@@ -1809,7 +1835,7 @@ html.dark .episode-panel {
   opacity: 1;
 }
 
-.config-remove-button {
+.config-edit-button {
   --el-button-bg-color: transparent;
   --el-button-hover-bg-color: transparent;
   --el-button-active-bg-color: transparent;
@@ -1827,16 +1853,16 @@ html.dark .episode-panel {
   transition: opacity var(--el-transition-duration-fast);
 }
 
-.config-remove-button.el-button,
-.config-remove-button.el-button:hover,
-.config-remove-button.el-button:focus,
-.config-remove-button.el-button:focus-visible,
-.config-remove-button.el-button:active {
+.config-edit-button.el-button,
+.config-edit-button.el-button:hover,
+.config-edit-button.el-button:focus,
+.config-edit-button.el-button:focus-visible,
+.config-edit-button.el-button:active {
   background: transparent !important;
 }
 
-.config-line:hover .config-remove-button,
-.config-remove-button.is-popconfirm-open {
+.config-line:hover .config-edit-button,
+.config-edit-button:focus-visible {
   opacity: 1;
 }
 
@@ -1910,41 +1936,25 @@ html.dark .episode-panel {
   min-width: 0;
 }
 
-.scene-status-suffix-icon,
 .status-sync-suffix-icon {
   color: var(--el-color-primary);
   cursor: pointer;
   font-size: 14px;
 }
 
-.scene-status-suffix-icon.is-disabled,
 .status-sync-suffix-icon.is-disabled {
   color: var(--el-text-color-disabled);
   cursor: not-allowed;
 }
 
 @container (max-width: 420px) {
-  .config-cell .scene-line {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .config-cell .character-line {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .scene-line .el-select {
-    grid-column: 1;
-    grid-row: 1;
   }
 
   .character-identity-controls {
     grid-column: 1;
     grid-row: 1;
-  }
-
-  .scene-status-input {
-    grid-column: 1;
-    grid-row: 2;
   }
 
   .character-status-input {
@@ -1956,7 +1966,7 @@ html.dark .episode-panel {
 
 @media (hover: none) {
   .character-drag-handle,
-  .config-remove-button {
+  .config-edit-button {
     opacity: 1;
   }
 
@@ -2475,7 +2485,6 @@ html.dark .episode-panel {
 .point-invoice {
   padding: 16px;
   margin-bottom: 16px;
-  border: 1px solid var(--el-border-color-lighter);
   border-radius: var(--el-border-radius-base);
   background: var(--el-bg-color);
 }
@@ -2489,6 +2498,56 @@ html.dark .episode-panel {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
+}
+
+.point-invoice-title {
+  min-width: 0;
+  color: var(--el-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.point-invoice-actions .el-button + .el-button {
+  margin-left: 0;
+}
+
+.point-episode-trigger.el-button {
+  width: 100%;
+  height: 32px;
+  padding: 6px 8px;
+  color: var(--el-text-color-regular);
+  font-weight: 400;
+  text-align: left;
+}
+
+.point-episode-trigger.el-button:hover,
+.point-episode-trigger.el-button:focus-visible {
+  background-color: var(--el-bg-color);
+}
+
+.point-episode-trigger.el-button > span {
+  display: flex;
+  gap: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.point-episode-selection {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.point-episode-count {
+  flex-shrink: 0;
+}
+
+.point-episode-trigger.is-placeholder {
+  color: var(--el-text-color-placeholder);
 }
 
 .point-invoice-identity,
@@ -2549,6 +2608,19 @@ html.dark .episode-panel {
 .point-invoice .el-date-editor.el-input,
 .point-invoice .el-cascader {
   width: 100%;
+}
+
+.point-usage-table.el-table {
+  --el-table-header-text-color: var(--el-text-color-regular);
+  --el-table-row-hover-bg-color: var(--el-bg-color);
+}
+
+.point-usage-table .el-table__inner-wrapper::before {
+  display: none;
+}
+
+.point-usage-table th.el-table__cell {
+  font-weight: 400;
 }
 
 .point-usage-table .el-cascader__tags {
@@ -3289,10 +3361,6 @@ html.dark .episode-panel {
   line-height: var(--highlight-line-height);
   letter-spacing: var(--highlight-letter-spacing);
   overflow-wrap: break-word;
-}
-
-.scene-line {
-  grid-template-columns: minmax(100px, 0.65fr) minmax(0, 1fr);
 }
 
 .character-line {
