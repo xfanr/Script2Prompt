@@ -2058,7 +2058,7 @@ html.dark .episode-panel {
 
 .episode-summary-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 14px;
 }
@@ -2109,30 +2109,23 @@ html.dark .episode-panel {
   font-size: 12px;
 }
 
-.episode-cost-card {
-  grid-column: span 2;
-}
-
 .group-summary-inputs {
-  display: grid;
-  gap: 12px;
   margin-bottom: 14px;
 }
 
-.group-summary-names,
 .group-summary-options {
   display: grid;
-  grid-template-columns: minmax(0, 24fr) repeat(2, minmax(0, 38fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
   gap: 12px;
   align-items: center;
 }
 
-.group-summary-names .group-full-name {
-  grid-column: span 2;
+.group-summary-options .group-full-name {
+  min-width: 0;
 }
 
-.group-summary-inputs .el-input {
-  min-width: 0;
+.group-summary-options .el-input-group__prepend {
+  padding: 0 10px;
 }
 
 .group-summary-profile {
@@ -2140,21 +2133,41 @@ html.dark .episode-panel {
   width: 100%;
 }
 
-.group-summary-inputs .el-input-group__prepend,
-.group-summary-inputs .el-input-group__append {
-  padding: 0 10px;
+.group-summary-select-prefix {
+  display: inline-flex;
+  align-items: center;
+  margin: -4px 0 -4px -12px;
+  padding: 4px 8px 4px 12px;
+  border-right: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base) 0 0 var(--el-border-radius-base);
+  background-color: var(--el-fill-color-light);
+  color: var(--el-color-info);
+  box-shadow: 1px 0 0 var(--el-border-color) inset, 0 1px 0 var(--el-border-color) inset, 0 -1px 0 var(--el-border-color) inset;
 }
 
-.group-summary-commission .el-input-group__append .el-button {
-  height: 30px;
-  margin: 0;
+.group-summary-reward {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+}
+
+.group-summary-reward .el-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.group-summary-reward .el-select__wrapper {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.group-summary-reward .el-button {
+  flex: 0 0 32px;
+  margin-left: -1px;
   padding: 0;
-  min-width: 40px;
-}
-
-.group-summary-commission.is-received .el-input-group__append {
-  background-color: var(--el-color-primary);
-  color: var(--el-color-white);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
 .group-summary-options.is-ungrouped {
@@ -3309,17 +3322,8 @@ html.dark .episode-panel {
     grid-template-columns: 1fr;
   }
 
-  .episode-cost-card {
-    grid-column: auto;
-  }
-
-  .group-summary-names,
   .group-summary-options {
     grid-template-columns: 1fr;
-  }
-
-  .group-summary-names .group-full-name {
-    grid-column: auto;
   }
 
   .episode-data-panel,

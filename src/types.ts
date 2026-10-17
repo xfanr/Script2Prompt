@@ -103,7 +103,6 @@ export interface AutoSyncNotice {
 export interface PromptReview {
   rating: number
   drawCount: number
-  noSubtitleCount: number
   notePrefix: string
   note: string
 }

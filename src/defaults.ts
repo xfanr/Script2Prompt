@@ -130,7 +130,6 @@ export function createPromptReview(): PromptReview {
   return {
     rating: 0,
     drawCount: 1,
-    noSubtitleCount: 0,
     notePrefix: '',
     note: '',
   }

@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>Review data regression tests</title>
+<pre id="results">Running…</pre>
+<script type="module">
+  import { runReviewDataTests } from './review-data.ts'
+  document.querySelector('#results').textContent = JSON.stringify(await runReviewDataTests(), null, 2)
+</script>
+</html>

@@ -834,26 +834,6 @@
               />
             </div>
           </el-form-item>
-          <el-form-item label="无字幕次数">
-            <div class="review-choice-field">
-              <el-radio-group v-model="reviewSubtitleMode" @change="selectReviewSubtitleMode">
-                <el-radio-button value="subtitled">全有 0</el-radio-button>
-                <el-radio-button value="half">半数 {{ reviewHalfSubtitleCount(reviewDrawCountValue) }}</el-radio-button>
-                <el-radio-button value="majority">多数 {{ reviewMajoritySubtitleCount(reviewDrawCountValue) }}</el-radio-button>
-                <el-radio-button value="subtitle-free">全无 {{ reviewDrawCountValue }}</el-radio-button>
-              </el-radio-group>
-              <el-input-number
-                v-model="reviewCustomSubtitleCount"
-                :min="0"
-                :max="reviewDrawCountValue"
-                :step="1"
-                :controls="false"
-                placeholder="输入次数"
-                aria-label="自定义无字幕次数"
-                @input="updateReviewCustomSubtitleCount"
-              />
-            </div>
-          </el-form-item>
           <el-form-item label="备注">
             <el-input v-model="reviewDraft.note" class="review-note-input" placeholder="输入评分备注" clearable>
               <template #prepend>
@@ -877,6 +857,15 @@
       </el-dialog>
       <el-dialog v-model="reviewSummaryVisible" :title="reviewSummaryTitle" width="820px" :show-close="false" class="review-summary-dialog" @closed="reviewSummaryEpisodeId = null">
         <div v-if="reviewSummaryEpisode" class="episode-summary-cards">
+          <section class="episode-summary-card episode-date-card">
+            <el-statistic title="制作日期" :value="0" :formatter="formatEpisodeProductionDate" />
+          </section>
+          <section class="episode-summary-card episode-cost-card">
+            <el-statistic title="本集成本" :value="Number(episodeTotalCost.toFixed(1))" :precision="1" />
+            <div class="episode-statistic-detail">
+              <span>平均分镜成本 {{ (reviewSummary.total ? episodeTotalCost / reviewSummary.total : 0).toFixed(1) }}</span>
+            </div>
+          </section>
           <section class="episode-summary-card">
             <el-statistic title="平均分" :value="reviewSummary.averageValue" :precision="1" />
             <el-rate
@@ -898,42 +887,14 @@
               <span>总抽卡数 {{ reviewSummary.drawTotal }}</span>
             </div>
           </section>
-          <section class="episode-summary-card">
-            <el-statistic title="无字幕率" :value="reviewSummary.noSubtitleRateValue">
-              <template #suffix>%</template>
-            </el-statistic>
-            <div class="episode-statistic-detail">
-              <span>无字幕次数 {{ reviewSummary.noSubtitleTotal }}</span>
-              <span>总抽卡数 {{ reviewSummary.drawTotal }}</span>
-            </div>
-          </section>
-          <section class="episode-summary-card episode-cost-card">
-            <el-statistic title="本集成本" :value="episodeTotalCost" :precision="4" />
-            <div class="config-field-help">{{ reviewProductionData?.fromRecords ? '来源：积分使用记录' : '来源：历史制作数据' }}</div>
-          </section>
-          <section class="episode-summary-card episode-date-card">
-            <el-statistic title="制作日期" :value="0" :formatter="formatEpisodeProductionDate" />
-          </section>
         </div>
         <el-table :data="reviewSummaryRows" max-height="430" empty-text="暂无分镜">
           <el-table-column prop="index" label="分镜编号" width="112" />
-          <el-table-column label="状态" width="96">
-            <template #default="{ row }">
-              <el-tag :type="row.reviewed ? 'warning' : 'info'" effect="light">{{ row.reviewed ? '已评分' : '未评分' }}</el-tag>
-            </template>
-          </el-table-column>
           <el-table-column label="评分" width="110">
             <template #default="{ row }">{{ row.ratingText }}</template>
           </el-table-column>
           <el-table-column label="抽卡次数" width="86">
             <template #default="{ row }">{{ row.drawCount }} 次</template>
-          </el-table-column>
-          <el-table-column label="无字幕次数" width="96">
-            <template #default="{ row }">
-              <el-tag :type="row.noSubtitleCount === row.drawCount ? 'success' : 'danger'" effect="light">
-                {{ row.noSubtitleCount }}/{{ row.drawCount }}
-              </el-tag>
-            </template>
           </el-table-column>
           <el-table-column prop="noteText" label="备注" min-width="180" show-overflow-tooltip />
           <el-table-column label="操作" width="84" fixed="right" align="center" header-align="center">
@@ -946,31 +907,37 @@
       <el-dialog v-model="groupSummaryVisible" title="整剧数据" width="820px" :show-close="false" class="group-summary-dialog" @closed="activeGroupSummaryId = null">
         <p class="group-summary-subtitle"><GroupPlayMedal :play-count="activeGroupSummary?.results.playCount" />{{ groupSummarySubtitle }}</p>
         <div class="group-summary-inputs">
-          <div class="group-summary-names">
-            <el-input v-if="activeGroupSummary" v-model="activeGroupSummary.title" size="default" aria-label="简称" @focus="groupSummaryOriginalTitle = activeGroupSummary.title" @blur="finishGroupSummaryRename" @keyup.enter="finishGroupSummaryRename">
-              <template #prepend>简称</template>
-            </el-input>
-            <el-input v-else model-value="未分组" size="default" readonly aria-label="简称">
-              <template #prepend>简称</template>
-            </el-input>
+          <div class="group-summary-options" :class="{ 'is-ungrouped': !activeGroupSummary }">
+            <el-select v-model="groupPromptProfileId" class="group-summary-profile" size="default" aria-label="提示词方案">
+              <template #prefix><span class="group-summary-select-prefix">方案</span></template>
+              <el-option v-for="profile in promptProfileOptions" :key="profile.value" :label="profile.label" :value="profile.value" />
+            </el-select>
+            <div v-if="activeGroupSummary" class="group-summary-reward">
+              <el-select :model-value="groupResultTier?.playCount" :placeholder="groupResultPlaceholder" size="default" clearable aria-label="播放与提成档位" @change="updateGroupResultTier">
+                <template #prefix><span class="group-summary-select-prefix">绩效</span></template>
+                <el-option v-for="tier in groupResultTiers" :key="tier.playCount" :label="tier.label" :value="tier.playCount" />
+              </el-select>
+              <el-button :type="activeGroupSummary.results.received ? 'primary' : 'default'" :icon="Coin" aria-label="到账" :title="activeGroupSummary.results.received ? '取消到账' : '到账'" :aria-pressed="activeGroupSummary.results.received" @click="activeGroupSummary.results.received = !activeGroupSummary.results.received" />
+            </div>
             <el-input v-if="activeGroupSummary" v-model="activeGroupSummary.fullName" class="group-full-name" size="default" aria-label="全称">
               <template #prepend>全称</template>
             </el-input>
           </div>
-          <div class="group-summary-options" :class="{ 'is-ungrouped': !activeGroupSummary }">
-            <el-input v-if="activeGroupSummary" :model-value="String(activeGroupSummary.results.playCount)" size="default" inputmode="numeric" aria-label="播放量（万次播放）" @update:model-value="updateGroupResult('playCount', $event)">
-              <template #prepend>播放</template>
-            </el-input>
-            <el-input v-if="activeGroupSummary" :model-value="String(activeGroupSummary.results.commission)" class="group-summary-commission" :class="{ 'is-received': activeGroupSummary.results.received }" size="default" inputmode="numeric" aria-label="提成" @update:model-value="updateGroupResult('commission', $event)">
-              <template #prepend>提成</template>
-              <template #append>
-                <el-button :type="activeGroupSummary.results.received ? 'primary' : 'default'" :aria-pressed="activeGroupSummary.results.received" @click="activeGroupSummary.results.received = !activeGroupSummary.results.received">到账</el-button>
-              </template>
-            </el-input>
-            <el-segmented v-model="groupPromptProfileId" class="group-summary-profile" :options="promptProfileOptions" size="default" aria-label="提示词方案" />
-          </div>
         </div>
         <div class="episode-summary-cards group-statistic-cards">
+          <section class="episode-summary-card">
+            <el-statistic title="制作周期" :value="0" :formatter="formatGroupProductionDateRange" />
+            <div class="episode-statistic-detail">
+              <span>总制作天数 {{ groupProductionSummary.productionDays }}</span>
+            </div>
+          </section>
+          <section class="episode-summary-card">
+            <el-statistic title="整剧成本" :value="Number(groupProductionSummary.totalCostValue.toFixed(1))" :precision="1" />
+            <div class="episode-statistic-detail">
+              <span>平均单集 {{ groupProductionSummary.averageEpisodeCost }}</span>
+              <span>总集数 {{ groupProductionSummary.episodeCount }}</span>
+            </div>
+          </section>
           <section class="episode-summary-card">
             <el-statistic title="平均分" :value="groupSummaryStats.averageValue" :precision="1" />
             <el-rate
@@ -992,31 +959,16 @@
               <span>总抽卡数 {{ groupSummaryStats.drawTotal }}</span>
             </div>
           </section>
-          <section class="episode-summary-card">
-            <el-statistic title="整剧成本" :value="groupProductionSummary.totalCostValue" :precision="4" />
-            <div class="episode-statistic-detail">
-              <span>平均单集 {{ groupProductionSummary.averageEpisodeCost }}</span>
-              <span>总集数 {{ groupProductionSummary.episodeCount }}</span>
-            </div>
-          </section>
-          <section class="episode-summary-card">
-            <el-statistic title="制作周期" :value="0" :formatter="formatGroupProductionDateRange" />
-            <div class="episode-statistic-detail">
-              <span>总制作天数 {{ groupProductionSummary.productionDays }}</span>
-            </div>
-          </section>
         </div>
         <el-table :data="groupSummaryTableRows" max-height="430" empty-text="暂无单集" scrollbar-always-on :row-class-name="groupSummaryRowClass">
-          <el-table-column prop="title" label="单集" min-width="130" fixed="left" show-overflow-tooltip />
-          <el-table-column label="分镜数-抽卡数" width="120">
-            <template #default="{ row }">{{ row.total }}-{{ row.drawTotal }}</template>
+          <el-table-column prop="title" label="单集" min-width="100" fixed="left" show-overflow-tooltip />
+          <el-table-column prop="totalCost" label="总成本" min-width="100" />
+          <el-table-column prop="averageText" label="平均分" min-width="100" />
+          <el-table-column label="分镜/抽卡" min-width="100">
+            <template #default="{ row }">{{ row.total }}/{{ row.drawTotal }}</template>
           </el-table-column>
-          <el-table-column prop="averageDrawRate" label="抽卡成功率" width="110" />
-          <el-table-column prop="pointUsageText" label="积分消耗" width="92" />
-          <el-table-column prop="totalCost" label="总成本" width="98" />
-          <el-table-column prop="productionDate" label="制作日期" width="116" />
-          <el-table-column prop="averageText" label="平均分" width="90" />
-          <el-table-column label="操作" width="84" fixed="right" align="center" header-align="center">
+          <el-table-column prop="averageDrawRate" label="抽卡成功率" min-width="100" />
+          <el-table-column label="操作" min-width="100" fixed="right" align="center" header-align="center">
             <template #default="{ row }">
               <el-button v-if="!row.isSummary" text type="primary" @click="openReviewSummary(row.episode)">查看</el-button>
             </template>
@@ -1360,7 +1312,7 @@ import PointLedgerDialog from './components/PointLedgerDialog.vue'
 import GroupPlayMedal from './components/GroupPlayMedal.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox } from 'element-plus'
-import { ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { effectiveProductionData, mergePointInvoices, normalizePointInvoices, remapPointInvoices } from './pointLedger'
 import { normalizeGroupResults, pendingGroupResults } from './groupResults'
@@ -1475,7 +1427,6 @@ type ImportBatch = {
   pointInvoices: PointInvoice[]
 }
 type ReviewDrawCountMode = '' | 'one' | 'two' | 'three' | 'four'
-type ReviewSubtitleMode = '' | 'subtitled' | 'half' | 'majority' | 'subtitle-free'
 type WeeklyReportPickerCell = {
   dayjs?: {
     format: (pattern: string) => string
@@ -1590,7 +1541,6 @@ const episodeScriptDialogVisible = ref(false)
 const activeReviewShot = ref<Shot | null>(null)
 const reviewSummaryEpisodeId = ref<string | null>(null)
 const activeGroupSummaryId = ref<string | null>(null)
-const groupSummaryOriginalTitle = ref('')
 const reviewDraft = ref<PromptReview>(createPromptReview())
 const reviewDrawCountMode = ref<ReviewDrawCountMode>('')
 const reviewCustomDrawCount = ref<number | undefined>()
@@ -1611,8 +1561,6 @@ const activeDialogueTiming = computed(() => {
     : null
 })
 const timingPopoverVisible = computed(() => Boolean(activeTimingSegment.value))
-const reviewSubtitleMode = ref<ReviewSubtitleMode>('subtitle-free')
-const reviewCustomSubtitleCount = ref<number | undefined>()
 const reviewNotePrefixPath = ref<string[]>([])
 const episodeScriptDraft = ref('')
 const weeklyReportWeek = ref<Date | string | null>(null)
@@ -1710,6 +1658,20 @@ const reviewNoteCascaderOptions = computed(() => {
 })
 const reviewSummaryEpisode = computed(() => state.episodes.find((episode) => episode.id === reviewSummaryEpisodeId.value) ?? activeEpisode.value ?? null)
 const activeGroupSummary = computed(() => state.episodeGroups.find((group) => group.id === activeGroupSummaryId.value) ?? null)
+const groupResultTiers = [
+  { playCount: 2000, commission: 500, label: '500元丨2千万' },
+  { playCount: 5000, commission: 1000, label: '1000元丨5千万' },
+  { playCount: 10000, commission: 2000, label: '2000元丨1亿' },
+  { playCount: 20000, commission: 3000, label: '3000元丨2亿' },
+  { playCount: 50000, commission: 4000, label: '4000元丨5亿' },
+]
+const groupResultTier = computed(() => groupResultTiers.find((tier) => tier.playCount === activeGroupSummary.value?.results.playCount && tier.commission === activeGroupSummary.value?.results.commission))
+const groupResultPlaceholder = computed(() => {
+  const results = activeGroupSummary.value?.results
+  return results && (results.playCount || results.commission)
+    ? `${results.commission}元丨${results.playCount >= 10000 ? `${results.playCount / 10000}亿` : `${results.playCount}万`}（原数据）`
+    : '选择播放与提成档位'
+})
 const pendingResults = computed(() => pendingGroupResults(state.episodeGroups))
 const groupSummaryEpisodes = computed(() => activeGroupSummaryId.value === 'ungrouped'
   ? sortedUngroupedEpisodes.value
@@ -1750,18 +1712,15 @@ const reviewDialogTitle = computed(() => {
 
   return `给 ${formatShotNumber(episode, index)} 评分`
 })
-const reviewDrawCountValue = computed(() => currentReviewDrawCount() ?? 0)
 const reviewSummaryRows = computed(() => {
   const episode = reviewSummaryEpisode.value
 
   return episode?.shots.map((shot, index) => ({
     shot,
     index: formatShotNumber(episode, index),
-    reviewed: isShotReviewed(shot),
     rating: shot.review.rating,
     ratingText: shot.review.rating ? `${shot.review.rating} 星` : '未评分',
     drawCount: shot.review.drawCount,
-    noSubtitleCount: shot.review.noSubtitleCount,
     noteText: formatReviewNote(shot.review),
   })) ?? []
 })
@@ -1789,7 +1748,6 @@ const groupProductionSummary = computed(() => summarizeProductionData(groupSumma
 const groupSummaryRows = computed(() => groupSummaryEpisodes.value.map((episode) => {
   const summary = summarizeShots(episode.shots)
   const data = productionDataFor(episode)
-  const productionDate = normalizeDateString(data.productionDate)
 
   return {
     isSummary: false,
@@ -1800,10 +1758,7 @@ const groupSummaryRows = computed(() => groupSummaryEpisodes.value.map((episode)
     drawTotal: summary.drawTotal,
     averageText: summary.averageValue ? `${summary.averageValue} 星` : '未评分',
     averageDrawRate: summary.averageDrawRate,
-    noSubtitleRate: summary.noSubtitleRate,
-    pointUsageText: formatPointUsage(data.pointUsage),
     totalCost: formatPointCost(data.totalCost),
-    productionDate: productionDate ?? '未设置',
   }
 }))
 const groupSummaryTableRows = computed(() => [
@@ -1817,10 +1772,7 @@ const groupSummaryTableRows = computed(() => [
     drawTotal: groupSummaryStats.value.drawTotal,
     averageText: groupSummaryStats.value.averageValue ? `${groupSummaryStats.value.averageValue} 星` : '未评分',
     averageDrawRate: groupSummaryStats.value.averageDrawRate,
-    noSubtitleRate: groupSummaryStats.value.noSubtitleRate,
-    pointUsageText: groupProductionSummary.value.pointUsageText,
     totalCost: groupProductionSummary.value.totalCost,
-    productionDate: groupProductionSummary.value.productionDays,
   },
 ])
 
@@ -1832,19 +1784,14 @@ function summarizeShots(shots: Shot[]) {
   const ratedShots = shots.filter((shot) => shot.review.rating > 0)
   const ratingTotal = ratedShots.reduce((total, shot) => total + shot.review.rating, 0)
   const drawTotal = shots.reduce((total, shot) => total + shot.review.drawCount, 0)
-  const noSubtitleTotal = shots.reduce((total, shot) => total + shot.review.noSubtitleCount, 0)
   const drawSuccessRateValue = drawTotal ? Math.round((shots.length / drawTotal) * 100) : 0
-  const noSubtitleRateValue = drawTotal ? Math.round((noSubtitleTotal / drawTotal) * 100) : 0
 
   return {
     total: shots.length,
     averageValue: ratedShots.length ? Number((ratingTotal / ratedShots.length).toFixed(1)) : 0,
     drawTotal,
-    noSubtitleTotal,
     drawSuccessRateValue,
-    noSubtitleRateValue,
     averageDrawRate: `${drawSuccessRateValue}%`,
-    noSubtitleRate: `${noSubtitleRateValue}%`,
   }
 }
 
@@ -1863,7 +1810,6 @@ function summarizeEpisodeGroup(episodes: Episode[]) {
 }
 
 function summarizeProductionData(episodes: Episode[]) {
-  const pointUsage = episodes.reduce((total, episode) => total + productionDataFor(episode).pointUsage, 0)
   const totalCost = episodes.reduce((total, episode) => total + productionDataFor(episode).totalCost, 0)
   const dates = Array.from(new Set(episodes
     .map((episode) => normalizeDateString(productionDataFor(episode).productionDate))
@@ -1872,7 +1818,6 @@ function summarizeProductionData(episodes: Episode[]) {
 
   return {
     episodeCount: episodes.length,
-    pointUsageText: formatPointUsage(pointUsage),
     averageEpisodeCost: formatPointCost(episodes.length ? totalCost / episodes.length : 0),
     totalCostValue: totalCost,
     totalCost: formatPointCost(totalCost),
@@ -1882,15 +1827,11 @@ function summarizeProductionData(episodes: Episode[]) {
 }
 
 function formatPointCost(value: number) {
-  return Math.max(0, value).toFixed(4)
+  return Math.max(0, value).toFixed(1)
 }
 
 function productionDataFor(episode: Episode) {
   return effectiveProductionData(episode, state.pointInvoices)
-}
-
-function formatPointUsage(value: number) {
-  return value.toLocaleString('en-US', { maximumFractionDigits: 4 })
 }
 
 function formatEpisodeProductionDate() {
@@ -4367,15 +4308,10 @@ function normalizePromptReview(review: unknown): PromptReview {
   const drawCount = typeof value.drawCount === 'number' && Number.isFinite(value.drawCount)
     ? Math.max(1, Math.min(8, Math.round(value.drawCount)))
     : 1
-  const legacyNoSubtitle = 'noSubtitle' in value ? Boolean((value as Partial<PromptReview> & { noSubtitle?: boolean }).noSubtitle) : false
-  const noSubtitleCount = typeof value.noSubtitleCount === 'number' && Number.isFinite(value.noSubtitleCount)
-    ? Math.max(0, Math.min(drawCount, Math.round(value.noSubtitleCount)))
-    : legacyNoSubtitle ? drawCount : 0
 
   return {
     rating,
     drawCount,
-    noSubtitleCount,
     notePrefix: typeof value.notePrefix === 'string' ? value.notePrefix : '',
     note: typeof value.note === 'string' ? value.note : '',
   }
@@ -4398,7 +4334,6 @@ function normalizeEpisodeProductionData(data: unknown): EpisodeProductionData {
 function isShotReviewed(shot: Shot) {
   return shot.review.rating > 0
     || shot.review.drawCount !== 1
-    || shot.review.noSubtitleCount !== 0
     || Boolean(shot.review.notePrefix.trim())
     || Boolean(shot.review.note.trim())
 }
@@ -4415,23 +4350,8 @@ function isGroupAutoStarred(groupId: string) {
 function isReviewDefault(review: PromptReview) {
   return review.rating === 0
     && review.drawCount === 1
-    && review.noSubtitleCount === 0
     && !review.notePrefix.trim()
     && !review.note.trim()
-}
-
-function reviewHalfSubtitleCount(drawCount: number) {
-  return Number.isFinite(drawCount) && drawCount > 0 ? Math.floor(drawCount / 2) : 0
-}
-
-function reviewMajoritySubtitleCount(drawCount: number) {
-  if (!Number.isFinite(drawCount) || drawCount <= 0) {
-    return 0
-  }
-
-  const halfCount = reviewHalfSubtitleCount(drawCount)
-  const majorityCount = Math.ceil(drawCount / 2)
-  return majorityCount === halfCount ? Math.min(drawCount, majorityCount + 1) : majorityCount
 }
 
 function calculateAutomaticReviewRating(drawCount: number, notePrefix: string) {
@@ -4455,17 +4375,6 @@ function updateAutomaticReviewRating() {
   reviewDraft.value.rating = calculateAutomaticReviewRating(drawCount, reviewDraft.value.notePrefix)
 }
 
-function syncNoSubtitleCount() {
-  const drawCount = currentReviewDrawCount()
-
-  if (!drawCount) {
-    reviewDraft.value.noSubtitleCount = 0
-    return
-  }
-
-  reviewDraft.value.noSubtitleCount = currentReviewNoSubtitleCount(drawCount) ?? Number.NaN
-}
-
 function currentReviewDrawCount() {
   const shortcutValue = reviewDrawCountMode.value === 'one'
     ? 1
@@ -4480,33 +4389,9 @@ function isValidReviewDrawCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 8
 }
 
-function currentReviewNoSubtitleCount(drawCount: number) {
-  if (reviewSubtitleMode.value === 'subtitled') {
-    return 0
-  }
-
-  if (reviewSubtitleMode.value === 'half') {
-    return reviewHalfSubtitleCount(drawCount)
-  }
-
-  if (reviewSubtitleMode.value === 'majority') {
-    return reviewMajoritySubtitleCount(drawCount)
-  }
-
-  if (reviewSubtitleMode.value === 'subtitle-free') {
-    return drawCount
-  }
-
-  const customValue = reviewCustomSubtitleCount.value
-  return typeof customValue === 'number' && Number.isInteger(customValue) && customValue >= 0 && customValue <= drawCount
-    ? customValue
-    : null
-}
-
 function selectReviewDrawCountMode(value: string | number | boolean | undefined) {
   reviewDrawCountMode.value = value as ReviewDrawCountMode
   reviewCustomDrawCount.value = undefined
-  syncNoSubtitleCount()
   updateAutomaticReviewRating()
 }
 
@@ -4520,28 +4405,7 @@ function updateReviewCustomDrawCount(value: number | null | undefined) {
 }
 
 function finalizeReviewDrawCountInput() {
-  syncNoSubtitleCount()
   updateAutomaticReviewRating()
-}
-
-function selectReviewSubtitleMode(value: string | number | boolean | undefined) {
-  reviewSubtitleMode.value = value as ReviewSubtitleMode
-  reviewCustomSubtitleCount.value = undefined
-  syncNoSubtitleCount()
-}
-
-function updateReviewCustomSubtitleCount(value: number | null | undefined) {
-  const drawCount = currentReviewDrawCount()
-
-  if (!drawCount || typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > drawCount) {
-    if (!reviewSubtitleMode.value) {
-      reviewDraft.value.noSubtitleCount = Number.NaN
-    }
-    return
-  }
-
-  reviewSubtitleMode.value = ''
-  reviewDraft.value.noSubtitleCount = value
 }
 
 function updateReviewNotePrefix(value: unknown) {
@@ -4566,8 +4430,6 @@ function resetReviewDraft() {
   reviewDraft.value = createPromptReview()
   reviewDrawCountMode.value = ''
   reviewCustomDrawCount.value = undefined
-  reviewSubtitleMode.value = 'subtitle-free'
-  reviewCustomSubtitleCount.value = undefined
   reviewNotePrefixPath.value = []
 }
 
@@ -4596,16 +4458,6 @@ function openReviewDialog(shot: Shot) {
       ? 'two'
       : reviewDraft.value.drawCount === 3 ? 'three' : reviewDraft.value.drawCount === 4 ? 'four' : ''
   reviewCustomDrawCount.value = reviewDrawCountMode.value || isDefaultReview ? undefined : reviewDraft.value.drawCount
-  reviewSubtitleMode.value = isDefaultReview
-    ? 'subtitle-free'
-    : reviewDraft.value.noSubtitleCount === 0
-    ? 'subtitled'
-    : reviewDraft.value.noSubtitleCount === reviewDraft.value.drawCount
-      ? 'subtitle-free'
-      : reviewDraft.value.noSubtitleCount === reviewHalfSubtitleCount(reviewDraft.value.drawCount)
-        ? 'half'
-        : reviewDraft.value.noSubtitleCount === reviewMajoritySubtitleCount(reviewDraft.value.drawCount) ? 'majority' : ''
-  reviewCustomSubtitleCount.value = reviewSubtitleMode.value ? undefined : reviewDraft.value.noSubtitleCount
   reviewNotePrefixPath.value = reviewDraft.value.notePrefix.split('→').filter(Boolean)
   reviewDialogVisible.value = true
 }
@@ -4625,15 +4477,7 @@ function saveReviewDialog() {
     return
   }
 
-  const noSubtitleCount = currentReviewNoSubtitleCount(drawCount)
-
-  if (noSubtitleCount === null) {
-    notify.warning('请输入无字幕次数')
-    return
-  }
-
   reviewDraft.value.drawCount = drawCount
-  reviewDraft.value.noSubtitleCount = noSubtitleCount
   updateAutomaticReviewRating()
   const normalizedReview = normalizePromptReview(reviewDraft.value)
 
@@ -4658,22 +4502,15 @@ function openGroupSummary(groupId: string) {
   }
 
   activeGroupSummaryId.value = groupId
-  groupSummaryOriginalTitle.value = activeGroupSummary.value?.title ?? ''
   groupSummaryVisible.value = true
 }
 
-function finishGroupSummaryRename() {
+function updateGroupResultTier(value: number | undefined | '') {
   const group = activeGroupSummary.value
   if (!group) return
-  group.title = group.title.trim() || groupSummaryOriginalTitle.value
-  groupSummaryOriginalTitle.value = group.title
-}
-
-function updateGroupResult(field: 'playCount' | 'commission', value: string) {
-  const group = activeGroupSummary.value
-  if (!group) return
-  const number = Number(value)
-  group.results[field] = Number.isFinite(number) ? Math.max(0, Math.round(number)) : 0
+  const tier = groupResultTiers.find((tier) => tier.playCount === value)
+  group.results.playCount = tier?.playCount ?? 0
+  group.results.commission = tier?.commission ?? 0
 }
 
 function openEpisodeScriptDialog(tab: EpisodeScriptTab) {

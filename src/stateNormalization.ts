@@ -80,15 +80,10 @@ function normalizePromptReview(review: unknown): PromptReview {
   const drawCount = typeof value.drawCount === 'number' && Number.isFinite(value.drawCount)
     ? Math.max(1, Math.min(8, Math.round(value.drawCount)))
     : 1
-  const legacyNoSubtitle = 'noSubtitle' in value ? Boolean((value as Partial<PromptReview> & { noSubtitle?: boolean }).noSubtitle) : false
-  const noSubtitleCount = typeof value.noSubtitleCount === 'number' && Number.isFinite(value.noSubtitleCount)
-    ? Math.max(0, Math.min(drawCount, Math.round(value.noSubtitleCount)))
-    : legacyNoSubtitle ? drawCount : 0
 
   return {
     rating,
     drawCount,
-    noSubtitleCount,
     notePrefix: typeof value.notePrefix === 'string' ? value.notePrefix : '',
     note: typeof value.note === 'string' ? value.note : '',
   }
