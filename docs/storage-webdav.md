@@ -6,6 +6,8 @@
 
 ## 云端目录
 
+连接地址和用户名保存在本机，密码仅保存在当前标签页的 `sessionStorage`，不写入长期设置或导出文件。首次连接在全局设置中配置；之后点击上传或下载时，若缺少会话密码，会直接打开 WebDAV 验证框。验证成功后继续原操作，取消则不传输；验证失败可在原框重试。用户名与密码使用标准表单、字段名称和自动填充标记，支持浏览器密码管理器识别，实际保存与填充由浏览器及用户设置决定。
+
 WebDAV 地址直接指向同步目录，不再追加 `script2prompt/` 等目录名。此地址下保存 `settings.json`、`ungrouped.json` 和 `groups/`。分组名称不参与文件路径，归档仍保留独立文件。分组引用提示词的三个固定槽位，下载时映射为当前设置中的方案 ID。
 
 上传处理全部本地文件，未变化内容跳过；云端独有分组保留。覆盖和删除均使用读取时的强 ETag 作为条件，确认后若文件又发生变化会失败并提示重试。服务器缺失强 ETag 时允许读取和新建，拒绝更新或删除现有文件。跨域服务器需允许 GET、PUT、DELETE、PROPFIND、MKCOL，允许 Authorization、Content-Type、Depth、If-Match、If-None-Match 请求头，并暴露 ETag 响应头。代理必须保留条件请求语义。参考 [WebDAV RFC 4918](https://www.rfc-editor.org/rfc/rfc4918)。
@@ -25,6 +27,8 @@ WebDAV 地址直接指向同步目录，不再追加 `script2prompt/` 等目录�
 ## 验证
 
 运行 `npm.cmd run build` 进行编码、类型与构建检查。
+
+`/tests/webdav-auth.html` 挂载实际应用并使用独立内存存储和模拟 WebDAV，可检查缺少密码时的验证框、取消、认证失败重试、自动继续上传或下载，以及会话凭据复用，不访问真实云端。密码管理器的实际保存和自动填充提示需在目标浏览器中手动验证。
 
 运行 `npm.cmd run dev -- --host 127.0.0.1`，在浏览器打开 `/tests/storage-webdav.html`。测试使用独立内存 Storage 和模拟 fetch，不读写实际用户存储或 WebDAV。页面输出每个用例结果，自动化可读取 `window.testResults`。测试入口不属于生产构建。
 

@@ -1634,6 +1634,10 @@ html.dark .episode-panel {
   white-space: nowrap;
 }
 
+.character-clone-source.is-adjacent {
+  font-weight: 700;
+}
+
 .timing-config-row {
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr);
@@ -2215,6 +2219,52 @@ html.dark .episode-panel {
 .episode-data-card.date-card {
   align-content: center;
   grid-template-columns: minmax(0, 1fr);
+}
+
+.data-dialog .el-dialog__header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.data-dialog .el-dialog__title {
+  flex-shrink: 0;
+}
+
+.el-breadcrumb.data-dialog-breadcrumb {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 6px 0;
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.el-breadcrumb.data-dialog-breadcrumb::before,
+.el-breadcrumb.data-dialog-breadcrumb::after {
+  display: none;
+}
+
+.data-dialog-breadcrumb .el-breadcrumb__inner {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.data-dialog-breadcrumb .el-button {
+  font-size: inherit;
+  line-height: inherit;
+  white-space: normal;
+  text-align: left;
+}
+
+.data-dialog-breadcrumb-current {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 3px;
+  vertical-align: middle;
+  font-weight: var(--el-font-weight-primary);
+  line-height: inherit;
 }
 
 .group-summary-subtitle {

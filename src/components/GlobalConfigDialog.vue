@@ -10,16 +10,16 @@
     <el-tabs v-model="activeTab" class="global-config-tabs">
       <el-tab-pane label="WebDAV" name="webdav">
         <div class="global-config-scroll-pane">
-          <el-form class="global-config-form" label-position="top" :disabled="Boolean(webDavAction)">
+          <el-form id="webdav-settings-form" name="webdav-settings" method="post" class="global-config-form" autocomplete="on" label-position="top" :disabled="Boolean(webDavAction)" @submit.prevent="saveWebDavSettingsDraft">
             <el-form-item label="WebDAV 地址">
               <el-input v-model="webDavDraft.baseUrl" placeholder="/webdav/" clearable />
             </el-form-item>
             <div class="webdav-credentials-grid">
-              <el-form-item label="用户名">
-                <el-input v-model="webDavDraft.username" autocomplete="username" clearable />
+              <el-form-item label="用户名" for="webdav-settings-username">
+                <el-input id="webdav-settings-username" v-model="webDavDraft.username" name="username" autocomplete="username" clearable />
               </el-form-item>
-              <el-form-item label="密码">
-                <el-input v-model="webDavDraft.password" type="password" autocomplete="current-password" show-password />
+              <el-form-item label="密码" for="webdav-settings-password">
+                <el-input id="webdav-settings-password" v-model="webDavDraft.password" name="password" type="password" autocomplete="current-password" show-password />
               </el-form-item>
             </div>
             <div class="webdav-sync-status">
@@ -125,7 +125,7 @@
         </div>
         <div v-if="activeTab === 'webdav'" class="global-config-footer-actions">
           <el-button :loading="webDavAction === 'test'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('test')">测试连接</el-button>
-          <el-button type="primary" :disabled="Boolean(webDavAction)" @click="saveWebDavSettingsDraft">保存连接设置</el-button>
+          <el-button type="primary" native-type="submit" form="webdav-settings-form" :disabled="Boolean(webDavAction)">保存连接设置</el-button>
         </div>
         <div v-else class="global-config-footer-actions">
           <el-button :loading="isResetting" @click="resetFromServer">恢复初始配置</el-button>
@@ -250,7 +250,10 @@ function save() {
   emit('update:modelValue', false)
 }
 
-function saveWebDavSettingsDraft() {
+function saveWebDavSettingsDraft(event: SubmitEvent) {
+  const form = new FormData(event.target as HTMLFormElement)
+  webDavDraft.value.username = String(form.get('username') ?? '')
+  webDavDraft.value.password = String(form.get('password') ?? '')
   const settings = validatedWebDavSettings()
 
   if (!settings) {

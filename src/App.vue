@@ -82,7 +82,7 @@
                 </el-dropdown>
                 <el-button-group class="stage-title-data-actions">
                   <el-button :icon="Notebook" text @click="openGroupSummary(activeEpisode.groupId ?? 'ungrouped')">全剧</el-button>
-                  <el-button :icon="Document" text @click="openReviewSummary(activeEpisode)">本集</el-button>
+                  <el-button :icon="Document" text @click="openReviewSummary(activeEpisode)">分集</el-button>
                 </el-button-group>
               </span>
             </template>
@@ -325,8 +325,8 @@
             </section>
 
             <nav class="sidebar-footer-actions" aria-label="剧本管理快捷操作">
-              <el-tooltip content="从云端下载" placement="top"><el-button :icon="Download" text aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="downloadFromWebDav(webDavSettings)" /></el-tooltip>
-              <el-tooltip content="上传到云端" placement="top"><el-button :icon="Upload" text aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="uploadToWebDav(webDavSettings)" /></el-tooltip>
+              <el-tooltip content="从云端下载" placement="top"><el-button :icon="Download" text aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="requestWebDavTransfer('download')" /></el-tooltip>
+              <el-tooltip content="上传到云端" placement="top"><el-button :icon="Upload" text aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="requestWebDavTransfer('upload')" /></el-tooltip>
               <div class="sidebar-footer-ledger-entry">
                 <el-tooltip :content="isTodayMonday ? '积分记录；右键选择周报（记得交周报）' : '积分记录；右键选择并复制周报'" placement="top">
                   <el-button :icon="Calendar" text :class="{ 'is-reminder': isTodayMonday }" aria-label="积分记录" @click="openPointLedger" @contextmenu.prevent.stop="weeklyReportPickerRef?.handleOpen()" />
@@ -534,7 +534,7 @@
                           <el-button class="title-copy-button" :icon="Files" text type="primary" title="克隆角色配置" aria-label="克隆角色配置" />
                           <template #dropdown>
                             <el-dropdown-menu>
-                              <el-dropdown-item v-for="item in characterCloneSources(shot)" :key="item.shot.id" :command="item.shot.id" :disabled="!item.shot.characters.length">
+                              <el-dropdown-item v-for="item in characterCloneSources(shot)" :key="item.shot.id" class="character-clone-source" :class="{ 'is-adjacent': item.isAdjacent }" :command="item.shot.id" :disabled="!item.shot.characters.length">
                                 {{ formatShotNumber(activeEpisode, item.index) }} · {{ item.shot.characters.length }} 人
                               </el-dropdown-item>
                               <el-dropdown-item v-if="!characterCloneSources(shot).some((item) => item.shot.characters.length)" disabled>暂无可克隆的角色配置</el-dropdown-item>
@@ -762,6 +762,21 @@
         @webdav-test="testWebDav"
         @webdav-migrate="migrateWebDav"
       />
+      <el-dialog v-model="webDavAuthVisible" title="WebDAV 验证" width="400px" :before-close="closeWebDavAuth" @opened="webDavAuthPasswordRef?.focus()">
+        <el-form id="webdav-auth-form" name="webdav-auth" method="post" autocomplete="on" label-position="top" :disabled="webDavAuthSubmitting" @submit.prevent="continueWebDavTransfer">
+          <el-form-item label="用户名" for="webdav-auth-username">
+            <el-input id="webdav-auth-username" v-model="webDavAuthUsername" name="username" autocomplete="username" />
+          </el-form-item>
+          <el-form-item label="密码" for="webdav-auth-password">
+            <el-input id="webdav-auth-password" ref="webDavAuthPasswordRef" v-model="webDavAuthPassword" name="password" type="password" autocomplete="current-password" show-password />
+          </el-form-item>
+          <el-alert v-if="webDavAuthError" :title="webDavAuthError" type="error" :closable="false" show-icon />
+        </el-form>
+        <template #footer>
+          <el-button :disabled="webDavAuthSubmitting" @click="closeWebDavAuth">取消</el-button>
+          <el-button type="primary" native-type="submit" form="webdav-auth-form" :loading="webDavAuthSubmitting">{{ pendingWebDavTransfer === 'download' ? '继续下载' : '继续上传' }}</el-button>
+        </template>
+      </el-dialog>
       <PointLedgerDialog v-model="pointLedgerVisible" :invoices="state.pointInvoices" :episodes="state.episodes" :episode-groups="state.episodeGroups" @save="savePointInvoices" />
       <el-dialog v-model="detectionDialogVisible" title="角色识别冲突" width="820px" :show-close="false" class="detection-dialog" @closed="cancelActiveDetection">
         <div v-if="detectionConflict" class="detection-compare">
@@ -802,8 +817,23 @@
           <el-button class="button-spacing-left" type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换角色</el-button>
         </template>
       </el-dialog>
-      <el-dialog v-model="reviewDialogVisible" :title="reviewDialogTitle" width="820px" :show-close="false" class="review-dialog" @closed="activeReviewShot = null">
-        <el-form class="dialog-form-width-limit review-form" label-position="top">
+      <el-dialog v-model="dataDialogVisible" :title="dataDialogTitle" width="820px" :show-close="false" class="data-dialog" :class="{ 'review-dialog': dataDialogView === 'shot', 'review-summary-dialog': dataDialogView === 'episode', 'group-summary-dialog': dataDialogView === 'group' }" @closed="clearDataDialogContext">
+        <template #header="{ titleId, titleClass }">
+          <span :id="titleId" :class="titleClass" role="heading" aria-level="2">{{ dataDialogTitle }}</span>
+          <el-breadcrumb separator="/" class="data-dialog-breadcrumb">
+            <el-breadcrumb-item>
+              <el-button v-if="dataDialogView !== 'group'" link @click="openGroupSummary(dataDialogGroupId)">《{{ dataDialogGroupTitle }}》</el-button>
+              <span v-else class="data-dialog-breadcrumb-current">《{{ dataDialogGroupTitle }}》</span>
+            </el-breadcrumb-item>
+            <el-breadcrumb-item v-if="dataDialogEpisode">
+              <el-button v-if="dataDialogView === 'shot'" link @click="openReviewSummary(dataDialogEpisode)">{{ dataDialogEpisode.title }}</el-button>
+              <span v-else class="data-dialog-breadcrumb-current">{{ dataDialogEpisode.title }}</span>
+            </el-breadcrumb-item>
+            <el-breadcrumb-item v-if="dataDialogView === 'shot'"><span class="data-dialog-breadcrumb-current">分镜 {{ reviewShotNumber }}</span></el-breadcrumb-item>
+          </el-breadcrumb>
+        </template>
+        <template v-if="dataDialogView === 'shot'">
+          <el-form class="dialog-form-width-limit review-form" label-position="top">
           <el-form-item label="自动评分">
             <el-rate
               :model-value="reviewDraft.rating"
@@ -849,13 +879,9 @@
               </template>
             </el-input>
           </el-form-item>
-        </el-form>
-        <template #footer>
-          <el-button @click="clearReviewDialog">清空</el-button>
-          <el-button class="button-spacing-left" type="primary" @click="saveReviewDialog">保存</el-button>
+          </el-form>
         </template>
-      </el-dialog>
-      <el-dialog v-model="reviewSummaryVisible" :title="reviewSummaryTitle" width="820px" :show-close="false" class="review-summary-dialog" @closed="reviewSummaryEpisodeId = null">
+        <template v-else-if="dataDialogView === 'episode'">
         <div v-if="reviewSummaryEpisode" class="episode-summary-cards">
           <section class="episode-summary-card episode-date-card">
             <el-statistic title="制作日期" :value="0" :formatter="formatEpisodeProductionDate" />
@@ -903,8 +929,8 @@
             </template>
           </el-table-column>
         </el-table>
-      </el-dialog>
-      <el-dialog v-model="groupSummaryVisible" title="整剧数据" width="820px" :show-close="false" class="group-summary-dialog" @closed="activeGroupSummaryId = null">
+        </template>
+        <template v-else>
         <p class="group-summary-subtitle"><GroupPlayMedal :play-count="activeGroupSummary?.results.playCount" />{{ groupSummarySubtitle }}</p>
         <div class="group-summary-inputs">
           <div class="group-summary-options" :class="{ 'is-ungrouped': !activeGroupSummary }">
@@ -974,6 +1000,11 @@
             </template>
           </el-table-column>
         </el-table>
+        </template>
+        <template v-if="dataDialogView === 'shot'" #footer>
+          <el-button @click="clearReviewDialog">清空</el-button>
+          <el-button class="button-spacing-left" type="primary" @click="saveReviewDialog">保存</el-button>
+        </template>
       </el-dialog>
       <el-dialog v-model="episodeScriptDialogVisible" width="820px" class="episode-script-dialog" :show-close="false" @closed="resetEpisodeScriptDialog">
         <el-tabs v-model="episodeScriptActiveTab" class="episode-script-tabs">
@@ -1363,6 +1394,7 @@ import { copyText } from './clipboard'
 import {
   loadWebDavSettings,
   saveWebDavSettings,
+  normalizeWebDavSettings,
   WebDavClient,
   webDavTargetIdentity,
   type WebDavAction,
@@ -1458,6 +1490,13 @@ const pointLedgerVisible = ref(false)
 const weeklyReportPickerRef = ref<{ handleOpen: () => void; handleClose: () => void } | null>(null)
 const webDavSettings = ref<WebDavSettings>(loadWebDavSettings())
 const webDavAction = ref<WebDavAction | null>(null)
+const webDavAuthVisible = ref(false)
+const pendingWebDavTransfer = ref<'upload' | 'download' | null>(null)
+const webDavAuthUsername = ref('')
+const webDavAuthPassword = ref('')
+const webDavAuthPasswordRef = ref<{ focus: () => void } | null>(null)
+const webDavAuthSubmitting = ref(false)
+const webDavAuthError = ref('')
 const detectionDialogVisible = ref(false)
 const detectionConflictShotId = ref<string | null>(null)
 const sidebarCollapsed = ref(false)
@@ -1534,11 +1573,11 @@ let dialogueHighlightRef: HTMLElement | null = null
 let materialSceneTransitionFrame: number | null = null
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const shotListRef = ref<HTMLElement | null>(null)
-const reviewDialogVisible = ref(false)
-const reviewSummaryVisible = ref(false)
-const groupSummaryVisible = ref(false)
+const dataDialogVisible = ref(false)
+const dataDialogView = ref<'group' | 'episode' | 'shot'>('group')
 const episodeScriptDialogVisible = ref(false)
 const activeReviewShot = ref<Shot | null>(null)
+const activeReviewEpisodeId = ref<string | null>(null)
 const reviewSummaryEpisodeId = ref<string | null>(null)
 const activeGroupSummaryId = ref<string | null>(null)
 const reviewDraft = ref<PromptReview>(createPromptReview())
@@ -1656,7 +1695,12 @@ const reviewNoteCascaderOptions = computed(() => {
     children,
   }))
 })
-const reviewSummaryEpisode = computed(() => state.episodes.find((episode) => episode.id === reviewSummaryEpisodeId.value) ?? activeEpisode.value ?? null)
+const reviewSummaryEpisode = computed(() => state.episodes.find((episode) => episode.id === reviewSummaryEpisodeId.value) ?? null)
+const activeReviewEpisode = computed(() => state.episodes.find((episode) => episode.id === activeReviewEpisodeId.value) ?? null)
+const dataDialogEpisode = computed(() => dataDialogView.value === 'group' ? null : dataDialogView.value === 'shot' ? activeReviewEpisode.value : reviewSummaryEpisode.value)
+const dataDialogGroupId = computed(() => dataDialogView.value === 'group' ? activeGroupSummaryId.value ?? 'ungrouped' : dataDialogEpisode.value?.groupId ?? 'ungrouped')
+const dataDialogGroupTitle = computed(() => getEpisodeGroupTitle(dataDialogGroupId.value === 'ungrouped' ? null : dataDialogGroupId.value))
+const dataDialogTitle = computed(() => ({ group: '全剧数据', episode: '分集数据', shot: '分镜数据' })[dataDialogView.value])
 const activeGroupSummary = computed(() => state.episodeGroups.find((group) => group.id === activeGroupSummaryId.value) ?? null)
 const groupResultTiers = [
   { playCount: 2000, commission: 500, label: '500元丨2千万' },
@@ -1692,25 +1736,16 @@ const groupPromptProfileId = computed<string>({
     }
   },
 })
-const reviewSummaryTitle = computed(() => {
-  const episode = reviewSummaryEpisode.value
-
-  if (!episode) {
-    return '《未分组》本集数据'
-  }
-
-  return `《${getEpisodeGroupTitle(episode.groupId ?? null)}》${episode.title}数据`
-})
-const reviewDialogTitle = computed(() => {
+const reviewShotNumber = computed(() => {
   const shot = activeReviewShot.value
-  const episode = activeEpisode.value
+  const episode = activeReviewEpisode.value
   const index = shot ? episode?.shots.findIndex((item) => item.id === shot.id) ?? -1 : -1
 
   if (!shot || !episode || index < 0) {
-    return '提示词评分'
+    return ''
   }
 
-  return `给 ${formatShotNumber(episode, index)} 评分`
+  return formatShotNumber(episode, index)
 })
 const reviewSummaryRows = computed(() => {
   const episode = reviewSummaryEpisode.value
@@ -1739,9 +1774,8 @@ const materialCharacterPlaceholder = computed(() => materialDialogMode.value ===
 const shouldShowMaterialCharacters = computed(() => materialDialogMode.value === 'add' || editingMaterial.value?.kind === 'characters')
 const shouldShowMaterialScenes = computed(() => materialDialogMode.value === 'add' || editingMaterial.value?.kind === 'scenes')
 const groupSummarySubtitle = computed(() => {
-  const title = activeGroupSummaryId.value === 'ungrouped' ? '未分组' : activeGroupSummary.value?.title ?? ''
   const episodeNumbers = groupSummaryEpisodes.value.map(formatEpisodeSummaryNumber).join('/')
-  return `《${title}》${episodeNumbers || '无'}，共${groupSummaryEpisodes.value.length}集`
+  return `${episodeNumbers || '无'}，共${groupSummaryEpisodes.value.length}集`
 })
 const groupSummaryStats = computed(() => summarizeEpisodeGroup(groupSummaryEpisodes.value))
 const groupProductionSummary = computed(() => summarizeProductionData(groupSummaryEpisodes.value))
@@ -1907,6 +1941,54 @@ function saveWebDavConnection(settings: WebDavSettings) {
     notify.success('WebDAV 连接设置已保存')
     globalDialogVisible.value = false
   } catch (error) { notifyWebDavError(error) }
+}
+
+function requestWebDavTransfer(action: 'upload' | 'download') {
+  if (webDavAction.value || webDavAuthVisible.value || webDavAuthSubmitting.value) return
+  const settings = webDavSettings.value
+  if (!settings.baseUrl.trim() || !settings.username.trim()) {
+    openGlobalDialog()
+    notify.info('请先配置 WebDAV 地址和用户名')
+    return
+  }
+  if (settings.password) {
+    void (action === 'upload' ? uploadToWebDav(settings) : downloadFromWebDav(settings))
+    return
+  }
+  webDavAuthUsername.value = settings.username
+  pendingWebDavTransfer.value = action
+  webDavAuthVisible.value = true
+}
+
+function closeWebDavAuth() {
+  if (webDavAuthSubmitting.value) return
+  webDavAuthVisible.value = false
+  pendingWebDavTransfer.value = null
+  webDavAuthPassword.value = ''
+  webDavAuthError.value = ''
+}
+
+async function continueWebDavTransfer(event: SubmitEvent) {
+  if (webDavAuthSubmitting.value || !pendingWebDavTransfer.value) return
+  webDavAuthError.value = ''
+  const form = new FormData(event.target as HTMLFormElement)
+  webDavAuthSubmitting.value = true
+  try {
+    const settings = normalizeWebDavSettings({
+      ...webDavSettings.value,
+      username: String(form.get('username') ?? ''),
+      password: String(form.get('password') ?? ''),
+    })
+    await new WebDavClient(settings).test()
+    const action = pendingWebDavTransfer.value
+    webDavAuthSubmitting.value = false
+    closeWebDavAuth()
+    await (action === 'upload' ? uploadToWebDav(settings) : downloadFromWebDav(settings))
+  } catch (error) {
+    webDavAuthError.value = error instanceof Error ? error.message : 'WebDAV 验证失败'
+  } finally {
+    webDavAuthSubmitting.value = false
+  }
 }
 
 async function confirmWebDavItems(items: TransferItem[], deleting = false) {
@@ -3779,7 +3861,8 @@ function removeCharacterFromShot(shot: Shot, id: string) {
 }
 
 function characterCloneSources(target: Shot) {
-  return activeEpisode.value?.shots.map((shot, index) => ({ shot, index }))
+  const targetIndex = shotIndex(target)
+  return activeEpisode.value?.shots.map((shot, index) => ({ shot, index, isAdjacent: Math.abs(index - targetIndex) === 1 }))
     .filter((item) => item.shot.id !== target.id) ?? []
 }
 
@@ -3787,11 +3870,13 @@ function cloneShotCharacters(target: Shot, sourceId: string) {
   const source = characterCloneSources(target).find((item) => item.shot.id === sourceId)?.shot
   if (!source?.characters.length) return
 
-  const voices = new Map(target.characters.map((character) => [character.name, character.includeVoice]))
+  const voices = new Set(detectCharacters(effectiveShotText(target), source.characters.map((character) => character.name))
+    .filter((character) => character.includeVoice)
+    .map((character) => character.name))
   target.characters = source.characters.map((character) => ({
     ...character,
     id: createId('character'),
-    includeVoice: voices.get(character.name) ?? character.includeVoice,
+    includeVoice: voices.has(character.name),
   }))
   target.pendingDetection = null
   target.autoSyncNotice = null
@@ -4447,6 +4532,9 @@ function clearReviewDialog() {
 }
 
 function openReviewDialog(shot: Shot) {
+  const episode = state.episodes.find((episode) => episode.shots.some((item) => item.id === shot.id))
+  if (!episode) return
+  activeReviewEpisodeId.value = episode.id
   activeReviewShot.value = shot
   reviewDraft.value = { ...normalizePromptReview(shot.review) }
   const isDefaultReview = isReviewDefault(reviewDraft.value)
@@ -4459,14 +4547,15 @@ function openReviewDialog(shot: Shot) {
       : reviewDraft.value.drawCount === 3 ? 'three' : reviewDraft.value.drawCount === 4 ? 'four' : ''
   reviewCustomDrawCount.value = reviewDrawCountMode.value || isDefaultReview ? undefined : reviewDraft.value.drawCount
   reviewNotePrefixPath.value = reviewDraft.value.notePrefix.split('→').filter(Boolean)
-  reviewDialogVisible.value = true
+  dataDialogView.value = 'shot'
+  dataDialogVisible.value = true
 }
 
 function saveReviewDialog() {
   const shot = activeReviewShot.value
 
   if (!shot) {
-    reviewDialogVisible.value = false
+    dataDialogVisible.value = false
     return
   }
 
@@ -4487,13 +4576,18 @@ function saveReviewDialog() {
   }
 
   shot.review = normalizedReview
-  reviewDialogVisible.value = false
+  dataDialogVisible.value = false
   notify.success('已保存评分')
 }
 
 function openReviewSummary(episode = activeEpisode.value) {
-  reviewSummaryEpisodeId.value = episode?.id ?? null
-  reviewSummaryVisible.value = true
+  if (!episode) return
+  resetReviewDraft()
+  activeReviewShot.value = null
+  activeReviewEpisodeId.value = null
+  reviewSummaryEpisodeId.value = episode.id
+  dataDialogView.value = 'episode'
+  dataDialogVisible.value = true
 }
 
 function openGroupSummary(groupId: string) {
@@ -4502,7 +4596,21 @@ function openGroupSummary(groupId: string) {
   }
 
   activeGroupSummaryId.value = groupId
-  groupSummaryVisible.value = true
+  resetReviewDraft()
+  activeReviewShot.value = null
+  activeReviewEpisodeId.value = null
+  reviewSummaryEpisodeId.value = null
+  dataDialogView.value = 'group'
+  dataDialogVisible.value = true
+}
+
+function clearDataDialogContext() {
+  if (dataDialogVisible.value) return
+  activeReviewShot.value = null
+  activeReviewEpisodeId.value = null
+  reviewSummaryEpisodeId.value = null
+  activeGroupSummaryId.value = null
+  resetReviewDraft()
 }
 
 function updateGroupResultTier(value: number | undefined | '') {
@@ -4662,11 +4770,10 @@ function isShortcutBlocked() {
   return materialDialogVisible.value
     || characterPasteDialogVisible.value
     || globalDialogVisible.value
+    || webDavAuthVisible.value
     || pointLedgerVisible.value
     || detectionDialogVisible.value
-    || reviewDialogVisible.value
-    || reviewSummaryVisible.value
-    || groupSummaryVisible.value
+    || dataDialogVisible.value
     || episodeScriptDialogVisible.value
 }
 
