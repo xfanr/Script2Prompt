@@ -227,7 +227,7 @@ function selectEpisodes(usage: PointUsageRecord, value: unknown) {
 async function confirmDelete(message: string) {
   try {
     await ElMessageBox.confirm(message, '删除积分记录', {
-      type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消', confirmButtonClass: 'button-spacing-left',
+      type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消',
     })
     return true
   } catch { return false }

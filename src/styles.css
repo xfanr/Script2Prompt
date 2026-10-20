@@ -133,6 +133,14 @@ h3,
   max-width: calc(100vw - 24px);
 }
 
+.el-dialog__footer,
+.el-message-box__btns,
+.el-popconfirm__action {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
 .app-shell {
   min-height: 100vh;
   padding: 0;
@@ -605,10 +613,6 @@ html.dark .episode-panel {
 
 :root .el-button + .el-button {
   margin-left: 0;
-}
-
-:root .el-button.button-spacing-left {
-  margin-left: 12px;
 }
 
 .sidebar .episode-star {
@@ -1676,6 +1680,16 @@ html.dark .episode-panel {
   width: min(620px, calc(100vw - 32px));
 }
 
+.storage-save-error .el-alert__description {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.storage-save-error .el-alert__description > div {
+  flex-basis: 100%;
+}
+
 .webdav-legacy-settings {
   margin-top: 16px;
 }
@@ -2735,21 +2749,6 @@ html.dark .episode-panel {
   color: var(--el-text-color-primary);
 }
 
-.prompt-profile-dock {
-  display: flex;
-  flex: 0 0 auto;
-  min-width: 0;
-  align-items: center;
-  gap: 10px;
-}
-
-.prompt-profile-label {
-  flex: 0 0 auto;
-  color: var(--el-text-color-primary);
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .prompt-profile-slots {
   display: inline-flex;
   width: min(280px, 100%);
@@ -2799,23 +2798,6 @@ html.dark .episode-panel {
   font-weight: 900;
   text-align: center;
 }
-
-.global-config-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.global-config-footer.is-prompt-tab {
-  justify-content: space-between;
-}
-
-.global-config-footer-actions {
-  display: flex;
-  gap: 10px;
-}
-
 
 .detection-compare {
   display: grid;
@@ -3268,19 +3250,6 @@ html.dark .episode-panel {
   text-align: center;
 }
 
-.batch-shot-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
-}
-
-.batch-shot-footer-actions {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
-}
-
 @media (max-width: 760px) {
   .episode-script-dialog.el-dialog,
   .episode-script-dialog .el-dialog {
@@ -3300,19 +3269,6 @@ html.dark .episode-panel {
   .webdav-credentials-grid {
     grid-template-columns: 1fr;
     gap: 0;
-  }
-
-  .prompt-profile-dock {
-    flex-wrap: wrap;
-  }
-
-  .global-config-footer.is-prompt-tab {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .global-config-footer-actions {
-    align-self: flex-end;
   }
 }
 

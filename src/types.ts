@@ -70,6 +70,7 @@ export interface SceneAsset {
 export interface CharacterAsset {
   name: string
   appearanceDescription: string
+  voiceDescription: string
 }
 
 export interface CharacterConfig {

@@ -75,6 +75,7 @@ export function parseDataFile(text: string, path: string): DataFile {
           !object(character)
           || typeof character.name !== 'string'
           || (character.appearanceDescription !== undefined && typeof character.appearanceDescription !== 'string')
+          || (character.voiceDescription !== undefined && typeof character.voiceDescription !== 'string')
         ))
         || !Array.isArray(episode.scenes)) throw new Error()
       ids.add(episode.id)

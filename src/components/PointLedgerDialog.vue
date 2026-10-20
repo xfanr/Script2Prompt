@@ -46,7 +46,7 @@ async function handleBeforeClose(done: () => void) {
   }
   try {
     await ElMessageBox.confirm('积分记录中存在尚未保存的修改，是否保存？', '未保存的更改', {
-      type: 'warning', confirmButtonText: '保存更改', cancelButtonText: '放弃更改', confirmButtonClass: 'button-spacing-left',
+      type: 'warning', confirmButtonText: '保存更改', cancelButtonText: '放弃更改',
       distinguishCancelAndClose: true, closeOnClickModal: false,
     })
   } catch (action) {

@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>Character voice description regression tests</title>
+<pre id="results">Running…</pre>
+<script type="module">
+  import { runCharacterVoiceTests } from './character-voice.ts'
+  window.testResults = await runCharacterVoiceTests()
+  document.querySelector('#results').textContent = JSON.stringify(window.testResults, null, 2)
+</script>
+</html>

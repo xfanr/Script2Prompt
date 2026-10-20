@@ -35,6 +35,12 @@ export function formatPhoneVoiceText(text: string) {
     `手机传来的VO（${[chineseContent ?? englishContent, '音色参考@'].filter(Boolean).join('，')}）`)
 }
 
+export function formatShotDetailText(text: string) {
+  return formatPhoneVoiceText(text).replace(/OS(?:（([^（）()\r\n]*)）|\(([^（）()\r\n]*)\))/giu,
+    (_match, chineseContent: string | undefined, englishContent: string | undefined) =>
+      `（${[chineseContent ?? englishContent, '内心OS音，不张嘴，音色参考@'].filter(Boolean).join('，')}）`)
+}
+
 export function countNonPunctuationCharacters(text: string) {
   return Array.from(text.replace(/[\p{P}\p{S}\s]/gu, '')).length
 }
@@ -120,7 +126,7 @@ export function composePrompt(
   characterAssets: CharacterAsset[] = [],
 ) {
   const profile = activePromptProfile(globalConfig, promptProfileId)
-  const text = formatPhoneVoiceText(shot.text)
+  const text = formatShotDetailText(shot.text)
   const firstFrame = shot.firstFrameMode ? parseFirstFrameText(text) : null
   const characterCount = shot.characters.filter((character) => character.name.trim()).length
   const sections = [
@@ -185,9 +191,8 @@ export function composeCharacterSettings(shot: Shot, characterAssets: CharacterA
     .filter((character) => character.name.trim())
     .forEach((character) => {
       const parts = [`${character.name.trim()}的妆造是@`]
-      const appearanceDescription = characterAssets
-        .find((asset) => asset.name === character.name.trim())
-        ?.appearanceDescription.trim()
+      const asset = characterAssets.find((asset) => asset.name === character.name.trim())
+      const appearanceDescription = asset?.appearanceDescription.trim()
 
       if (appearanceDescription) {
         parts.push(appearanceDescription)
@@ -195,6 +200,9 @@ export function composeCharacterSettings(shot: Shot, characterAssets: CharacterA
 
       if (character.includeVoice) {
         parts.push('音色是@')
+        if (asset?.voiceDescription?.trim()) {
+          parts.push(asset.voiceDescription.trim())
+        }
       }
 
       if (character.statusText?.trim()) {

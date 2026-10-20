@@ -58,6 +58,15 @@
             <el-form-item label="分镜详情前缀">
               <el-input v-model="selectedProfile.shotPrefix" />
             </el-form-item>
+            <el-form-item label="提示词方案">
+              <el-segmented
+                v-model="selectedProfileId"
+                class="prompt-profile-slots"
+                :options="promptProfileOptions"
+                size="small"
+                aria-label="提示词方案"
+              />
+            </el-form-item>
           </el-form>
 
         </div>
@@ -112,26 +121,14 @@
     </el-tabs>
 
     <template #footer>
-      <div class="global-config-footer" :class="{ 'is-prompt-tab': activeTab === 'prompt' }">
-        <div v-if="activeTab === 'prompt'" class="prompt-profile-dock">
-          <span class="prompt-profile-label">提示词方案</span>
-          <el-segmented
-            v-model="selectedProfileId"
-            class="prompt-profile-slots"
-            :options="promptProfileOptions"
-            size="small"
-            aria-label="提示词方案"
-          />
-        </div>
-        <div v-if="activeTab === 'webdav'" class="global-config-footer-actions">
-          <el-button :loading="webDavAction === 'test'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('test')">测试连接</el-button>
-          <el-button type="primary" native-type="submit" form="webdav-settings-form" :disabled="Boolean(webDavAction)">保存连接设置</el-button>
-        </div>
-        <div v-else class="global-config-footer-actions">
-          <el-button :loading="isResetting" @click="resetFromServer">恢复初始配置</el-button>
-          <el-button type="primary" @click="save">保存</el-button>
-        </div>
-      </div>
+      <template v-if="activeTab === 'webdav'">
+        <el-button :loading="webDavAction === 'test'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('test')">测试连接</el-button>
+        <el-button type="primary" native-type="submit" form="webdav-settings-form" :disabled="Boolean(webDavAction)">保存连接设置</el-button>
+      </template>
+      <template v-else>
+        <el-button :loading="isResetting" @click="resetFromServer">恢复初始配置</el-button>
+        <el-button type="primary" @click="save">保存</el-button>
+      </template>
     </template>
   </el-dialog>
 </template>
@@ -342,7 +339,6 @@ async function resetFromServer() {
     await ElMessageBox.confirm('将重新读取服务器初始配置并替换当前草稿；点击“保存”后生效。', '重置全局配置', {
       type: 'warning',
       confirmButtonText: '重置',
-      confirmButtonClass: 'button-spacing-left',
       cancelButtonText: '取消',
     })
   } catch {
@@ -382,7 +378,6 @@ async function canDiscardChanges() {
     await ElMessageBox.confirm('设置中存在尚未保存的修改，确认放弃？', '放弃修改', {
       type: 'warning',
       confirmButtonText: '放弃修改',
-      confirmButtonClass: 'button-spacing-left',
       cancelButtonText: '继续编辑',
     })
     return true

@@ -20,10 +20,11 @@ export function createSceneAsset(name = '', time: SceneTime = '白天', space: S
   }
 }
 
-export function createCharacterAsset(name = '', appearanceDescription = ''): CharacterAsset {
+export function createCharacterAsset(name = '', appearanceDescription = '', voiceDescription = ''): CharacterAsset {
   return {
     name,
     appearanceDescription,
+    voiceDescription,
   }
 }
 
@@ -46,7 +47,7 @@ export function normalizeCharacterAssets(value: unknown): CharacterAsset[] {
     const name = typeof asset.name === 'string' ? asset.name.trim() : ''
 
     return name
-      ? createCharacterAsset(name, typeof asset.appearanceDescription === 'string' ? asset.appearanceDescription : '')
+      ? createCharacterAsset(name, typeof asset.appearanceDescription === 'string' ? asset.appearanceDescription : '', typeof asset.voiceDescription === 'string' ? asset.voiceDescription : '')
       : null
   }).filter((item): item is CharacterAsset => Boolean(item))
 

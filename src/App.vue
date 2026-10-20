@@ -4,7 +4,7 @@
       <el-alert v-if="saveError" class="storage-save-error" type="error" :closable="false" show-icon title="更改尚未保存">
         <div>{{ saveError }}</div>
         <el-button size="small" @click="saveNow">重试保存</el-button>
-        <el-button class="button-spacing-left" size="small" @click="exportAllEpisodes">导出备份</el-button>
+        <el-button size="small" @click="exportAllEpisodes">导出备份</el-button>
       </el-alert>
       <input ref="fileInputRef" class="file-input" type="file" accept="application/json,.json" multiple @change="importEpisode" />
 
@@ -276,7 +276,7 @@
                         <div class="material-management-heading-row">
                           <h4 class="material-management-heading">场景配置</h4>
                           <div class="material-management-heading-actions">
-                            <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="添加场景素材" @click="openEpisodeScriptDialog('materials')" />
+                            <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="添加场景素材" @click="openMaterialAddDialog('scenes')" />
                           </div>
                         </div>
                         <div class="material-management-list">
@@ -304,7 +304,7 @@
                                 @click="recognizeCharacterDescriptionsFromClipboard"
                               />
                             </el-tooltip>
-                            <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="添加角色" @click="openEpisodeScriptDialog('materials')" />
+                            <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="添加角色" @click="openMaterialAddDialog('characters')" />
                           </div>
                         </div>
                         <div class="material-management-list">
@@ -622,7 +622,7 @@
                             <el-button
                               :type="!shot.thirtySecondMode && isVoiceOverflow(shot) && character.includeVoice ? 'danger' : character.includeVoice ? 'primary' : undefined"
                               :icon="character.includeVoice ? Microphone : Mute"
-                              :title="character.includeVoice ? '关闭音色' : '开启音色'"
+                              :title="characterVoiceDescription(character.name) || (character.includeVoice ? '关闭音色' : '开启音色')"
                               :aria-label="character.includeVoice ? '关闭音色' : '开启音色'"
                               @click="character.includeVoice = !character.includeVoice"
                             />
@@ -639,7 +639,7 @@
                           <el-popconfirm v-else title="请选择同名角色状态的同步范围">
                             <template #actions="{ confirm }">
                               <el-button size="small" @click="syncCharacterStatus(shot, character, 'unit'); confirm($event)">本单元</el-button>
-                              <el-button class="button-spacing-left" size="small" type="primary" @click="syncCharacterStatus(shot, character, 'all'); confirm($event)">全部</el-button>
+                              <el-button size="small" type="primary" @click="syncCharacterStatus(shot, character, 'all'); confirm($event)">全部</el-button>
                             </template>
                             <template #reference>
                               <el-icon class="status-sync-suffix-icon" title="同步同名角色状态" aria-label="同步同名角色状态"><Refresh /></el-icon>
@@ -814,7 +814,7 @@
         </div>
         <template #footer>
           <el-button :disabled="!detectionMergeChanged()" @click="mergeActiveDetection">合并角色</el-button>
-          <el-button class="button-spacing-left" type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换角色</el-button>
+          <el-button type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换角色</el-button>
         </template>
       </el-dialog>
       <el-dialog v-model="dataDialogVisible" :title="dataDialogTitle" width="820px" :show-close="false" class="data-dialog" :class="{ 'review-dialog': dataDialogView === 'shot', 'review-summary-dialog': dataDialogView === 'episode', 'group-summary-dialog': dataDialogView === 'group' }" @closed="clearDataDialogContext">
@@ -925,7 +925,7 @@
           <el-table-column prop="noteText" label="备注" min-width="180" show-overflow-tooltip />
           <el-table-column label="操作" width="84" fixed="right" align="center" header-align="center">
             <template #default="{ row }">
-              <el-button text type="primary" @click="openReviewDialog(row.shot)">编辑</el-button>
+              <el-link type="primary" href="#" @click.prevent="openReviewDialog(row.shot, true)">编辑</el-link>
             </template>
           </el-table-column>
         </el-table>
@@ -996,14 +996,14 @@
           <el-table-column prop="averageDrawRate" label="抽卡成功率" min-width="100" />
           <el-table-column label="操作" min-width="100" fixed="right" align="center" header-align="center">
             <template #default="{ row }">
-              <el-button v-if="!row.isSummary" text type="primary" @click="openReviewSummary(row.episode)">查看</el-button>
+              <el-link v-if="!row.isSummary" type="primary" href="#" @click.prevent="openReviewSummary(row.episode)">查看</el-link>
             </template>
           </el-table-column>
         </el-table>
         </template>
         <template v-if="dataDialogView === 'shot'" #footer>
           <el-button @click="clearReviewDialog">清空</el-button>
-          <el-button class="button-spacing-left" type="primary" @click="saveReviewDialog">保存</el-button>
+          <el-button type="primary" @click="saveReviewDialog">保存</el-button>
         </template>
       </el-dialog>
       <el-dialog v-model="episodeScriptDialogVisible" width="820px" class="episode-script-dialog" :show-close="false" @closed="resetEpisodeScriptDialog">
@@ -1207,56 +1207,63 @@
           </el-tab-pane>
         </el-tabs>
         <template #footer>
-          <div class="batch-shot-footer">
-            <div v-if="episodeScriptActiveTab === 'materials'" class="batch-shot-footer-actions">
-              <el-button @click="addEpisodeScriptMaterialsDirectly">直接添加</el-button>
-              <el-button class="button-spacing-left" type="primary" @click="continueFromEpisodeScriptMaterials">下一步</el-button>
-            </div>
-            <div v-else-if="episodeScriptActiveTab === 'shots'" class="batch-shot-footer-actions">
-              <el-popconfirm
-                v-if="isEpisodeShotUpdateMode"
-                title="将按识别结果更新分镜列表，并按顺序保留对应配置。确认继续？"
-                @confirm="applyEpisodeScriptShots"
-              >
-                <template #actions="{ confirm }">
-                  <el-button size="small" type="primary" @click="confirm($event)">更新</el-button>
-                </template>
-                <template #reference>
-                  <el-button type="primary">确认更新</el-button>
-                </template>
-              </el-popconfirm>
-              <el-button v-else type="primary" @click="applyEpisodeScriptShots">确认添加</el-button>
-            </div>
-            <div v-else class="batch-shot-footer-actions">
-              <el-button
-                :disabled="dialogueView === 'original' && !state.globalConfig.dialogueExtraction.replacementRules.length"
-                @click="toggleDialogueReplacement"
-              >
-                {{ dialogueView === 'replaced' ? '原文' : '替换' }}
-              </el-button>
-              <el-button class="button-spacing-left" type="primary" :disabled="!dialogueOutputDraft.trim()" @click="copyExtractedDialogue">复制台词</el-button>
-            </div>
-          </div>
+          <template v-if="episodeScriptActiveTab === 'materials'">
+            <el-button @click="addEpisodeScriptMaterialsDirectly">直接添加</el-button>
+            <el-button type="primary" @click="continueFromEpisodeScriptMaterials">下一步</el-button>
+          </template>
+          <template v-else-if="episodeScriptActiveTab === 'shots'">
+            <el-popconfirm
+              v-if="isEpisodeShotUpdateMode"
+              title="将按识别结果更新分镜列表，并按顺序保留对应配置。确认继续？"
+              @confirm="applyEpisodeScriptShots"
+            >
+              <template #actions="{ confirm }">
+                <el-button size="small" type="primary" @click="confirm($event)">更新</el-button>
+              </template>
+              <template #reference>
+                <el-button type="primary">确认更新</el-button>
+              </template>
+            </el-popconfirm>
+            <el-button v-else type="primary" @click="applyEpisodeScriptShots">确认添加</el-button>
+          </template>
+          <template v-else>
+            <el-button
+              :disabled="dialogueView === 'original' && !state.globalConfig.dialogueExtraction.replacementRules.length"
+              @click="toggleDialogueReplacement"
+            >
+              {{ dialogueView === 'replaced' ? '原文' : '替换' }}
+            </el-button>
+            <el-button type="primary" :disabled="!dialogueOutputDraft.trim()" @click="copyExtractedDialogue">复制台词</el-button>
+          </template>
         </template>
       </el-dialog>
       <el-dialog v-model="materialDialogVisible" :title="materialDialogTitle" width="820px" :show-close="false" class="material-dialog" @closed="handleMaterialDialogClosed">
-        <el-form class="material-form" label-position="top">
+        <el-form class="material-form" label-position="top" @submit.prevent>
           <el-form-item v-if="shouldShowMaterialCharacters" label="角色">
             <el-input
               v-model="materialCharacterDraft"
               class="material-character-input"
               clearable
-              :placeholder="materialCharacterPlaceholder"
+              placeholder="请输入角色名称"
               @keyup.enter="confirmMaterialDialog"
             />
           </el-form-item>
-          <el-form-item v-if="materialDialogMode === 'edit' && editingMaterial?.kind === 'characters'" label="形象描述">
+          <el-form-item v-if="shouldShowMaterialCharacters" label="形象描述">
             <el-input
               v-model="materialCharacterAppearanceDraft"
               type="textarea"
               :rows="4"
               resize="vertical"
               placeholder="输入角色的外貌、服装或造型描述（选填）"
+            />
+          </el-form-item>
+          <el-form-item v-if="shouldShowMaterialCharacters" label="音色描述">
+            <el-input
+              v-model="materialCharacterVoiceDraft"
+              type="textarea"
+              :rows="2"
+              resize="vertical"
+              placeholder="输入角色的音色描述（选填）"
             />
           </el-form-item>
           <el-form-item v-if="shouldShowMaterialScenes" label="场景">
@@ -1315,20 +1322,20 @@
         @opened="focusCharacterPasteInput"
         @closed="resetCharacterPasteDialog"
       >
-        <p class="character-paste-hint">浏览器无法自动读取剪切板，请在下方按 Ctrl+V。粘贴后会立即识别 CSV 或 JSON 内容。</p>
+        <p class="character-paste-hint">浏览器无法自动读取剪切板，请在下方按 Ctrl+V。支持 CSV 两列或三列（含逗号的字段用双引号包裹），也支持 JSON。省略字段保留原值，空值清空。</p>
         <el-input
           ref="characterPasteInputRef"
           v-model="characterPasteDraft"
           type="textarea"
           :rows="10"
           resize="vertical"
-          placeholder="在此粘贴角色姓名和形象描述"
-          aria-label="粘贴角色形象描述"
+          placeholder="CSV：角色名,形象描述,音色描述；JSON：name、statusText（或 appearanceDescription）、voiceDescription"
+          aria-label="粘贴角色形象和音色描述"
           @paste="handleCharacterDescriptionPaste"
         />
         <template #footer>
           <el-button @click="characterPasteDialogVisible = false">取消</el-button>
-          <el-button class="button-spacing-left" type="primary" :disabled="!characterPasteDraft.trim()" @click="confirmCharacterPaste">识别</el-button>
+          <el-button type="primary" :disabled="!characterPasteDraft.trim()" @click="confirmCharacterPaste">识别</el-button>
         </template>
       </el-dialog>
   </el-config-provider>
@@ -1370,7 +1377,7 @@ import {
   countNonPunctuationCharacters,
   detectCharacters,
   findPhoneVoiceMatches,
-  formatPhoneVoiceText,
+  formatShotDetailText,
   mergeDetectedCharacters,
   normalizeCharacterNameForMatch,
 } from './prompt'
@@ -1435,7 +1442,8 @@ type MaterialAddResult = {
 }
 type CharacterDescriptionImport = {
   name: string
-  statusText: string
+  appearanceDescription?: string
+  voiceDescription?: string
 }
 type MaterialDialogMode = 'add' | 'edit'
 type SidebarManagementTab = 'scripts' | 'materials'
@@ -1503,9 +1511,11 @@ const sidebarCollapsed = ref(false)
 const sidebarManagementTab = ref<SidebarManagementTab>('scripts')
 const isDarkMode = ref(document.documentElement.classList.contains('dark'))
 const materialDialogMode = ref<MaterialDialogMode>('add')
+const materialDialogKind = ref<MaterialKind>('characters')
 const editingMaterial = ref<EditingMaterial | null>(null)
 const materialCharacterDraft = ref('')
 const materialCharacterAppearanceDraft = ref('')
+const materialCharacterVoiceDraft = ref('')
 const characterPasteDialogVisible = ref(false)
 const characterPasteDraft = ref('')
 const characterPasteInputRef = ref<{ focus: () => void } | null>(null)
@@ -1578,6 +1588,7 @@ const dataDialogView = ref<'group' | 'episode' | 'shot'>('group')
 const episodeScriptDialogVisible = ref(false)
 const activeReviewShot = ref<Shot | null>(null)
 const activeReviewEpisodeId = ref<string | null>(null)
+const reviewOpenedFromSummary = ref(false)
 const reviewSummaryEpisodeId = ref<string | null>(null)
 const activeGroupSummaryId = ref<string | null>(null)
 const reviewDraft = ref<PromptReview>(createPromptReview())
@@ -1673,7 +1684,7 @@ const highlightedDialogueText = computed(() => {
     .split('\n')
     .map((line) => {
       const highlightedLine = highlightDialogueReplacements(line, replacementTerms)
-      return countNonPunctuationCharacters(line) > 10
+      return countNonPunctuationCharacters(line) > 9
         ? `<mark class="dialogue-length-warning">${highlightedLine}</mark>`
         : highlightedLine
     })
@@ -1763,16 +1774,12 @@ const reviewSummary = computed(() => summarizeShots(reviewSummaryEpisode.value?.
 const reviewProductionData = computed(() => reviewSummaryEpisode.value ? productionDataFor(reviewSummaryEpisode.value) : null)
 const episodeTotalCost = computed(() => reviewProductionData.value?.totalCost ?? 0)
 const materialDialogTitle = computed(() => {
-  if (materialDialogMode.value === 'add') {
-    return '添加基础素材'
-  }
-
-  return editingMaterial.value?.kind === 'characters' ? '修改角色' : '修改场景素材'
+  const action = materialDialogMode.value === 'add' ? '添加' : '修改'
+  return `${action}${materialDialogKind.value === 'characters' ? '角色' : '场景素材'}`
 })
 const materialDialogConfirmText = computed(() => materialDialogMode.value === 'add' ? '添加' : '保存')
-const materialCharacterPlaceholder = computed(() => materialDialogMode.value === 'add' ? '输入单个或多个角色名称' : '请输入角色名称')
-const shouldShowMaterialCharacters = computed(() => materialDialogMode.value === 'add' || editingMaterial.value?.kind === 'characters')
-const shouldShowMaterialScenes = computed(() => materialDialogMode.value === 'add' || editingMaterial.value?.kind === 'scenes')
+const shouldShowMaterialCharacters = computed(() => materialDialogKind.value === 'characters')
+const shouldShowMaterialScenes = computed(() => materialDialogKind.value === 'scenes')
 const groupSummarySubtitle = computed(() => {
   const episodeNumbers = groupSummaryEpisodes.value.map(formatEpisodeSummaryNumber).join('/')
   return `${episodeNumbers || '无'}，共${groupSummaryEpisodes.value.length}集`
@@ -1996,7 +2003,7 @@ async function confirmWebDavItems(items: TransferItem[], deleting = false) {
     await ElMessageBox.confirm(
       items.map((item) => `${item.title}（${item.path}）：${item.reason}`).join('\n'),
       deleting ? '确认删除云端分组' : '确认覆盖云端文件',
-      { type: 'warning', confirmButtonClass: 'button-spacing-left', confirmButtonText: deleting ? '删除云端文件' : '覆盖列出的文件', cancelButtonText: '保留云端文件', customClass: 'webdav-confirm-dialog' },
+      { type: 'warning', confirmButtonText: deleting ? '删除云端文件' : '覆盖列出的文件', cancelButtonText: '保留云端文件', customClass: 'webdav-confirm-dialog' },
     )
     return true
   } catch { return false }
@@ -2044,7 +2051,7 @@ async function downloadFromWebDav(settings: WebDavSettings) {
       await ElMessageBox.confirm(
         `将下载 ${downloaded.files.size - 2} 个分组及未分组内容，替换本地同 ID 分组、全局设置（提示词、数据收集、台词规则）和积分记录。本地独有分组保留。是否继续？`,
         '从 WebDAV 下载',
-        { type: 'warning', confirmButtonClass: 'button-spacing-left', confirmButtonText: '下载并替换', cancelButtonText: '取消' },
+        { type: 'warning', confirmButtonText: '下载并替换', cancelButtonText: '取消' },
       )
     } catch { return }
     if (before !== canonicalJson({ groups: state.episodeGroups, episodes: state.episodes, config: state.globalConfig, pointInvoices: state.pointInvoices })) {
@@ -2072,7 +2079,7 @@ async function migrateWebDav(settings: WebDavSettings) {
       await ElMessageBox.confirm(
         `将旧文件“${settings.legacyFilename}”拆分为 ${files.size} 个文件，直接保存在当前同步目录：${client.settings.baseUrl}。旧文件与本地数据保留；目录中已有不同的新格式数据时停止迁移。是否继续？`,
         '迁移旧版 WebDAV 文件',
-        { type: 'warning', confirmButtonClass: 'button-spacing-left', confirmButtonText: '迁移为多文件', cancelButtonText: '取消' },
+        { type: 'warning', confirmButtonText: '迁移为多文件', cancelButtonText: '取消' },
       )
     } catch { return }
     const results = await migrateLegacyFiles(client, files, () => {})
@@ -2902,7 +2909,6 @@ async function handleGroupCommand(command: string, groupId: string) {
           await ElMessageBox.confirm(warning, '归档分组', {
             type: 'warning',
             confirmButtonText: '仍要归档',
-            confirmButtonClass: 'button-spacing-left',
             cancelButtonText: '取消',
           })
         } catch {
@@ -2939,7 +2945,6 @@ async function handleGroupCommand(command: string, groupId: string) {
     await ElMessageBox.confirm('删除剧集后，组内单集将移至“我的剧集”。', '删除剧集', {
       type: 'warning',
       confirmButtonText: '删除',
-      confirmButtonClass: 'button-spacing-left',
       cancelButtonText: '取消',
     })
   } catch {
@@ -2990,7 +2995,7 @@ function cloneEpisodeMaterials(sourceEpisodeId: string) {
   const existingCharacterNames = new Set(targetEpisode.characters.map((character) => character.name))
   const characters = sourceEpisode.characters
     .filter((character) => !existingCharacterNames.has(character.name))
-    .map((character) => createCharacterAsset(character.name, character.appearanceDescription))
+    .map((character) => createCharacterAsset(character.name, character.appearanceDescription, character.voiceDescription))
   const existingSceneNames = new Set(targetEpisode.scenes.map((scene) => scene.name))
   const scenes = sourceEpisode.scenes
     .filter((scene) => !existingSceneNames.has(scene.name))
@@ -3011,16 +3016,9 @@ function cloneEpisodeMaterials(sourceEpisodeId: string) {
 }
 
 function confirmMaterialDialog() {
-  if (materialDialogMode.value === 'edit') {
-    if (commitMaterialEdit()) {
-      materialDialogVisible.value = false
-    }
-    return
+  if (commitMaterialDialog()) {
+    materialDialogVisible.value = false
   }
-
-  addMaterialDrafts()
-  resetMaterialDrafts()
-  materialDialogVisible.value = false
 }
 
 function continueFromEpisodeScriptMaterials() {
@@ -3054,6 +3052,7 @@ function createMaterialSceneDrafts(count = 1) {
 function resetMaterialDrafts(sceneCount = 1) {
   materialCharacterDraft.value = ''
   materialCharacterAppearanceDraft.value = ''
+  materialCharacterVoiceDraft.value = ''
   materialSceneDrafts.value = createMaterialSceneDrafts(sceneCount)
 }
 
@@ -3123,6 +3122,15 @@ function isSceneUsed(name: string) {
   return activeEpisode.value?.shots.some((shot) => shot.scenes.some((scene) => scene.name === name)) ?? false
 }
 
+function openMaterialAddDialog(kind: MaterialKind) {
+  if (!activeEpisode.value) return
+  materialDialogMode.value = 'add'
+  materialDialogKind.value = kind
+  editingMaterial.value = null
+  resetMaterialDrafts()
+  materialDialogVisible.value = true
+}
+
 function openMaterialEditDialog(kind: MaterialKind, value: string) {
   const episode = activeEpisode.value
 
@@ -3142,6 +3150,7 @@ function openMaterialEditDialog(kind: MaterialKind, value: string) {
     resetMaterialDrafts()
     materialCharacterDraft.value = character.name
     materialCharacterAppearanceDraft.value = character.appearanceDescription
+    materialCharacterVoiceDraft.value = character.voiceDescription
   } else {
     const scene = episode.scenes.find((item) => item.name === value)
 
@@ -3155,18 +3164,20 @@ function openMaterialEditDialog(kind: MaterialKind, value: string) {
     materialSceneDrafts.value = [{ name: scene.name, time: scene.time, space: scene.space }]
   }
 
+  materialDialogKind.value = kind
   materialDialogVisible.value = true
 }
 
-function commitMaterialEdit() {
+function commitMaterialDialog() {
   const editing = editingMaterial.value
   const episode = activeEpisode.value
+  const adding = materialDialogMode.value === 'add'
 
-  if (!editing || !episode) {
+  if (!episode || (!adding && !editing)) {
     return false
   }
 
-  if (editing.kind === 'characters') {
+  if (materialDialogKind.value === 'characters') {
     const nextName = materialCharacterDraft.value.trim()
 
     if (!nextName) {
@@ -3174,12 +3185,17 @@ function commitMaterialEdit() {
       return false
     }
 
-    if (nextName !== editing.value && episode.characters.some((character) => character.name === nextName)) {
+    if ((adding || nextName !== editing?.value) && episode.characters.some((character) => character.name === nextName)) {
       notify.warning('本集已存在同名角色')
       return false
     }
 
-    updateCharacterMaterial(editing.value, nextName, materialCharacterAppearanceDraft.value)
+    if (adding) {
+      episode.characters.push(createCharacterAsset(nextName, materialCharacterAppearanceDraft.value.trim(), materialCharacterVoiceDraft.value.trim()))
+      notify.success('已添加角色')
+    } else {
+      updateCharacterMaterial(editing!.value, nextName, materialCharacterAppearanceDraft.value, materialCharacterVoiceDraft.value)
+    }
     return true
   }
 
@@ -3191,20 +3207,25 @@ function commitMaterialEdit() {
     return false
   }
 
-  if (nextName !== editing.value && episode.scenes.some((scene) => scene.name === nextName)) {
+  if ((adding || nextName !== editing?.value) && episode.scenes.some((scene) => scene.name === nextName)) {
     notify.warning('本集已存在同名场景素材')
     return false
   }
 
-  renameSceneMaterial(editing.value, {
-    name: nextName,
-    time: draft.time,
-    space: draft.space,
-  })
+  if (adding) {
+    episode.scenes.push(createSceneAsset(nextName, draft.time, draft.space))
+    notify.success('已添加场景素材')
+  } else {
+    renameSceneMaterial(editing!.value, {
+      name: nextName,
+      time: draft.time,
+      space: draft.space,
+    })
+  }
   return true
 }
 
-function updateCharacterMaterial(oldName: string, nextName: string, appearanceDescription: string) {
+function updateCharacterMaterial(oldName: string, nextName: string, appearanceDescription: string, voiceDescription: string) {
   const episode = activeEpisode.value
 
   if (!episode) {
@@ -3219,6 +3240,7 @@ function updateCharacterMaterial(oldName: string, nextName: string, appearanceDe
 
   characterAsset.name = nextName
   characterAsset.appearanceDescription = appearanceDescription.trim()
+  characterAsset.voiceDescription = voiceDescription.trim()
   episode.shots.forEach((shot) => {
     shot.characters.forEach((character) => {
       if (character.name === oldName) {
@@ -3255,44 +3277,59 @@ function parseCharacterDescriptionClipboard(text: string): CharacterDescriptionI
         throw new Error(`JSON 第 ${index + 1} 项格式无效`)
       }
 
-      const item = entry as { name?: unknown; statusText?: unknown }
+      const item = entry as { name?: unknown; statusText?: unknown; appearanceDescription?: unknown; voiceDescription?: unknown }
       const name = typeof item.name === 'string' ? item.name.trim() : ''
-      const statusText = typeof item.statusText === 'string' ? item.statusText.trim() : ''
-
-      if (!name || !statusText) {
-        throw new Error(`JSON 第 ${index + 1} 项缺少 name 或 statusText`)
+      const appearanceDescription = item.appearanceDescription !== undefined ? item.appearanceDescription : item.statusText
+      if (!name || (appearanceDescription === undefined && item.voiceDescription === undefined)) {
+        throw new Error(`JSON 第 ${index + 1} 项缺少 name 或描述字段`)
       }
-
-      return { name, statusText }
+      if ((appearanceDescription !== undefined && typeof appearanceDescription !== 'string')
+        || (item.voiceDescription !== undefined && typeof item.voiceDescription !== 'string')) {
+        throw new Error(`JSON 第 ${index + 1} 项描述必须是文字`)
+      }
+      return { name, appearanceDescription: appearanceDescription?.trim(), voiceDescription: item.voiceDescription?.trim() }
     })
   }
 
   return normalizedText.split(/\r?\n/).filter((line) => line.trim()).map((line, index) => {
-    const separatorIndex = line.search(/[,，]/)
-
-    if (separatorIndex < 0) {
+    const cells = parseCharacterCsvRow(line)
+    if (cells.length < 2) {
       throw new Error(`CSV 第 ${index + 1} 行缺少逗号`)
     }
-
-    const name = trimCsvCell(line.slice(0, separatorIndex))
-    const statusText = trimCsvCell(line.slice(separatorIndex + 1))
-
-    if (!name || !statusText) {
+    if (cells.length > 3) {
+      throw new Error(`CSV 第 ${index + 1} 行超过三列，请用双引号包裹含逗号的描述`)
+    }
+    const [name, appearanceDescription, voiceDescription] = cells
+    if (!name) {
       throw new Error(`CSV 第 ${index + 1} 行缺少角色名称或描述`)
     }
-
-    return { name, statusText }
+    return { name, appearanceDescription, voiceDescription }
   })
 }
 
-function trimCsvCell(value: string) {
-  const trimmed = value.trim()
-
-  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
-    return trimmed.slice(1, -1).replace(/""/g, '"').trim()
+function parseCharacterCsvRow(line: string) {
+  const cells: string[] = []
+  let cell = ''
+  let quoted = false
+  for (let index = 0; index < line.length; index++) {
+    const character = line[index]
+    if (character === '"') {
+      if (quoted && line[index + 1] === '"') {
+        cell += '"'
+        index += 1
+      } else {
+        quoted = !quoted
+      }
+    } else if (!quoted && (character === ',' || character === '，')) {
+      cells.push(cell.trim())
+      cell = ''
+    } else {
+      cell += character
+    }
   }
-
-  return trimmed
+  if (quoted) throw new Error('CSV 双引号未闭合')
+  cells.push(cell.trim())
+  return cells
 }
 
 function formatRecognitionNames(names: string[]) {
@@ -3330,7 +3367,8 @@ function applyCharacterDescriptionText(text: string) {
     const character = exactMatch ?? (normalizedMatches.length === 1 ? normalizedMatches[0] : null)
 
     if (character) {
-      character.appearanceDescription = item.statusText
+      if (item.appearanceDescription !== undefined) character.appearanceDescription = item.appearanceDescription
+      if (item.voiceDescription !== undefined) character.voiceDescription = item.voiceDescription
       updatedNames.add(character.name)
     } else if (normalizedMatches.length > 1) {
       ambiguousNames.push(item.name)
@@ -3340,7 +3378,7 @@ function applyCharacterDescriptionText(text: string) {
   })
 
   if (updatedNames.size) {
-    notify.success(`已识别并更新 ${updatedNames.size} 个角色形象描述`)
+    notify.success(`已识别并更新 ${updatedNames.size} 个角色描述`)
   }
 
   const issues = [
@@ -3442,7 +3480,6 @@ async function confirmRemoveMaterial(kind: MaterialKind, value: string) {
       {
         type: 'warning',
         confirmButtonText: '删除',
-        confirmButtonClass: 'button-spacing-left',
         cancelButtonText: '取消',
       },
     )
@@ -3519,7 +3556,6 @@ async function deleteEpisodeById(id: string) {
     await ElMessageBox.confirm(`确认删除“${episode.title}”？`, '删除单集', {
       type: 'warning',
       confirmButtonText: '删除',
-      confirmButtonClass: 'button-spacing-left',
       cancelButtonText: '取消',
     })
   } catch {
@@ -3886,6 +3922,10 @@ function cloneShotCharacters(target: Shot, sourceId: string) {
 
 function characterAppearanceDescription(name: string) {
   return activeEpisode.value?.characters.find((character) => character.name === name)?.appearanceDescription.trim() ?? ''
+}
+
+function characterVoiceDescription(name: string) {
+  return activeEpisode.value?.characters.find((character) => character.name === name)?.voiceDescription?.trim() ?? ''
 }
 
 function isVoiceOverflow(shot: Shot) {
@@ -4531,9 +4571,10 @@ function clearReviewDialog() {
   notify.success('已清空评分')
 }
 
-function openReviewDialog(shot: Shot) {
+function openReviewDialog(shot: Shot, fromSummary = false) {
   const episode = state.episodes.find((episode) => episode.shots.some((item) => item.id === shot.id))
   if (!episode) return
+  reviewOpenedFromSummary.value = fromSummary
   activeReviewEpisodeId.value = episode.id
   activeReviewShot.value = shot
   reviewDraft.value = { ...normalizePromptReview(shot.review) }
@@ -4576,12 +4617,17 @@ function saveReviewDialog() {
   }
 
   shot.review = normalizedReview
-  dataDialogVisible.value = false
+  if (reviewOpenedFromSummary.value && activeReviewEpisode.value) {
+    openReviewSummary(activeReviewEpisode.value)
+  } else {
+    dataDialogVisible.value = false
+  }
   notify.success('已保存评分')
 }
 
 function openReviewSummary(episode = activeEpisode.value) {
   if (!episode) return
+  reviewOpenedFromSummary.value = false
   resetReviewDraft()
   activeReviewShot.value = null
   activeReviewEpisodeId.value = null
@@ -4596,6 +4642,7 @@ function openGroupSummary(groupId: string) {
   }
 
   activeGroupSummaryId.value = groupId
+  reviewOpenedFromSummary.value = false
   resetReviewDraft()
   activeReviewShot.value = null
   activeReviewEpisodeId.value = null
@@ -4606,6 +4653,7 @@ function openGroupSummary(groupId: string) {
 
 function clearDataDialogContext() {
   if (dataDialogVisible.value) return
+  reviewOpenedFromSummary.value = false
   activeReviewShot.value = null
   activeReviewEpisodeId.value = null
   reviewSummaryEpisodeId.value = null
@@ -4897,7 +4945,7 @@ async function copyWeeklyReport(value: Date | string | null = weeklyReportWeek.v
 }
 
 async function copyShotDetail(shot: Shot) {
-  const copied = await copyText(formatPhoneVoiceText(effectiveShotText(shot)))
+  const copied = await copyText(formatShotDetailText(effectiveShotText(shot)))
 
   if (copied) {
     notify.success('已复制分镜详情')
@@ -5202,7 +5250,6 @@ async function selectImportMode(): Promise<ImportMode | null> {
     await ElMessageBox.confirm('“全部替换”会清除现有分组和单集；“新旧合并”会跳过内容完全相同的单集。', '选择导入方式', {
       type: 'warning',
       confirmButtonText: '全部替换',
-      confirmButtonClass: 'button-spacing-left',
       cancelButtonText: '新旧合并',
       distinguishCancelAndClose: true,
     })
