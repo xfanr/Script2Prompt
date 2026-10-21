@@ -102,10 +102,12 @@ export async function loadRuntimeDefaultConfig(options: { fresh?: boolean } = {}
       throw new Error('invalid default config')
     }
 
-    localStorage.setItem(RUNTIME_CONFIG_CACHE_KEY, JSON.stringify({
-      schemaVersion: RUNTIME_CONFIG_SCHEMA_VERSION,
-      ...config,
-    }))
+    try {
+      localStorage.setItem(RUNTIME_CONFIG_CACHE_KEY, JSON.stringify({
+        schemaVersion: RUNTIME_CONFIG_SCHEMA_VERSION,
+        ...config,
+      }))
+    } catch { /* A full legacy store must not prevent startup and IndexedDB migration. */ }
     return config
   } catch (error) {
     if (!options.fresh) {

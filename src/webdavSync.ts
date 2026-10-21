@@ -2,7 +2,7 @@ import { assembleDataFiles, buildDataFiles, canonicalJson, parseDataFile, type D
 import { normalizeAppState } from './stateNormalization'
 import { APP_VERSION, createInitialState } from './defaults'
 import { normalizeGlobalConfigSnapshot } from './config'
-import { readSyncTarget, updateSyncTarget, type SyncTarget } from './storage'
+import { readSyncTarget, updateSyncTarget, type LocalRepository, type SyncTarget } from './storage'
 import { WebDavClient, WebDavError, type RemoteFile } from './webdav'
 import type { AppState, GlobalConfig } from './types'
 
@@ -14,7 +14,7 @@ export interface TransferResult {
 }
 export interface TransferItem { path: string; title: string; reason: string }
 export interface UploadOptions {
-  storage: Storage
+  repository: LocalRepository
   identity: string
   confirmOverwrite: (items: TransferItem[]) => Promise<boolean>
   confirmDelete: (items: TransferItem[]) => Promise<boolean>
@@ -28,7 +28,7 @@ export function dataFileTitle(path: string, file: DataFile) {
 
 export async function uploadDataFiles(client: WebDavClient, files: Map<string, DataFile>, options: UploadOptions) {
   await client.ensureDirectories()
-  const baseline = readSyncTarget(options.storage, options.identity)
+  const baseline = await readSyncTarget(options.repository, options.identity)
   const plans: { path: string; title: string; text: string; remote: RemoteFile | null; conflict: boolean; same: boolean }[] = []
   const results: TransferResult[] = []
   const report = (result: TransferResult) => { results.push(result); options.onResult?.(result) }
@@ -61,7 +61,7 @@ export async function uploadDataFiles(client: WebDavClient, files: Map<string, D
     }
     try {
       const saved = plan.same ? plan.remote! : await client.write(path, plan.text, plan.remote)
-      updateSyncTarget(options.storage, options.identity, (target) => {
+      await updateSyncTarget(options.repository, options.identity, (target) => {
         target.files[path] = { etag: saved.etag, title }
         if (path.startsWith('groups/') && !options.isGroupPresent(path) && !target.pendingDeletes.includes(path)) target.pendingDeletes.push(path)
       })
@@ -70,7 +70,7 @@ export async function uploadDataFiles(client: WebDavClient, files: Map<string, D
   }
 
   const deletionPlans: { path: string; title: string; remote: RemoteFile }[] = []
-  const current = readSyncTarget(options.storage, options.identity)
+  const current = await readSyncTarget(options.repository, options.identity)
   for (const path of current.pendingDeletes) {
     if (!path.startsWith('groups/') || options.isGroupPresent(path)) continue
     const title = current.files[path]?.title ?? path
@@ -78,7 +78,7 @@ export async function uploadDataFiles(client: WebDavClient, files: Map<string, D
       const remote = await client.read(path)
       if (remote) deletionPlans.push({ path, title, remote })
       else {
-        clearDeleted(options, path)
+        await clearDeleted(options, path)
         report({ path, title, status: 'deleted', message: '云端文件已不存在' })
       }
     } catch (error) { report(failed(path, title, error)) }
@@ -98,17 +98,17 @@ export async function uploadDataFiles(client: WebDavClient, files: Map<string, D
     }
     try {
       await client.remove(path, plan.remote)
-      clearDeleted(options, path)
+      await clearDeleted(options, path)
       report({ path, title, status: 'deleted', message: '已删除云端文件' })
     } catch (error) { report(failed(path, title, error)) }
   }
   const complete = results.every((result) => result.status !== 'failed' && result.status !== 'skipped')
-  if (complete) updateSyncTarget(options.storage, options.identity, (target) => { target.lastCompleteAt = new Date().toISOString() })
+  if (complete) await updateSyncTarget(options.repository, options.identity, (target) => { target.lastCompleteAt = new Date().toISOString() })
   return { complete, results }
 }
 
 function clearDeleted(options: UploadOptions, path: string) {
-  updateSyncTarget(options.storage, options.identity, (target) => {
+  return updateSyncTarget(options.repository, options.identity, (target) => {
     delete target.files[path]
     target.pendingDeletes = target.pendingDeletes.filter((item) => item !== path)
   })

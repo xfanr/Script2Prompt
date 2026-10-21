@@ -1,4 +1,4 @@
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { LocalRepository, type SyncTarget } from './storage'
 import { notify } from './notification'
 import type { AppState } from './types'
@@ -6,20 +6,23 @@ import type { AppState } from './types'
 export function useAppState(initialState: AppState, repository: LocalRepository) {
   const state = reactive<AppState>(initialState)
   const saveError = ref('')
+  const isReplacing = ref(false)
   let applying = false
   let lastSignature = signature()
+  let saving: Promise<boolean> | null = null
 
   function signature() {
     const { lastSavedAt, ...data } = state
     return JSON.stringify(data)
   }
 
-  function saveNow() {
+  async function drainSaves() {
     try {
-      const nextSignature = signature()
-      if (nextSignature !== lastSignature || saveError.value) {
-        state.lastSavedAt = repository.save(state)
+      while (signature() !== lastSignature || saveError.value) {
+        const nextSignature = signature()
+        state.lastSavedAt = await repository.save(JSON.parse(JSON.stringify(state)) as AppState)
         lastSignature = nextSignature
+        saveError.value = ''
       }
       saveError.value = ''
       return true
@@ -31,14 +34,30 @@ export function useAppState(initialState: AppState, repository: LocalRepository)
     }
   }
 
-  function replaceState(next: AppState, syncUpdate: { identity: string; update: (target: SyncTarget) => void }) {
+  function saveNow(): Promise<boolean> {
+    if (!saving) saving = drainSaves().finally(() => { saving = null })
+    return saving
+  }
+
+  async function replaceState(next: AppState, syncUpdate: { identity: string; update: (target: SyncTarget) => void }) {
+    const before = signature()
+    if (!await saveNow()) throw new Error(saveError.value)
+    if (signature() !== before) throw new Error('保存期间本地数据已变化，请重新下载后确认')
+    isReplacing.value = true
+    await nextTick()
     // Persist before touching the live UI, including the new sync baselines.
-    next.lastSavedAt = repository.save(next, syncUpdate)
-    applying = true
-    Object.assign(state, next)
-    lastSignature = signature()
-    saveError.value = ''
-    applying = false
+    try {
+      next.lastSavedAt = await repository.save(next, syncUpdate)
+      applying = true
+      Object.assign(state, next)
+      lastSignature = signature()
+      saveError.value = ''
+      await nextTick()
+    } finally {
+      applying = false
+      isReplacing.value = false
+      if (signature() !== lastSignature) void saveNow()
+    }
   }
 
   const activeEpisode = computed(() =>
@@ -46,8 +65,17 @@ export function useAppState(initialState: AppState, repository: LocalRepository)
   )
 
   watch(state, () => {
-    if (!applying) saveNow()
+    if (!applying && !isReplacing.value) void saveNow()
   }, { deep: true })
 
-  return { state, activeEpisode, saveError, saveNow, replaceState }
+  function beforeUnload(event: BeforeUnloadEvent) {
+    if (saving || isReplacing.value || signature() !== lastSignature) {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+  }
+  onMounted(() => window.addEventListener('beforeunload', beforeUnload))
+  onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
+
+  return { state, activeEpisode, saveError, saveNow, replaceState, isReplacing }
 }

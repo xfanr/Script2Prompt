@@ -7,6 +7,7 @@
   import { runPointLedgerTests } from './point-ledger.ts'
   import { runTests } from './storage-webdav.ts'
   const results = { ledger: await runPointLedgerTests(), storage: await runTests() }
+  window.testResults = results
   document.querySelector('#results').textContent = JSON.stringify(results, null, 2)
 </script>
 </html>

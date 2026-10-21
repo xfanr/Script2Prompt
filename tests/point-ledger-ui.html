@@ -60,8 +60,8 @@
     }
     state.pointInvoices = [invoice]
   }
-  const repository = new LocalRepository(new MemoryStorage())
-  repository.save(state)
+  const repository = new LocalRepository(new MemoryStorage(), `script2prompt-test-ui-${crypto.randomUUID()}`)
+  await repository.save(state)
   createApp(App, { initialGlobalConfig: config, initialState: state, repository })
     .use(ElementPlus, { locale: zhCn }).mount('#app')
 </script>

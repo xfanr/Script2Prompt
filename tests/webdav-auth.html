@@ -27,8 +27,8 @@
     legacyFilename: 'legacy.json', lastSyncedAt: null,
   }))
   const config = normalizeGlobalConfig(await (await fetch('/config/default-config.json')).json())
-  const repository = new LocalRepository(storage)
-  repository.save(createInitialState(config))
+  const repository = new LocalRepository(storage, `script2prompt-test-auth-${crypto.randomUUID()}`)
+  await repository.save(createInitialState(config))
   const dav = new MockDav()
   const attempts = []
   const originalFetch = window.fetch.bind(window)
@@ -40,12 +40,12 @@
     return authorized ? dav.request(url.toString(), init) : new Response(null, { status: 401 })
   }
   let app
-  function remount() {
+  async function remount() {
     app?.unmount()
-    app = createApp(App, { initialGlobalConfig: config, initialState: repository.load(config), repository })
+    app = createApp(App, { initialGlobalConfig: config, initialState: await repository.load(config), repository })
     app.use(ElementPlus, { locale: zhCn }).mount('#app')
   }
-  remount()
-  window.webDavAuthTest = { dav, attempts, storage, session, remount }
+  await remount()
+  window.webDavAuthTest = { dav, attempts, storage, session, repository, config, remount }
 </script>
 </html>

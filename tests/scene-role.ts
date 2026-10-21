@@ -4,6 +4,7 @@ import { buildDataFiles, assembleDataFiles } from '../src/dataFiles'
 import { composeSceneSettings } from '../src/prompt'
 import { normalizeAppState } from '../src/stateNormalization'
 import { LocalRepository } from '../src/storage'
+import { testDatabaseName } from './indexeddb-helper'
 import { MemoryStorage } from './point-ledger'
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -19,18 +20,18 @@ export async function runSceneRoleTests() {
   shot.usePositionReference = false
   state.episodes[0].props = ['legacy prop']
   const results: { name: string; passed: boolean; error?: string }[] = []
-  function test(name: string, action: () => void) {
-    try { action(); results.push({ name, passed: true }) }
+  async function test(name: string, action: () => void | Promise<void>) {
+    try { await action(); results.push({ name, passed: true }) }
     catch (error) { results.push({ name, passed: false, error: String(error) }) }
   }
-  test('Single-scene selection retains first configured scene and its state', () => {
+  await test('Single-scene selection retains first configured scene and its state', async () => {
     const scenes = normalizeShotSceneSelection(shot.scenes)
     assert(scenes.length === 1 && scenes[0] === selected && scenes[0].statusText === 'Rain', 'configured scene lost')
     assert(shot.scenes.length === 3, 'input array mutated')
     const empty = normalizeShotSceneSelection([])
     assert(empty.length === 1 && empty[0].name === '', 'empty selection needs one editable scene')
   })
-  test('State migration keeps one scene, enables position reference and preserves compatibility fields', () => {
+  await test('State migration keeps one scene, enables position reference and preserves compatibility fields', async () => {
     const migrated = normalizeAppState(state, config)
     const migratedShot = migrated.episodes[0].shots[0]
     assert(migratedShot.scenes.length === 1 && migratedShot.scenes[0].name === 'Office', 'multiple scenes remain')
@@ -38,18 +39,19 @@ export async function runSceneRoleTests() {
     assert(migratedShot.usePositionReference && !migratedShot.useReverseAngle, 'position reference is not permanent')
     assert(migrated.episodes[0].props[0] === 'legacy prop', 'compatibility field lost')
   })
-  test('Legacy browser storage migrates and reloads the single scene', () => {
+  await test('Legacy browser storage migrates and reloads the single scene', async () => {
     const storage = new MemoryStorage()
     storage.setItem(STORAGE_KEY, JSON.stringify(state))
-    new LocalRepository(storage).load(config)
-    const reloaded = new LocalRepository(storage).load(config).episodes[0].shots[0]
+    const repository = new LocalRepository(storage, testDatabaseName())
+    await repository.load(config)
+    const reloaded = (await repository.load(config)).episodes[0].shots[0]
     assert(reloaded.scenes.length === 1 && reloaded.scenes[0].statusText === 'Rain' && reloaded.usePositionReference, 'storage roundtrip changed configuration')
   })
-  test('Data-file import normalizes multiple scenes and disabled position reference', () => {
+  await test('Data-file import normalizes multiple scenes and disabled position reference', async () => {
     const imported = assembleDataFiles(buildDataFiles(state)).episodes[0].shots[0]
     assert(imported.scenes.length === 1 && imported.scenes[0].name === 'Office' && imported.usePositionReference, 'data-file import did not normalize scene configuration')
   })
-  test('Prompt always includes positioning even with a legacy disabled flag', () => {
+  await test('Prompt always includes positioning even with a legacy disabled flag', async () => {
     const text = composeSceneSettings({ ...shot, scenes: [selected] })
     assert(text.includes('深夜，室外，Office，Rain') && text.includes('多角色位置参考@'), 'scene state or permanent positioning missing')
   })

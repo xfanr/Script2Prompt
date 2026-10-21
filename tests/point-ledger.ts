@@ -5,6 +5,7 @@ import { canSelectPointEpisode, createPointInvoice, createPointUsage, effectiveP
 import { copyText } from '../src/clipboard'
 import { normalizeAppState } from '../src/stateNormalization'
 import { LocalRepository } from '../src/storage'
+import { testDatabaseName } from './indexeddb-helper'
 import { downloadDataFiles, legacySnapshotFiles, uploadDataFiles } from '../src/webdavSync'
 import { MockDav } from './storage-webdav'
 
@@ -46,7 +47,7 @@ export async function runPointLedgerTests() {
     try { await action(); results.push({ name, passed: true }) }
     catch (error) { results.push({ name, passed: false, error: String(error) }) }
   }
-  await test('Default invoice numbers increase; precision and zero-point validation', () => {
+  await test('Default invoice numbers increase; precision and zero-point validation', async () => {
     assert(createPointInvoice([invoice, { ...invoice, number: '未开票8' }]).number === '未开票9', 'default numbering')
     assert(invoicePointPrice(createPointInvoice([])) === null, 'zero price')
     assert(close(invoicePointPrice(invoice)!, 100.01 / 1300), 'price rounded early')
@@ -64,7 +65,7 @@ export async function runPointLedgerTests() {
     }
     assert(normalizePointInvoices([{ ...invoice, usages: [{ ...usage, points: 2000 }] }]).length === 1, 'over-budget should be allowed')
   })
-  await test('Fractional sharing, multiple invoice costs, latest date and historical fallback', () => {
+  await test('Fractional sharing, multiple invoice costs, latest date and historical fallback', async () => {
     const data = effectiveProductionData(episode, [invoice])
     assert(close(data.pointUsage, 100 / 3), 'share rounded')
     assert(close(data.totalCost, 100 / 3 * 100.01 / 1300), 'cost incorrect')
@@ -76,13 +77,13 @@ export async function runPointLedgerTests() {
     assert(old.pointUsage === 77 && old.productionDate === '2025-01-01' && close(old.totalCost, 77 * 0.12), 'historical fallback')
     assert(episode.productionData.pointUsage === 77, 'historical value overwritten')
   })
-  await test('Renaming, moving and deleting episodes retain association and allocation denominator', () => {
+  await test('Renaming, moving and deleting episodes retain association and allocation denominator', async () => {
     const changed = { ...episode, title: 'renamed', groupId: 'other-group' }
     assert(effectiveProductionData(changed, [invoice]).fromRecords, 'association broken')
     assert(close(effectiveProductionData(changed, [invoice]).pointUsage, 100 / 3), 'deleted targets redistributed')
     assert(invoice.usages[0].episodes.length === 3, 'history altered')
   })
-  await test('Legacy state and settings migrate without changing costs or dates', () => {
+  await test('Legacy state and settings migrate without changing costs or dates', async () => {
     const old = clone(state) as any
     old.version = 9
     delete old.pointInvoices
@@ -94,7 +95,7 @@ export async function runPointLedgerTests() {
     if (settings.kind === 'settings') delete settings.pointInvoices
     assert(!assembleDataFiles(files, state).pointInvoices.length, 'old settings not accepted')
   })
-  await test('Producer and tool defaults migrate; edited metadata survives storage and import', () => {
+  await test('Producer and tool defaults migrate; edited metadata survives storage and import', async () => {
     const legacy = clone(invoice) as any
     delete legacy.producer
     delete legacy.toolType
@@ -103,9 +104,9 @@ export async function runPointLedgerTests() {
     assert(canonicalJson(normalizePointInvoices([migrated])) === canonicalJson([migrated]), 'metadata migration unstable')
     const edited = { ...migrated, producer: 'producer-edited', toolType: 'tool-edited' }
     const updated = { ...state, pointInvoices: [edited] }
-    const repository = new LocalRepository(new MemoryStorage())
-    repository.save(updated)
-    const loaded = repository.load(config)
+    const repository = new LocalRepository(new MemoryStorage(), testDatabaseName())
+    await repository.save(updated)
+    const loaded = await repository.load(config)
     assert(loaded.pointInvoices[0].producer === edited.producer && loaded.pointInvoices[0].toolType === edited.toolType, 'metadata not persisted')
     const restored = assembleDataFiles(buildDataFiles(updated), state)
     assert(canonicalJson(restored.pointInvoices) === canonicalJson(updated.pointInvoices), 'metadata lost in data files')
@@ -113,28 +114,28 @@ export async function runPointLedgerTests() {
     assert(imported[0].producer === edited.producer && imported[0].toolType === edited.toolType, 'metadata lost in JSON import')
     assert(mergePointInvoices([invoice], [edited], new Set(state.episodes.map((item) => item.id))).length === 2, 'different metadata merged away')
   })
-  await test('Local repository, data files and legacy WebDAV snapshots round trip', () => {
+  await test('Local repository, data files and legacy WebDAV snapshots round trip', async () => {
     const files = buildDataFiles(state)
     const parsed = new Map([...files].map(([path, file]) => [path, parseDataFile(canonicalJson(file), path)]))
     assert(canonicalJson(assembleDataFiles(parsed, state).pointInvoices) === canonicalJson(state.pointInvoices), 'file roundtrip')
     const storage = new MemoryStorage()
-    const repo = new LocalRepository(storage)
-    repo.save(state)
-    assert(canonicalJson(new LocalRepository(storage).load(config).pointInvoices) === canonicalJson(state.pointInvoices), 'local roundtrip')
+    const repo = new LocalRepository(storage, testDatabaseName())
+    await repo.save(state)
+    assert(canonicalJson((await new LocalRepository(storage, repo.databaseName).load(config)).pointInvoices) === canonicalJson(state.pointInvoices), 'local roundtrip')
     const snapshot = JSON.stringify({ version: 10, episodes: state.episodes, episodeGroups: [], globalConfigSnapshot: config, pointInvoices: state.pointInvoices })
     const restored = assembleDataFiles(legacySnapshotFiles(snapshot, config), state)
     assert(canonicalJson(restored.pointInvoices) === canonicalJson(state.pointInvoices), 'legacy snapshot ledger dropped')
   })
-  await test('Reimbursement defaults migrate and survive storage, import and deduplication', () => {
+  await test('Reimbursement defaults migrate and survive storage, import and deduplication', async () => {
     const legacy = clone(invoice) as any
     delete legacy.reimbursed
     assert(normalizePointInvoices([legacy])[0].reimbursed === false, 'legacy invoice marked reimbursed')
     assert(createPointInvoice([]).reimbursed === false, 'new invoice marked reimbursed')
     const paid = { ...invoice, reimbursed: true }
     const updated = { ...state, pointInvoices: [paid] }
-    const repository = new LocalRepository(new MemoryStorage())
-    repository.save(updated)
-    assert(repository.load(config).pointInvoices[0].reimbursed, 'reimbursement lost in storage')
+    const repository = new LocalRepository(new MemoryStorage(), testDatabaseName())
+    await repository.save(updated)
+    assert((await repository.load(config)).pointInvoices[0].reimbursed, 'reimbursement lost in storage')
     assert(assembleDataFiles(buildDataFiles(updated), state).pointInvoices[0].reimbursed, 'reimbursement lost in data files')
     assert(remapPointInvoices(normalizePointInvoices(clone([paid])), new Map())[0].reimbursed, 'reimbursement lost in import')
     const ids = new Set(state.episodes.map((item) => item.id))
@@ -145,7 +146,7 @@ export async function runPointLedgerTests() {
     }
     assert(!invoice.reimbursed, 'merge mutated current invoice')
   })
-  await test('Import remaps targets; repeated imports deduplicate; differing invoices survive', () => {
+  await test('Import remaps targets; repeated imports deduplicate; differing invoices survive', async () => {
     const ids = new Map(state.episodes.map((item, index) => [item.id, `target-${index}`]))
     const imported = remapPointInvoices([invoice], ids)
     assert(imported[0].id !== invoice.id && imported[0].usages[0].id !== usage.id, 'invoice IDs not remapped')
@@ -165,7 +166,7 @@ export async function runPointLedgerTests() {
     const dav = new MockDav()
     const storage = new MemoryStorage()
     const uploaded = await uploadDataFiles(dav.client(), buildDataFiles(state), {
-      storage, identity: 'ledger-test', confirmOverwrite: async () => true, confirmDelete: async () => true,
+      repository: new LocalRepository(storage, testDatabaseName()), identity: 'ledger-test', confirmOverwrite: async () => true, confirmDelete: async () => true,
       isGroupPresent: () => false,
     })
     assert(uploaded.results.every((result) => result.status !== 'failed'), 'upload failed')
@@ -175,7 +176,7 @@ export async function runPointLedgerTests() {
     assert(close(effectiveProductionData(restored.episodes[0], restored.pointInvoices).totalCost,
       effectiveProductionData(episode, state.pointInvoices).totalCost), 'restored costs differ')
   })
-  await test('Full and simple TSV exports group dramas, sort first dates and subtract points', () => {
+  await test('Full and simple TSV exports group dramas, sort first dates and subtract points', async () => {
     const episodes = [createEpisode(38), createEpisode(39), createEpisode(40), createEpisode(9), createEpisode(10)]
     episodes.forEach((item, index) => { item.groupId = index < 3 ? 'a' : 'b' })
     const groups = [
@@ -201,7 +202,7 @@ export async function runPointLedgerTests() {
     assert(!formatPointInvoiceExport({ ...exported, usages: [] }, episodes, groups), 'empty export')
     assert(!formatPointInvoiceExport({ ...exported, usages: [] }, episodes, groups, 'simple'), 'empty simple export')
   })
-  await test('Cross-drama export preserves deleted shares, custom titles and negative balances', () => {
+  await test('Cross-drama export preserves deleted shares, custom titles and negative balances', async () => {
     const moved = { ...episode, title: 'special\tname\n', groupId: 'moved' }
     const groups = [{ id: 'moved', title: 'Moved', archived: false, starred: false, promptProfileId: '' }]
     const exported = { ...invoice, producer: 'person\tname', amount: 10, initialPoints: 3, receivedPoints: 0, rechargeDate: '', usages: [
@@ -220,7 +221,7 @@ export async function runPointLedgerTests() {
     try { formatPointInvoiceExport({ ...exported, initialPoints: 0 }, [moved], groups) } catch { rejected = true }
     assert(rejected, 'invalid export accepted')
   })
-  await test('Single-drama selection allows clear-to-switch and legacy removals only', () => {
+  await test('Single-drama selection allows clear-to-switch and legacy removals only', async () => {
     const episodes = state.episodes.map((item, index) => ({ ...item, groupId: index ? 'b' : 'a' }))
     const groups = ['a', 'b'].map((id) => ({ id, title: id, archived: false, starred: false, promptProfileId: '' }))
     const selected = { ...usage, episodes: usage.episodes.slice(0, 1) }

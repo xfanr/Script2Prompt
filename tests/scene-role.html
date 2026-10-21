@@ -5,6 +5,7 @@
 <pre id="results">Running…</pre>
 <script type="module">
   import { runSceneRoleTests } from './scene-role.ts'
-  document.querySelector('#results').textContent = JSON.stringify(await runSceneRoleTests(), null, 2)
+  window.testResults = await runSceneRoleTests()
+  document.querySelector('#results').textContent = JSON.stringify(window.testResults, null, 2)
 </script>
 </html>

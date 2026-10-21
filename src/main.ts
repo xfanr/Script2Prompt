@@ -12,7 +12,7 @@ async function bootstrap() {
   try {
     const initialGlobalConfig = await loadInitialGlobalConfig()
     const repository = new LocalRepository(localStorage)
-    const initialState = repository.load(initialGlobalConfig)
+    const initialState = await repository.load(initialGlobalConfig)
     createApp(App, { initialGlobalConfig, initialState, repository }).use(ElementPlus, { locale: zhCn }).mount('#app')
   } catch (error) {
     console.error('Failed to load runtime default config.', error)

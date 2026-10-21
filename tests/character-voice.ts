@@ -4,6 +4,7 @@ import { assembleDataFiles, buildDataFiles, parseDataFile } from '../src/dataFil
 import { composeCharacterSettings, composePrompt } from '../src/prompt'
 import { normalizeAppState } from '../src/stateNormalization'
 import { LocalRepository } from '../src/storage'
+import { testDatabaseName } from './indexeddb-helper'
 import { MemoryStorage } from './point-ledger'
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -13,8 +14,8 @@ function assert(condition: unknown, message: string): asserts condition {
 export async function runCharacterVoiceTests() {
   const config = normalizeGlobalConfig(await (await fetch('/config/default-config.json')).json())!
   const results: { name: string; passed: boolean; error?: string }[] = []
-  function test(name: string, action: () => void) {
-    try { action(); results.push({ name, passed: true }) }
+  async function test(name: string, action: () => void | Promise<void>) {
+    try { await action(); results.push({ name, passed: true }) }
     catch (error) { results.push({ name, passed: false, error: String(error) }) }
   }
   const fixture = () => {
@@ -24,29 +25,29 @@ export async function runCharacterVoiceTests() {
     episode.shots[0].characters = [createCharacterConfig('程鹏', true)]
     return state
   }
-  test('New characters default to an empty optional voice description', () => {
+  await test('New characters default to an empty optional voice description', async () => {
     assert(createCharacterAsset('程鹏').voiceDescription === '', 'new voice field must be empty')
   })
-  test('Legacy strings and objects receive empty descriptions; valid descriptions survive normalization', () => {
+  await test('Legacy strings and objects receive empty descriptions; valid descriptions survive normalization', async () => {
     const characters = normalizeCharacterAssets(['旧角色', { name: '旧对象', appearanceDescription: '西装' }, { name: '无效类型', voiceDescription: 42 }, createCharacterAsset('程鹏', '', '浑厚音')])
     assert(characters.slice(0, 3).every(character => character.voiceDescription === ''), 'legacy or invalid field was not normalized')
     assert(characters[1].appearanceDescription === '西装' && characters[3].voiceDescription === '浑厚音', 'other descriptions lost')
   })
-  test('Enabled voice renders the requested wording in character settings and the full prompt', () => {
+  await test('Enabled voice renders the requested wording in character settings and the full prompt', async () => {
     const state = fixture()
     const episode = state.episodes[0]
     const text = '程鹏的妆造是@，音色是@，20岁男性浑厚音。'
     assert(composeCharacterSettings(episode.shots[0], episode.characters) === text, 'voice description placement incorrect')
     assert(composePrompt(config, episode.shots[0], undefined, undefined, episode.characters).includes(text), 'full prompt omitted description')
   })
-  test('Appearance, voice description and shot status retain their order', () => {
+  await test('Appearance, voice description and shot status retain their order', async () => {
     const state = fixture()
     const episode = state.episodes[0]
     episode.characters[0].appearanceDescription = '身穿西装'
     episode.shots[0].characters[0].statusText = '坐在椅子上'
     assert(composeCharacterSettings(episode.shots[0], episode.characters) === '程鹏的妆造是@，身穿西装，音色是@，20岁男性浑厚音，坐在椅子上。', 'description ordering changed')
   })
-  test('Disabled voice omits its description; empty descriptions retain legacy rendering', () => {
+  await test('Disabled voice omits its description; empty descriptions retain legacy rendering', async () => {
     const state = fixture()
     const episode = state.episodes[0]
     episode.shots[0].characters[0].includeVoice = false
@@ -55,15 +56,15 @@ export async function runCharacterVoiceTests() {
     episode.characters[0].voiceDescription = '   '
     assert(composeCharacterSettings(episode.shots[0], episode.characters) === '程鹏的妆造是@，音色是@。', 'empty description changed legacy prompt')
   })
-  test('Local storage and normalized JSON preserve voice descriptions', () => {
+  await test('Local storage and normalized JSON preserve voice descriptions', async () => {
     const state = fixture()
-    const repository = new LocalRepository(new MemoryStorage())
-    repository.save(state)
-    assert(repository.load(config).episodes[0].characters[0].voiceDescription === '20岁男性浑厚音', 'local storage dropped voice description')
+    const repository = new LocalRepository(new MemoryStorage(), testDatabaseName())
+    await repository.save(state)
+    assert((await repository.load(config)).episodes[0].characters[0].voiceDescription === '20岁男性浑厚音', 'local storage dropped voice description')
     const normalized = normalizeAppState(JSON.parse(JSON.stringify(state)), config)
     assert(normalized.episodes[0].characters[0].voiceDescription === '20岁男性浑厚音', 'JSON normalization dropped voice description')
   })
-  test('WebDAV data files validate and round-trip voice descriptions', () => {
+  await test('WebDAV data files validate and round-trip voice descriptions', async () => {
     const state = fixture()
     const files = buildDataFiles(state)
     const file = files.get('ungrouped.json')!

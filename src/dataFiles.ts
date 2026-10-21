@@ -65,7 +65,7 @@ export function parseDataFile(text: string, path: string): DataFile {
     } else if (!object(group) || typeof group.id !== 'string' || !group.id
       || groupFilePath(group.id) !== path || typeof group.title !== 'string'
       || typeof group.archived !== 'boolean' || typeof group.starred !== 'boolean'
-      || !Number.isInteger(group.promptProfileSlot) || group.promptProfileSlot < 0 || group.promptProfileSlot > 2) throw new Error()
+      || !Number.isInteger(group.promptProfileSlot) || group.promptProfileSlot < 0 || group.promptProfileSlot > 3) throw new Error()
     const ids = new Set<string>()
     for (const episode of value.episodes) {
       if (!object(episode) || typeof episode.id !== 'string' || !episode.id || ids.has(episode.id)

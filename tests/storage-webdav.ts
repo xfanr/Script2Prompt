@@ -1,12 +1,13 @@
 import { buildDataFiles, canonicalJson, groupFilePath, mergeDownloadedFiles, parseDataFile } from '../src/dataFiles'
 import { createEpisode, createEpisodeGroup, createInitialState, STORAGE_KEY } from '../src/defaults'
 import { normalizeGlobalConfig } from '../src/config'
-import { LocalRepository, STORE_PREFIX, readSyncTarget, updateSyncTarget, recoverStorage } from '../src/storage'
+import { LocalRepository, STORE_PREFIX, readSyncTarget, updateSyncTarget } from '../src/storage'
 import { WebDavClient, parseWebDavListing, type WebDavSettings } from '../src/webdav'
 import { acceptDownloadedFiles, downloadDataFiles, legacySnapshotFiles, migrateLegacyFiles, uploadDataFiles, type UploadOptions } from '../src/webdavSync'
 import type { AppState, GlobalConfig } from '../src/types'
 import { normalizeAppState } from '../src/stateNormalization'
 import { normalizeGroupResults, pendingGroupResults } from '../src/groupResults'
+import { databaseRecords, recordingDatabase, testDatabaseName } from './indexeddb-helper'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -99,7 +100,7 @@ export async function runTests() {
     try { await action(); results.push({ name, passed: true }) }
     catch (error) { results.push({ name, passed: false, error: error instanceof Error ? error.stack : String(error) }) }
   }
-  function fixture() {
+  async function fixture() {
     const state = createInitialState(config)
     const a = createEpisodeGroup(config.prompt.profiles[0].id)
     const b = createEpisodeGroup(config.prompt.profiles[1].id)
@@ -111,19 +112,21 @@ export async function runTests() {
     state.activeEpisodeId = state.episodes[0].id
     const storage = new MemoryStorage()
     storage.setItem(STORAGE_KEY, JSON.stringify(state))
-    const repository = new LocalRepository(storage)
-    const loaded = repository.load(config)
-    return { state: loaded, storage, repository, a: groupFilePath(a.id), b: groupFilePath(b.id) }
+    const database = recordingDatabase()
+    const repository = new LocalRepository(storage, testDatabaseName(), database.factory)
+    const loaded = await repository.load(config)
+    loaded.episodes.sort((a, b) => state.episodes.findIndex(episode => episode.id === a.id) - state.episodes.findIndex(episode => episode.id === b.id))
+    return { state: loaded, original: clone(state), storage, repository, database, a: groupFilePath(a.id), b: groupFilePath(b.id) }
   }
-  function options(storage: MemoryStorage, state: AppState, overrides: Partial<UploadOptions> = {}): UploadOptions {
-    return { storage, identity, confirmOverwrite: async () => true, confirmDelete: async () => true,
+  function options(repository: LocalRepository, state: AppState, overrides: Partial<UploadOptions> = {}): UploadOptions {
+    return { repository, identity, confirmOverwrite: async () => true, confirmDelete: async () => true,
       isGroupPresent: (path) => state.episodeGroups.some((group) => groupFilePath(group.id) === path), ...overrides }
   }
-  const upload = (dav: MockDav, f: ReturnType<typeof fixture>, overrides: Partial<UploadOptions> = {}) =>
-    uploadDataFiles(dav.client(), buildDataFiles(f.state), options(f.storage, f.state, overrides))
+  const upload = (dav: MockDav, f: Awaited<ReturnType<typeof fixture>>, overrides: Partial<UploadOptions> = {}) =>
+    uploadDataFiles(dav.client(), buildDataFiles(f.state), options(f.repository, f.state, overrides))
 
-  await test('Group results migrate from version 10 and normalize numeric values', () => {
-    const old = clone(fixture().state)
+  await test('Group results migrate from version 10 and normalize numeric values', async () => {
+    const old = clone((await fixture()).state)
     old.version = 10
     old.episodeGroups.forEach((group) => {
       delete (group as Partial<typeof group>).results
@@ -136,8 +139,8 @@ export async function runTests() {
     assert(canonicalJson(normalizeGroupResults({ playCount: 12.34, commission: 8.9, received: true })) === canonicalJson({ playCount: 12, commission: 9, received: true }), 'numeric precision incorrect')
     assert(canonicalJson(normalizeGroupResults({ playCount: -2, commission: Infinity, received: 'true' })) === canonicalJson({ playCount: 0, commission: 0, received: false }), 'invalid values not normalized')
   })
-  await test('Pending commission includes archived groups and reacts to receipt, renaming and deletion', () => {
-    const groups = fixture().state.episodeGroups
+  await test('Pending commission includes archived groups and reacts to receipt, renaming and deletion', async () => {
+    const groups = (await fixture()).state.episodeGroups
     groups[0].title = 'B'; groups[1].title = 'A'
     groups[0].results = { playCount: 1, commission: 100, received: false }
     groups[1].results = { playCount: 3, commission: 200, received: false }
@@ -151,11 +154,11 @@ export async function runTests() {
     assert(pendingGroupResults(groups).descriptions.length === 0, 'zero commission included')
   })
   await test('Group results persist locally, through JSON and WebDAV round trips', async () => {
-    const f = fixture()
+    const f = await fixture()
     f.state.episodeGroups[1].results = { playCount: 123, commission: 900, received: false }
     f.state.episodeGroups[1].fullName = 'Full drama title'
-    f.repository.save(f.state)
-    const loaded = new LocalRepository(f.storage).load(config)
+    await f.repository.save(f.state)
+    const loaded = await new LocalRepository(f.storage, f.repository.databaseName).load(config)
     assert(loaded.episodeGroups[1].results.commission === 900, 'local results lost')
     assert(loaded.episodeGroups[1].fullName === 'Full drama title', 'local full name lost')
     assert(normalizeAppState(clone(f.state), config).episodeGroups[1].results.playCount === 123, 'JSON results lost')
@@ -167,8 +170,8 @@ export async function runTests() {
     assert(canonicalJson(restored.episodeGroups.find((group) => group.id === f.state.episodeGroups[1].id)?.results) === canonicalJson(f.state.episodeGroups[1].results), 'WebDAV results lost')
     assert(restored.episodeGroups.find((group) => group.id === f.state.episodeGroups[1].id)?.fullName === 'Full drama title', 'WebDAV full name lost')
   })
-  await test('Version 11 full name migration is stable and retains existing results', () => {
-    const old = clone(fixture().state)
+  await test('Version 11 full name migration is stable and retains existing results', async () => {
+    const old = clone((await fixture()).state)
     old.version = 11
     delete (old.episodeGroups[0] as Partial<typeof old.episodeGroups[0]>).fullName
     old.episodeGroups[0].results = { playCount: 42, commission: 1000, received: true }
@@ -177,77 +180,84 @@ export async function runTests() {
     assert(canonicalJson(normalizeAppState(clone(next), config)) === canonicalJson(next), 'migration is not stable')
   })
 
-  await test('Legacy migration retains original, IDs, archived groups and independent files', () => {
-    const f = fixture()
-    const old = JSON.parse(f.storage.getItem(STORAGE_KEY)!)
-    const loaded = new LocalRepository(f.storage).load(config)
+  await test('Legacy migration preserves IDs, archives and files, then removes verified legacy data', async () => {
+    const f = await fixture()
+    const old = f.original
+    const loaded = await new LocalRepository(f.storage, f.repository.databaseName).load(config)
     assert(canonicalJson(loaded.episodes.map((e) => e.id).sort()) === canonicalJson(old.episodes.map((e: { id: string }) => e.id).sort()), 'episode ID changed')
     assert(loaded.episodeGroups[1].archived, 'archive lost')
-    assert(f.storage.getItem(`${STORE_PREFIX}${f.a}`), 'group record missing')
-    assert(!f.storage.getItem(`${STORE_PREFIX}settings.json`)!.includes('episodes'), 'settings contains episodes')
-    assert(JSON.stringify(old) === f.storage.getItem(STORAGE_KEY), 'old snapshot changed')
+    const records = await databaseRecords(f.repository.databaseName)
+    assert(records.get(`${STORE_PREFIX}${f.a}`), 'group record missing')
+    assert(!records.get(`${STORE_PREFIX}settings.json`)!.includes('episodes'), 'settings contains episodes')
+    assert(!f.storage.getItem(STORAGE_KEY), 'verified old snapshot not removed')
   })
-  await test('Editing settings writes no groups; editing one episode writes only its group', () => {
-    const f = fixture()
-    f.storage.writes = []
+  await test('Editing settings writes no groups; editing one episode writes only its group', async () => {
+    const f = await fixture()
+    f.database.control.writes = []
     f.state.globalConfig.dataCollection.defaultPointCost += 1
-    f.repository.save(f.state)
-    assert(!f.storage.writes.some((key) => key.includes('groups/') || key.endsWith('ungrouped.json')), 'settings rewrote groups')
-    f.storage.writes = []
+    await f.repository.save(f.state)
+    assert(!f.database.control.writes.some((key) => key.includes('groups/') || key.endsWith('ungrouped.json')), 'settings rewrote groups')
+    f.database.control.writes = []
     f.state.episodes[0].scriptText = 'changed'
-    f.repository.save(f.state)
-    assert(f.storage.writes.includes(`${STORE_PREFIX}${f.a}`), 'edited group not written')
-    assert(!f.storage.writes.includes(`${STORE_PREFIX}${f.b}`), 'other group rewritten')
-    assert(!f.storage.writes.includes(`${STORE_PREFIX}settings.json`), 'episode rewrote settings')
+    await f.repository.save(f.state)
+    assert(f.database.control.writes.includes(`${STORE_PREFIX}${f.a}`), 'edited group not written')
+    assert(!f.database.control.writes.includes(`${STORE_PREFIX}${f.b}`), 'other group rewritten')
+    assert(!f.database.control.writes.includes(`${STORE_PREFIX}settings.json`), 'episode rewrote settings')
   })
   await test('Moving episode updates both records and rolls back on quota failure', async () => {
-    const f = fixture()
-    const previous = canonicalJson(new LocalRepository(f.storage).load(config))
+    const f = await fixture()
+    const previous = canonicalJson(await new LocalRepository(f.storage, f.repository.databaseName).load(config))
     f.state.episodes[0].groupId = f.state.episodeGroups[1].id
-    f.storage.failOnce = `${STORE_PREFIX}${f.b}`
+    f.database.control.failOnce = `${STORE_PREFIX}${f.b}`
     await rejects(() => f.repository.save(f.state), 'quota must fail')
-    assert(canonicalJson(new LocalRepository(f.storage).load(config)) === previous, 'partial save remained')
-    f.repository.save(f.state)
-    assert(new LocalRepository(f.storage).load(config).episodes.filter((e) => e.groupId === f.state.episodeGroups[1].id).length === 2, 'move missing')
+    assert(canonicalJson(await new LocalRepository(f.storage, f.repository.databaseName).load(config)) === previous, 'partial save remained')
+    await f.repository.save(f.state)
+    assert((await new LocalRepository(f.storage, f.repository.databaseName).load(config)).episodes.filter((e) => e.groupId === f.state.episodeGroups[1].id).length === 2, 'move missing')
   })
   await test('Interrupted transaction is rolled back; migration failure retains old snapshot', async () => {
-    const f = fixture()
+    const f = await fixture()
     const key = `${STORE_PREFIX}${f.a}`
-    const before = f.storage.getItem(key)
-    f.storage.setItem(`${STORE_PREFIX}transaction`, JSON.stringify([{ key, before, after: 'broken' }]))
-    f.storage.setItem(key, 'broken')
-    recoverStorage(f.storage)
-    assert(f.storage.getItem(key) === before, 'journal not recovered')
     const storage = new MemoryStorage()
+    for (const [key, value] of await databaseRecords(f.repository.databaseName)) storage.setItem(key, value)
+    const before = storage.getItem(key)
+    storage.setItem(`${STORE_PREFIX}transaction`, JSON.stringify([{ key, before, after: 'broken' }]))
+    storage.setItem(key, 'broken')
     storage.setItem(STORAGE_KEY, JSON.stringify(f.state))
-    storage.failOnce = `${STORE_PREFIX}${f.b}`
-    await rejects(() => new LocalRepository(storage).load(config), 'migration should fail')
-    assert(storage.getItem(STORAGE_KEY) && !storage.getItem(`${STORE_PREFIX}directory`), 'failed migration marked complete')
-    new LocalRepository(storage).load(config)
+    const previous = canonicalJson([...storage.data])
+    const database = recordingDatabase()
+    database.control.failOnce = `${STORE_PREFIX}${f.b}`
+    const repository = new LocalRepository(storage, testDatabaseName(), database.factory)
+    await rejects(() => repository.load(config), 'migration should fail')
+    assert(canonicalJson([...storage.data]) === previous, 'failed migration changed original')
+    assert((await databaseRecords(repository.databaseName)).size === 0, 'failed migration left partial records')
+    const loaded = await repository.load(config)
+    assert(loaded.episodeGroups.length === 2 && !storage.getItem(key), 'retry or legacy recovery failed')
   })
   await test('Other tab writes are detected; corrupt files never fall back to stale legacy data', async () => {
-    const f = fixture()
-    const other = new LocalRepository(f.storage)
+    const f = await fixture()
+    const other = new LocalRepository(f.storage, f.repository.databaseName)
+    await other.load(config)
     f.state.episodes[0].scriptText = 'new'
-    f.repository.save(f.state)
+    await f.repository.save(f.state)
     await rejects(() => other.save(f.state), 'stale tab write accepted')
-    f.storage.setItem(`${STORE_PREFIX}${f.a}`, '{broken')
-    await rejects(() => new LocalRepository(f.storage).load(config), 'corrupt file replaced with defaults')
+    f.storage.setItem(STORAGE_KEY, JSON.stringify(f.original))
+    await databaseRecords(f.repository.databaseName, records => records.set(`${STORE_PREFIX}${f.a}`, '{broken'))
+    await rejects(() => new LocalRepository(f.storage, f.repository.databaseName).load(config), 'corrupt file replaced with defaults')
     assert(f.storage.getItem(STORAGE_KEY), 'legacy removed')
   })
   await test('Initial upload creates per-group files; repeat upload performs no PUT', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     assert((await upload(dav, f)).complete, 'initial upload failed')
     assert(dav.files.size === 4 && dav.collections.has('groups/'), 'wrong file layout')
     dav.calls = []
     assert((await upload(dav, f)).complete, 'repeat failed')
     assert(!dav.calls.some((call) => call.method === 'PUT'), 'unchanged files uploaded')
-    assert(readSyncTarget(f.storage, identity).lastCompleteAt, 'complete timestamp missing')
+    assert((await readSyncTarget(f.repository, identity)).lastCompleteAt, 'complete timestamp missing')
   })
   await test('Download retains IDs, local-only groups and profile slot binding', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     await upload(dav, f)
-    const local = fixture().state
+    const local = (await fixture()).state
     const oldIds = local.episodeGroups.map((group) => group.id)
     const downloaded = await downloadDataFiles(dav.client())
     const next = mergeDownloadedFiles(local, downloaded.files)
@@ -256,12 +266,12 @@ export async function runTests() {
     assert(next.episodeGroups.find((g) => g.id === f.state.episodeGroups[1].id)?.promptProfileId === config.prompt.profiles[1].id, 'slot binding lost')
   })
   await test('Two-device edits conflict only on changed remote group; other uploads continue', async () => {
-    const a = fixture(), dav = new MockDav()
+    const a = await fixture(), dav = new MockDav()
     await upload(dav, a)
-    const b = fixture()
+    const b = await fixture()
     const downloaded = await downloadDataFiles(dav.client())
     b.state = mergeDownloadedFiles(a.state, downloaded.files)
-    b.repository.save(b.state, { identity, update: (target) => acceptDownloadedFiles(target, downloaded.files, downloaded.remote) })
+    await b.repository.save(b.state, { identity, update: (target) => acceptDownloadedFiles(target, downloaded.files, downloaded.remote) })
     a.state.episodes[0].scriptText = 'Device A'
     await upload(dav, a)
     b.state.episodes.find((episode) => episode.groupId === a.state.episodeGroups[1].id)!.scriptText = 'Device B'
@@ -272,7 +282,7 @@ export async function runTests() {
     assert(dav.files.get(a.a)!.text.includes('Device A'), 'remote change overwritten')
   })
   await test('Conditional PUT prevents a change made after overwrite confirmation', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     await upload(dav, f)
     dav.set(f.a, dav.files.get(f.a)!.text.replace('Group A', 'Remote'))
     f.state.episodeGroups[0].title = 'Local'
@@ -284,7 +294,7 @@ export async function runTests() {
     assert(dav.files.get(f.a)!.text.includes('Newest'), 'new version overwritten')
   })
   await test('Missing ETag never allows silent overwrite', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     dav.withEtag = false
     await upload(dav, f)
     f.state.episodeGroups[0].title = 'changed'
@@ -294,59 +304,59 @@ export async function runTests() {
     assert(!dav.calls.some((c) => c.method === 'PUT' && c.path === f.a), 'unsafe PUT sent')
   })
   await test('Partial upload preserves successes and retries only unfinished files', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     dav.errors.set(`PUT:${f.b}`, 500)
     assert(!(await upload(dav, f)).complete, 'partial operation marked complete')
-    assert(readSyncTarget(f.storage, identity).lastCompleteAt === null, 'partial operation timestamp updated')
-    assert(readSyncTarget(f.storage, identity).files[f.a], 'successful baseline lost')
+    assert((await readSyncTarget(f.repository, identity)).lastCompleteAt === null, 'partial operation timestamp updated')
+    assert((await readSyncTarget(f.repository, identity)).files[f.a], 'successful baseline lost')
     dav.errors.clear(); dav.calls = []
     assert((await upload(dav, f)).complete, 'retry failed')
     assert(dav.calls.filter((c) => c.method === 'PUT').length === 1, 'successful files retransmitted')
   })
   await test('Deleted group is tracked per target; cancellation retains file and tombstone', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     await upload(dav, f)
     const id = f.state.episodeGroups[0].id
     f.state.episodeGroups.shift()
     f.state.episodes = f.state.episodes.filter((e) => e.groupId !== id)
-    f.repository.save(f.state)
+    await f.repository.save(f.state)
     const result = await upload(dav, f, { confirmDelete: async () => false })
     assert(!result.complete && dav.files.has(f.a), 'cancelled deletion removed cloud file')
-    assert(readSyncTarget(f.storage, identity).pendingDeletes.includes(f.a), 'tombstone lost')
-    assert(readSyncTarget(f.storage, 'other-target').pendingDeletes.length === 0, 'deletion leaked to another target')
+    assert((await readSyncTarget(f.repository, identity)).pendingDeletes.includes(f.a), 'tombstone lost')
+    assert((await readSyncTarget(f.repository, 'other-target')).pendingDeletes.length === 0, 'deletion leaked to another target')
     await upload(dav, f)
-    assert(!dav.files.has(f.a) && !readSyncTarget(f.storage, identity).pendingDeletes.includes(f.a), 'confirmed deletion failed')
+    assert(!dav.files.has(f.a) && !(await readSyncTarget(f.repository, identity)).pendingDeletes.includes(f.a), 'confirmed deletion failed')
   })
   await test('Delete race retains cloud file and pending deletion', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     await upload(dav, f)
     const id = f.state.episodeGroups[0].id
     f.state.episodeGroups.shift(); f.state.episodes = f.state.episodes.filter((e) => e.groupId !== id)
-    f.repository.save(f.state)
+    await f.repository.save(f.state)
     const result = await upload(dav, f, { confirmDelete: async () => { dav.set(f.a, dav.files.get(f.a)!.text); return true } })
     assert(result.results.some((r) => r.path === f.a && r.status === 'failed'), 'delete race ignored')
-    assert(dav.files.has(f.a) && readSyncTarget(f.storage, identity).pendingDeletes.includes(f.a), 'file or tombstone lost')
+    assert(dav.files.has(f.a) && (await readSyncTarget(f.repository, identity)).pendingDeletes.includes(f.a), 'file or tombstone lost')
   })
   await test('Downloading a deleted group restores it and clears its tombstone atomically', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     await upload(dav, f)
     const group = f.state.episodeGroups.shift()!
     f.state.episodes = f.state.episodes.filter((e) => e.groupId !== group.id)
-    f.repository.save(f.state)
+    await f.repository.save(f.state)
     const downloaded = await downloadDataFiles(dav.client())
     const next = mergeDownloadedFiles(f.state, downloaded.files)
-    f.repository.save(next, { identity, update: (target) => acceptDownloadedFiles(target, downloaded.files, downloaded.remote) })
-    assert(new LocalRepository(f.storage).load(config).episodeGroups.some((g) => g.id === group.id), 'group not restored')
-    assert(!readSyncTarget(f.storage, identity).pendingDeletes.includes(f.a), 'tombstone remains')
+    await f.repository.save(next, { identity, update: (target) => acceptDownloadedFiles(target, downloaded.files, downloaded.remote) })
+    assert((await new LocalRepository(f.storage, f.repository.databaseName).load(config)).episodeGroups.some((g) => g.id === group.id), 'group not restored')
+    assert(!(await readSyncTarget(f.repository, identity)).pendingDeletes.includes(f.a), 'tombstone remains')
   })
   await test('Corrupt and duplicate-ID downloads fail before any local writes', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     await upload(dav, f)
-    f.storage.writes = []
+    f.database.control.writes = []
     const valid = dav.files.get(f.a)!.text
     dav.set(f.a, '{broken')
     await rejects(() => downloadDataFiles(dav.client()), 'corrupt file accepted')
-    assert(!f.storage.writes.length, 'download failure mutated local data')
+    assert(!f.database.control.writes.length, 'download failure mutated local data')
     dav.set(f.a, valid)
     const other = JSON.parse(dav.files.get(f.b)!.text)
     other.episodes[0].id = f.state.episodes[0].id
@@ -354,45 +364,45 @@ export async function runTests() {
     await rejects(() => downloadDataFiles(dav.client()), 'duplicate ID accepted')
   })
   await test('Download detects cloud edits while fetching the batch', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     await upload(dav, f)
     let reads = 0
     dav.hook = (method, path) => { if (method === 'GET' && path === f.a && ++reads === 2) dav.set(path, dav.files.get(path)!.text.replace('Group A', 'Changed')) }
     await rejects(() => downloadDataFiles(dav.client()), 'mixed download accepted')
   })
   await test('Failed destination upload prevents deletion of moved-from cloud group', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     await upload(dav, f)
     const group = f.state.episodeGroups.shift()!
     f.state.episodes.filter((e) => e.groupId === group.id).forEach((e) => { e.groupId = f.state.episodeGroups[0].id })
-    f.repository.save(f.state)
+    await f.repository.save(f.state)
     dav.errors.set(`PUT:${f.b}`, 500)
     await upload(dav, f)
     assert(dav.files.has(f.a), 'only cloud copy deleted')
   })
   await test('Legacy migration preserves old file, resumes partial output and rejects different data', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     const legacy = JSON.stringify({ version: f.state.version, episodes: f.state.episodes, episodeGroups: f.state.episodeGroups, globalConfigSnapshot: f.state.globalConfig })
     dav.set('@legacy', legacy)
     const files = legacySnapshotFiles((await dav.client().readLegacy()).text, config)
     dav.errors.set(`PUT:${f.b}`, 500)
-    await migrateLegacyFiles(dav.client(), files, () => {})
+    await migrateLegacyFiles(dav.client(), files, async () => {})
     dav.errors.clear()
-    assert((await migrateLegacyFiles(dav.client(), files, () => {})).every((r) => r.status !== 'failed'), 'migration retry failed')
+    assert((await migrateLegacyFiles(dav.client(), files, async () => {})).every((r) => r.status !== 'failed'), 'migration retry failed')
     assert(dav.files.get('@legacy')!.text === legacy, 'legacy file overwritten')
     dav.set(f.a, dav.files.get(f.a)!.text.replace('Group A', 'Different'))
-    await rejects(() => migrateLegacyFiles(dav.client(), files, () => {}), 'migration overwrote existing data')
+    await rejects(() => migrateLegacyFiles(dav.client(), files, async () => {}), 'migration overwrote existing data')
   })
   await test('Authentication failure, invalid directory XML and external listing URLs fail safely', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     dav.errors.set('PROPFIND:', 401)
     await rejects(() => upload(dav, f), 'authentication failure ignored')
     assert(!dav.calls.some((c) => c.method === 'PUT'), 'write after auth failure')
     await rejects(() => parseWebDavListing('<bad/>', 'http://localhost/dav/scripts/'), 'bad XML accepted')
     await rejects(() => parseWebDavListing('<d:multistatus xmlns:d="DAV:"><d:response><d:href>http://other.example/x.json</d:href><d:status>HTTP/1.1 200 OK</d:status></d:response></d:multistatus>', 'http://localhost/dav/scripts/'), 'external URL accepted')
   })
-  await test('Legacy generated timing IDs are stable across migration retries', () => {
-    const f = fixture()
+  await test('Legacy generated timing IDs are stable across migration retries', async () => {
+    const f = await fixture()
     f.state.episodes[0].shots[0].text = 'An action without saved timing metadata.'
     f.state.episodes[0].shots[0].timingSegments = []
     const legacy = JSON.stringify({ version: f.state.version, episodes: f.state.episodes, episodeGroups: f.state.episodeGroups, globalConfigSnapshot: f.state.globalConfig })
@@ -401,27 +411,27 @@ export async function runTests() {
     for (const [path, file] of first) assert(canonicalJson(file) === canonicalJson(second.get(path)), 'generated ID changed on retry')
   })
   await test('Profile ID changes preserve local-only group slots after download', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     f.state.globalConfig.prompt.profiles.forEach((p, index) => { p.id = `cloud-profile-${index}` })
     f.state.globalConfig.prompt.activeProfileId = 'cloud-profile-0'
     f.state.episodeGroups[0].promptProfileId = 'cloud-profile-0'
     f.state.episodeGroups[1].promptProfileId = 'cloud-profile-1'
     await upload(dav, f)
-    const local = fixture().state
+    const local = (await fixture()).state
     const localGroup = local.episodeGroups[1].id
     const downloaded = await downloadDataFiles(dav.client())
     const next = mergeDownloadedFiles(local, downloaded.files)
     assert(next.episodeGroups.find((g) => g.id === localGroup)?.promptProfileId === 'cloud-profile-1', 'local-only slot was not remapped')
   })
   await test('Network errors and invalid settings files cannot modify local storage', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     await upload(dav, f)
-    const before = canonicalJson([...f.storage.data])
+    const before = canonicalJson([...(await databaseRecords(f.repository.databaseName))])
     const disconnected = new WebDavClient(settings, async () => { throw new TypeError('network offline') })
     await rejects(() => downloadDataFiles(disconnected), 'network failure ignored')
     dav.set('settings.json', JSON.stringify({ formatVersion: 1, appVersion: f.state.version, kind: 'settings', globalConfig: {} }))
     await rejects(() => downloadDataFiles(dav.client()), 'invalid settings accepted')
-    assert(canonicalJson([...f.storage.data]) === before, 'failure modified local storage')
+    assert(canonicalJson([...(await databaseRecords(f.repository.databaseName))]) === before, 'failure modified local database')
   })
   await test('Direct directory URLs are not extended; original connectivity status codes work', async () => {
     const urls: string[] = []
@@ -436,11 +446,11 @@ export async function runTests() {
     assert(urls[1] === `${settings.baseUrl}settings.json`, 'an extra directory was appended')
   })
   await test('Migration writes into the configured root and preserves the legacy file', async () => {
-    const f = fixture(), dav = new MockDav()
+    const f = await fixture(), dav = new MockDav()
     const legacy = JSON.stringify({ version: f.state.version, episodes: f.state.episodes, episodeGroups: f.state.episodeGroups, globalConfigSnapshot: f.state.globalConfig })
     dav.set('@legacy', legacy)
     const target = dav.client()
-    const results = await migrateLegacyFiles(target, legacySnapshotFiles(legacy, config), () => {})
+    const results = await migrateLegacyFiles(target, legacySnapshotFiles(legacy, config), async () => {})
     assert(results.every((r) => r.status !== 'failed'), 'migration failed')
     assert(dav.files.has('settings.json') && dav.files.has('ungrouped.json'), 'root files missing')
     assert([...dav.files.keys()].some((path) => path.startsWith('groups/')), 'groups directory files missing')

@@ -5,6 +5,7 @@
 <pre id="results">Running…</pre>
 <script type="module">
   import { runReviewDataTests } from './review-data.ts'
-  document.querySelector('#results').textContent = JSON.stringify(await runReviewDataTests(), null, 2)
+  window.testResults = await runReviewDataTests()
+  document.querySelector('#results').textContent = JSON.stringify(window.testResults, null, 2)
 </script>
 </html>

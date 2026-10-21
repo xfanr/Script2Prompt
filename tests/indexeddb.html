@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>IndexedDB migration and asynchronous saving tests</title>
+<pre id="results">Running…</pre>
+<script type="module">
+  import { runIndexedDBTests } from './indexeddb.ts'
+  window.testResults = await runIndexedDBTests()
+  document.querySelector('#results').textContent = JSON.stringify(window.testResults, null, 2)
+</script>
+</html>

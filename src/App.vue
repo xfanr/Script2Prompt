@@ -1,6 +1,6 @@
 <template>
   <el-config-provider>
-    <div class="app-shell">
+    <div class="app-shell" :inert="isReplacing">
       <el-alert v-if="saveError" class="storage-save-error" type="error" :closable="false" show-icon title="更改尚未保存">
         <div>{{ saveError }}</div>
         <el-button size="small" @click="saveNow">重试保存</el-button>
@@ -1044,9 +1044,10 @@
                   <el-form-item label="角色">
                     <el-input
                       v-model="materialCharacterDraft"
-                      clearable
+                      type="textarea"
+                      :rows="3"
+                      resize="none"
                       placeholder="输入单个或多个角色名称"
-                      @keyup.enter="continueFromEpisodeScriptMaterials"
                     />
                   </el-form-item>
                   <el-form-item label="场景">
@@ -1322,14 +1323,14 @@
         @opened="focusCharacterPasteInput"
         @closed="resetCharacterPasteDialog"
       >
-        <p class="character-paste-hint">浏览器无法自动读取剪切板，请在下方按 Ctrl+V。支持 CSV 两列或三列（含逗号的字段用双引号包裹），也支持 JSON。省略字段保留原值，空值清空。</p>
+        <p class="character-paste-hint">浏览器无法自动读取剪切板，请在下方填写CSV或JSON数据。<br />CSV：角色名,形象描述,音色描述；JSON：name、appearanceDescription、voiceDescription</p>
         <el-input
           ref="characterPasteInputRef"
           v-model="characterPasteDraft"
           type="textarea"
           :rows="10"
           resize="vertical"
-          placeholder="CSV：角色名,形象描述,音色描述；JSON：name、statusText（或 appearanceDescription）、voiceDescription"
+          placeholder="填写CSV或JSON数据"
           aria-label="粘贴角色形象和音色描述"
           @paste="handleCharacterDescriptionPaste"
         />
@@ -1491,7 +1492,7 @@ const props = defineProps<{
 }>()
 
 const EmptyPageHeaderIcon: Component = () => null
-const { state, activeEpisode, saveError, saveNow, replaceState } = useAppState(props.initialState, props.repository)
+const { state, activeEpisode, saveError, saveNow, replaceState, isReplacing } = useAppState(props.initialState, props.repository)
 const materialDialogVisible = ref(false)
 const globalDialogVisible = ref(false)
 const pointLedgerVisible = ref(false)
@@ -1932,19 +1933,19 @@ function savePointInvoices(invoices: PointInvoice[]) {
   state.pointInvoices = invoices
 }
 
-function persistWebDavSettings(settings: WebDavSettings) {
+async function persistWebDavSettings(settings: WebDavSettings) {
   const identity = webDavTargetIdentity(settings)
   const normalized = saveWebDavSettings({
     ...settings,
-    lastSyncedAt: readSyncTarget(localStorage, identity).lastCompleteAt,
+    lastSyncedAt: (await readSyncTarget(props.repository, identity)).lastCompleteAt,
   })
   webDavSettings.value = normalized
   return normalized
 }
 
-function saveWebDavConnection(settings: WebDavSettings) {
+async function saveWebDavConnection(settings: WebDavSettings) {
   try {
-    persistWebDavSettings(settings)
+    await persistWebDavSettings(settings)
     notify.success('WebDAV 连接设置已保存')
     globalDialogVisible.value = false
   } catch (error) { notifyWebDavError(error) }
@@ -2013,37 +2014,39 @@ async function testWebDav(settings: WebDavSettings) {
   if (webDavAction.value) return
   webDavAction.value = 'test'
   try {
-    await new WebDavClient(persistWebDavSettings(settings)).test()
+    await new WebDavClient(await persistWebDavSettings(settings)).test()
     notify.success('WebDAV 连接成功')
   } catch (error) { notifyWebDavError(error) }
   finally { webDavAction.value = null }
 }
 
 async function uploadToWebDav(settings: WebDavSettings) {
-  if (webDavAction.value || !saveNow()) return
+  if (webDavAction.value) return
   webDavAction.value = 'upload'
   try {
-    const normalized = persistWebDavSettings(settings)
+    if (!await saveNow()) return
+    const normalized = await persistWebDavSettings(settings)
     // Snapshot the whole operation, so edits during network requests are left for the next upload.
     const snapshot = JSON.parse(JSON.stringify(state)) as AppState
     const result = await uploadDataFiles(new WebDavClient(normalized), buildDataFiles(snapshot), {
-      storage: localStorage,
+      repository: props.repository,
       identity: webDavTargetIdentity(normalized),
       confirmOverwrite: (items) => confirmWebDavItems(items),
       confirmDelete: (items) => confirmWebDavItems(items, true),
       isGroupPresent: (path) => state.episodeGroups.some((group) => groupFilePath(group.id) === path),
     })
-    persistWebDavSettings(normalized)
+    await persistWebDavSettings(normalized)
     notifyWebDavTransferResults('WebDAV 上传', result.results, result.complete)
   } catch (error) { notifyWebDavError(error) }
   finally { webDavAction.value = null }
 }
 
 async function downloadFromWebDav(settings: WebDavSettings) {
-  if (webDavAction.value || !saveNow()) return
+  if (webDavAction.value) return
   webDavAction.value = 'download'
   try {
-    const normalized = persistWebDavSettings(settings)
+    if (!await saveNow()) return
+    const normalized = await persistWebDavSettings(settings)
     const before = canonicalJson({ groups: state.episodeGroups, episodes: state.episodes, config: state.globalConfig, pointInvoices: state.pointInvoices })
     const downloaded = await downloadDataFiles(new WebDavClient(normalized))
     const next = mergeDownloadedFiles(state, downloaded.files)
@@ -2057,12 +2060,12 @@ async function downloadFromWebDav(settings: WebDavSettings) {
     if (before !== canonicalJson({ groups: state.episodeGroups, episodes: state.episodes, config: state.globalConfig, pointInvoices: state.pointInvoices })) {
       throw new Error('下载期间本地数据已变化，请重新下载后确认')
     }
-    replaceState(next, {
+    await replaceState(next, {
       identity: webDavTargetIdentity(normalized),
       update: (target) => acceptDownloadedFiles(target, downloaded.files, downloaded.remote),
     })
     selectedEpisodeGroupId.value = activeEpisode.value?.groupId ?? null
-    persistWebDavSettings(normalized)
+    await persistWebDavSettings(normalized)
     notify.success(`WebDAV 下载完成：已保存 ${downloaded.files.size} 个文件，分组及单集 ID 已保留`)
   } catch (error) { notifyWebDavError(error) }
   finally { webDavAction.value = null }
@@ -2072,7 +2075,7 @@ async function migrateWebDav(settings: WebDavSettings) {
   if (webDavAction.value) return
   webDavAction.value = 'migrate'
   try {
-    const client = new WebDavClient(persistWebDavSettings(settings))
+    const client = new WebDavClient(await persistWebDavSettings(settings))
     const legacy = await client.readLegacy()
     const files = legacySnapshotFiles(legacy.text, state.globalConfig)
     try {
@@ -3396,7 +3399,11 @@ function applyCharacterDescriptionText(text: string) {
 }
 
 function openCharacterPasteDialog() {
-  characterPasteDraft.value = ''
+  characterPasteDraft.value = JSON.stringify(activeEpisode.value?.characters.map(({ name, appearanceDescription, voiceDescription }) => ({
+    name,
+    appearanceDescription,
+    voiceDescription,
+  })) ?? [], null, 2)
   characterPasteDialogVisible.value = true
 }
 
