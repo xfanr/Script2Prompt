@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>Episode contact and consecutive range regression tests</title>
+<pre id="results">Running…</pre>
+<script type="module">
+  import { runEpisodeContactTests } from './episode-contacts.ts'
+  window.testResults = await runEpisodeContactTests()
+  document.querySelector('#results').textContent = JSON.stringify(window.testResults, null, 2)
+</script>
+</html>

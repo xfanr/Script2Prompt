@@ -22,6 +22,11 @@ export interface ReviewNotePrefixOption {
   label: string
 }
 
+export interface ContactPersonOption {
+  id: string
+  label: string
+}
+
 export interface PromptProfile {
   id: string
   name: string
@@ -41,6 +46,7 @@ export interface DataCollectionConfig {
   recommendedDurationRange: DurationRange
   defaultPointCost: number
   reviewNotePrefixOptions: ReviewNotePrefixOption[]
+  contactPersonOptions: ContactPersonOption[]
 }
 
 export interface DialogueExtractionConfig {
@@ -203,10 +209,12 @@ export interface Episode {
   groupId: string | null
   starred: boolean
   characters: CharacterAsset[]
+  contactPerson: string
   scenes: SceneAsset[]
   props: string[]
   productionData: EpisodeProductionData
   scriptText: string
+  splitScriptText: string | null
   shots: Shot[]
 }
 

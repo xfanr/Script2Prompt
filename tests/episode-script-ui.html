@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Independent episode script storage UI fixture</title>
+<div id="app"></div>
+<script type="module">
+  import { createApp } from 'vue'
+  import ElementPlus from 'element-plus'
+  import zhCn from 'element-plus/es/locale/lang/zh-cn'
+  import 'element-plus/dist/index.css'
+  import 'element-plus/theme-chalk/dark/css-vars.css'
+  import '../src/styles.css'
+  import App from '../src/App.vue'
+  import { normalizeGlobalConfig } from '../src/config'
+  import { createInitialState } from '../src/defaults'
+  import { LocalRepository } from '../src/storage'
+  import { MemoryStorage } from './point-ledger.ts'
+  import { testDatabaseName } from './indexeddb-helper.ts'
+
+  Object.defineProperty(window, 'localStorage', { value: new MemoryStorage() })
+  Object.defineProperty(window, 'sessionStorage', { value: new MemoryStorage() })
+  const config = normalizeGlobalConfig(await (await fetch('/config/default-config.json')).json())
+  const repository = new LocalRepository(localStorage, testDatabaseName())
+  const persist = repository.save.bind(repository)
+  let failSave = false
+  repository.save = (...args) => failSave ? Promise.reject(new Error('Injected save failure')) : persist(...args)
+  await repository.save(createInitialState(config))
+  let app
+  async function remount() {
+    app?.unmount()
+    app = createApp(App, { initialGlobalConfig: config, initialState: await repository.load(config), repository })
+    app.use(ElementPlus, { locale: zhCn }).mount('#app')
+  }
+  await remount()
+  window.episodeScriptTest = {
+    repository, config, remount,
+    get state() { return app._instance.setupState.state },
+    set failSave(value) { failSave = value },
+  }
+</script>
+</html>

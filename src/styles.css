@@ -391,6 +391,7 @@ html.dark .episode-panel {
 .sidebar-management-tabs > .el-tabs__content > .el-tab-pane {
   display: flex;
   min-height: 0;
+  min-width: 0;
   flex: 1 1 auto;
   flex-direction: column;
 }
@@ -531,6 +532,7 @@ html.dark .episode-panel {
 .group-title-text {
   min-width: 0;
   flex: 1 1 auto;
+  overflow: hidden;
   font-size: var(--el-font-size-base);
   line-height: 20px;
   text-overflow: ellipsis;
@@ -584,6 +586,14 @@ html.dark .episode-panel {
 
 .group-row-actions .el-dropdown {
   display: inline-flex;
+}
+
+.group-preview-popover {
+  overflow-wrap: anywhere;
+}
+
+.group-preview-episode {
+  line-height: 24px;
 }
 
 .episode-more-button.el-button {
@@ -661,7 +671,7 @@ html.dark .episode-panel {
 .sidebar-footer-actions {
   display: grid;
   flex: 0 0 auto;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   margin: 0 -14px -14px;
   padding: 5px 4px;
@@ -1636,10 +1646,6 @@ html.dark .episode-panel {
   font-style: normal;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.character-clone-source.is-adjacent {
-  font-weight: 700;
 }
 
 .timing-config-row {
@@ -2781,6 +2787,17 @@ html.dark .episode-panel {
 .dialogue-rule-row {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr) 32px;
+  align-items: center;
+  gap: 8px;
+}
+
+.contact-person-select-dropdown .el-select-dropdown__empty {
+  padding: 0 10px;
+}
+
+.contact-person-option-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
   align-items: center;
   gap: 8px;
 }

@@ -70,6 +70,8 @@ export function parseDataFile(text: string, path: string): DataFile {
     for (const episode of value.episodes) {
       if (!object(episode) || typeof episode.id !== 'string' || !episode.id || ids.has(episode.id)
         || typeof episode.title !== 'string' || episode.groupId !== (group?.id ?? null)
+        || (episode.splitScriptText != null && typeof episode.splitScriptText !== 'string')
+        || (episode.contactPerson !== undefined && typeof episode.contactPerson !== 'string')
         || !Array.isArray(episode.shots) || !Array.isArray(episode.characters)
         || episode.characters.some((character: unknown) => typeof character !== 'string' && (
           !object(character)

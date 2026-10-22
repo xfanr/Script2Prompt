@@ -135,7 +135,7 @@
                             <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelEpisodeRename(episode)" />
                           </div>
                           <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
-                          <el-dropdown trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
+                          <el-dropdown v-if="editingEpisodeId !== episode.id" trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
                             <el-button class="episode-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多单集操作" @click.stop />
                             <template #dropdown>
                               <el-dropdown-menu>
@@ -159,10 +159,28 @@
                             <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelGroupRename(group)" />
                           </div>
                           <template v-else>
-                            <span class="group-title-text">{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
+                            <span class="group-title-text" :title="sidebarGroupTitle(group)">{{ sidebarGroupTitle(group) }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
                             <div class="group-row-actions" @click.stop @keydown.stop>
                               <GroupPlayMedal class="episode-star" :play-count="group.results.playCount" />
-                              <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="新建单集" @click="addEpisodeToGroup(group.id)" />
+                              <el-popover trigger="click" placement="right-start" :width="240" :title="group.fullName.trim() || group.title" popper-class="group-preview-popover">
+                                <template #reference>
+                                  <el-button class="sidebar-row-action-button" :icon="View" text size="small" aria-label="查看剧集信息" />
+                                </template>
+                                <el-scrollbar max-height="320px">
+                                  <div v-for="episode in episodesForGroup(group.id)" :key="episode.id" class="group-preview-episode">
+                                    {{ formatEpisodeSummaryNumber(episode) }}{{ episode.contactPerson ? ` · ${episode.contactPerson}` : '' }}
+                                  </div>
+                                  <div v-if="isGroupEmpty(group.id)" class="empty-note">暂无分集</div>
+                                </el-scrollbar>
+                              </el-popover>
+                              <el-dropdown trigger="click" @command="(count) => addEpisodeToGroup(group.id, count)">
+                                <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="新建单集" />
+                                <template #dropdown>
+                                  <el-dropdown-menu>
+                                    <el-dropdown-item v-for="count in 5" :key="count" :command="count">添加 {{ count }} 集</el-dropdown-item>
+                                  </el-dropdown-menu>
+                                </template>
+                              </el-dropdown>
                               <el-dropdown trigger="click" @command="(command) => handleGroupCommand(command, group.id)">
                                 <el-button class="group-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多剧集操作" />
                                 <template #dropdown>
@@ -186,7 +204,7 @@
                                 <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelEpisodeRename(episode)" />
                               </div>
                               <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
-                              <el-dropdown trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
+                              <el-dropdown v-if="editingEpisodeId !== episode.id" trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
                                 <el-button class="episode-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多单集操作" @click.stop />
                                 <template #dropdown>
                                   <el-dropdown-menu>
@@ -221,9 +239,20 @@
                             <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelGroupRename(group)" />
                           </div>
                           <template v-else>
-                            <span class="group-title-text">{{ group.title }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
+                            <span class="group-title-text" :title="sidebarGroupTitle(group)">{{ sidebarGroupTitle(group) }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
                             <div class="group-row-actions" @click.stop @keydown.stop>
                               <GroupPlayMedal class="episode-star" :play-count="group.results.playCount" />
+                              <el-popover trigger="click" placement="right-start" :width="240" :title="group.fullName.trim() || group.title" popper-class="group-preview-popover">
+                                <template #reference>
+                                  <el-button class="sidebar-row-action-button" :icon="View" text size="small" aria-label="查看剧集信息" />
+                                </template>
+                                <el-scrollbar max-height="320px">
+                                  <div v-for="episode in episodesForGroup(group.id)" :key="episode.id" class="group-preview-episode">
+                                    {{ formatEpisodeSummaryNumber(episode) }}{{ episode.contactPerson ? ` · ${episode.contactPerson}` : '' }}
+                                  </div>
+                                  <div v-if="isGroupEmpty(group.id)" class="empty-note">暂无分集</div>
+                                </el-scrollbar>
+                              </el-popover>
                               <el-dropdown trigger="click" @command="(command) => handleGroupCommand(command, group.id)">
                                 <el-button class="group-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多已归档剧集操作" />
                                 <template #dropdown>
@@ -247,7 +276,7 @@
                                 <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelEpisodeRename(episode)" />
                               </div>
                               <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
-                              <el-dropdown trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
+                              <el-dropdown v-if="editingEpisodeId !== episode.id" trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
                                 <el-button class="episode-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多单集操作" @click.stop />
                                 <template #dropdown>
                                   <el-dropdown-menu>
@@ -327,6 +356,7 @@
             <nav class="sidebar-footer-actions" aria-label="剧本管理快捷操作">
               <el-tooltip content="从云端下载" placement="top"><el-button :icon="Download" text aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="requestWebDavTransfer('download')" /></el-tooltip>
               <el-tooltip content="上传到云端" placement="top"><el-button :icon="Upload" text aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="requestWebDavTransfer('upload')" /></el-tooltip>
+              <el-tooltip :content="showFullGroupNames ? '显示剧集简称' : '显示剧集全称'" placement="top"><el-button :icon="Switch" text aria-label="切换剧集简称和全称" :aria-pressed="showFullGroupNames" @click="showFullGroupNames = !showFullGroupNames" /></el-tooltip>
               <div class="sidebar-footer-ledger-entry">
                 <el-tooltip :content="isTodayMonday ? '积分记录；右键选择周报（记得交周报）' : '积分记录；右键选择并复制周报'" placement="top">
                   <el-button :icon="Calendar" text :class="{ 'is-reminder': isTodayMonday }" aria-label="积分记录" @click="openPointLedger" @contextmenu.prevent.stop="weeklyReportPickerRef?.handleOpen()" />
@@ -534,10 +564,10 @@
                           <el-button class="title-copy-button" :icon="Files" text type="primary" title="克隆角色配置" aria-label="克隆角色配置" />
                           <template #dropdown>
                             <el-dropdown-menu>
-                              <el-dropdown-item v-for="item in characterCloneSources(shot)" :key="item.shot.id" class="character-clone-source" :class="{ 'is-adjacent': item.isAdjacent }" :command="item.shot.id" :disabled="!item.shot.characters.length">
-                                {{ formatShotNumber(activeEpisode, item.index) }} · {{ item.shot.characters.length }} 人
+                              <el-dropdown-item v-for="item in characterCloneSources(shot)" :key="item.shot.id" class="character-clone-source" :command="item.shot.id" :disabled="item.shot.id === shot.id || !item.shot.characters.length">
+                                {{ formatShotNumber(activeEpisode, item.index) }} · {{ item.shot.characters.length }} 人{{ item.adjacentLabel ? ` · ${item.adjacentLabel}` : '' }}
                               </el-dropdown-item>
-                              <el-dropdown-item v-if="!characterCloneSources(shot).some((item) => item.shot.characters.length)" disabled>暂无可克隆的角色配置</el-dropdown-item>
+                              <el-dropdown-item v-if="!characterCloneSources(shot).some((item) => item.shot.id !== shot.id && item.shot.characters.length)" disabled>暂无可克隆的角色配置</el-dropdown-item>
                             </el-dropdown-menu>
                           </template>
                         </el-dropdown>
@@ -988,6 +1018,33 @@
         </div>
         <el-table :data="groupSummaryTableRows" max-height="430" empty-text="暂无单集" scrollbar-always-on :row-class-name="groupSummaryRowClass">
           <el-table-column prop="title" label="单集" min-width="100" fixed="left" show-overflow-tooltip />
+          <el-table-column label="对接人" min-width="100">
+            <template #default="{ row }">
+              <template v-if="!row.isSummary && contactEditableIds.has(row.episode.id)">
+                <el-select
+                  v-if="activeContactEpisodeId === row.episode.id"
+                  ref="contactPersonSelector"
+                  :model-value="row.episode.contactPerson"
+                  :value-on-clear="''"
+                  :aria-label="`${row.title}对接人`"
+                  placeholder="未选择"
+                  no-data-text="请先在全局设置中添加数据"
+                  popper-class="contact-person-select-dropdown"
+                  clearable
+                  @update:model-value="selectEpisodeContactPerson(row.episode, $event)"
+                  @visible-change="handleContactSelectorVisibleChange"
+                  @blur="activeContactEpisodeId = null"
+                >
+                  <el-option v-if="isHistoricalContactPerson(row.episode)" :label="row.episode.contactPerson" :value="row.episode.contactPerson" disabled />
+                  <el-option v-for="option in state.globalConfig.dataCollection.contactPersonOptions" :key="option.id" :label="option.label" :value="option.label" />
+                </el-select>
+                <el-button v-else class="point-episode-trigger" text :class="{ 'is-placeholder': !row.episode.contactPerson }" :title="row.episode.contactPerson || '未选择'" :aria-label="`${row.title}对接人`" @click="openContactPersonSelector(row.episode)">
+                  <span class="point-episode-selection">{{ row.episode.contactPerson || '未选择' }}</span>
+                </el-button>
+              </template>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="totalCost" label="总成本" min-width="100" />
           <el-table-column prop="averageText" label="平均分" min-width="100" />
           <el-table-column label="分镜/抽卡" min-width="100">
@@ -1006,30 +1063,31 @@
           <el-button type="primary" @click="saveReviewDialog">保存</el-button>
         </template>
       </el-dialog>
-      <el-dialog v-model="episodeScriptDialogVisible" width="820px" class="episode-script-dialog" :show-close="false" @closed="resetEpisodeScriptDialog">
-        <el-tabs v-model="episodeScriptActiveTab" class="episode-script-tabs">
+      <el-dialog v-model="episodeScriptDialogVisible" width="820px" class="episode-script-dialog" :show-close="false" :close-on-click-modal="!episodeScriptSaving" :close-on-press-escape="!episodeScriptSaving" @closed="resetEpisodeScriptDialog">
+        <el-tabs v-model="episodeScriptActiveTab" class="episode-script-tabs" :before-leave="() => !episodeScriptSaving">
           <el-tab-pane label="素材" name="materials">
             <div class="episode-script-columns">
               <div class="episode-script-source-panel">
                 <div class="episode-script-panel-title has-inline-action">
                   <span>原始剧本</span>
-                  <el-button text type="primary" @click="organizeEpisodeScriptDraft">整理</el-button>
+                  <el-button text type="primary" :disabled="episodeScriptSaving" @click="organizeEpisodeScriptDraft">整理</el-button>
                 </div>
                 <el-input
                   v-model="episodeScriptDraft"
+                  :disabled="episodeScriptSaving"
                   class="episode-script-source-input"
                   type="textarea"
                   :rows="16"
                   resize="none"
                   placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，“---”划分普通分镜，“+++”划分 30S 分镜"
-                  @input="syncEpisodeScriptDraft"
+                  @input="syncMaterialSceneDraftCount"
                 />
               </div>
               <div class="episode-script-material-panel">
                 <div class="episode-script-panel-title has-inline-action">
                   <span>素材配置</span>
                   <el-dropdown trigger="click" @command="cloneEpisodeMaterials">
-                    <el-button text type="primary">克隆</el-button>
+                    <el-button text type="primary" :disabled="episodeScriptSaving">克隆</el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
                         <el-dropdown-item v-for="episode in materialCloneSourceEpisodes" :key="episode.id" :command="episode.id">
@@ -1040,7 +1098,7 @@
                     </template>
                   </el-dropdown>
                 </div>
-                <el-form class="episode-script-material-form" label-position="top">
+                <el-form class="episode-script-material-form" label-position="top" :disabled="episodeScriptSaving">
                   <el-form-item label="角色">
                     <el-input
                       v-model="materialCharacterDraft"
@@ -1126,17 +1184,23 @@
             <div class="episode-script-columns">
               <div class="episode-script-source-panel">
                 <div class="episode-script-panel-title has-inline-action">
-                  <span>原始剧本</span>
-                  <el-button text type="primary" @click="organizeEpisodeScriptDraft">整理</el-button>
+                  <span>拆分剧本</span>
+                  <el-button text type="primary" :disabled="episodeScriptSaving" @click="organizeEpisodeScriptDraft">整理</el-button>
+                  <el-popconfirm title="将使用已保存的原始剧本重置拆分剧本。确认重置？" @confirm="resetSplitScript">
+                    <template #reference>
+                      <el-button text type="primary" :disabled="episodeScriptSaving">重置</el-button>
+                    </template>
+                  </el-popconfirm>
                 </div>
                 <el-input
-                  v-model="episodeScriptDraft"
+                  v-model="splitScriptDraft"
+                  :disabled="episodeScriptSaving"
                   class="episode-script-source-input"
                   type="textarea"
                   :rows="16"
                   resize="none"
                   placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，“---”划分普通分镜，“+++”划分 30S 分镜"
-                  @input="syncEpisodeScriptDraft"
+                  @input="syncSplitScriptDraft"
                 />
               </div>
               <div class="episode-script-preview-panel">
@@ -1171,18 +1235,17 @@
           <el-tab-pane label="台词" name="dialogue">
             <div class="episode-script-columns">
               <div class="episode-script-source-panel">
-                <div class="episode-script-panel-title has-inline-action">
+                <div class="episode-script-panel-title">
                   <span>原始剧本</span>
-                  <el-button text type="primary" @click="organizeEpisodeScriptDraft">整理</el-button>
                 </div>
                 <el-input
-                  v-model="episodeScriptDraft"
+                  :model-value="activeEpisode?.scriptText ?? ''"
                   class="episode-script-source-input"
                   type="textarea"
                   :rows="16"
                   resize="none"
                   placeholder="粘贴或输入包含角色名称及冒号的剧本文字"
-                  @input="syncEpisodeScriptDraft"
+                  readonly
                 />
               </div>
               <div class="dialogue-result-panel">
@@ -1209,8 +1272,8 @@
         </el-tabs>
         <template #footer>
           <template v-if="episodeScriptActiveTab === 'materials'">
-            <el-button @click="addEpisodeScriptMaterialsDirectly">直接添加</el-button>
-            <el-button type="primary" @click="continueFromEpisodeScriptMaterials">下一步</el-button>
+            <el-button :disabled="episodeScriptSaving" @click="saveEpisodeScriptMaterials">保存</el-button>
+            <el-button type="primary" :disabled="episodeScriptSaving" @click="continueFromEpisodeScriptMaterials">下一步</el-button>
           </template>
           <template v-else-if="episodeScriptActiveTab === 'shots'">
             <el-popconfirm
@@ -1222,10 +1285,10 @@
                 <el-button size="small" type="primary" @click="confirm($event)">更新</el-button>
               </template>
               <template #reference>
-                <el-button type="primary">确认更新</el-button>
+                <el-button type="primary" :loading="episodeScriptSaving">确认更新</el-button>
               </template>
             </el-popconfirm>
-            <el-button v-else type="primary" @click="applyEpisodeScriptShots">确认添加</el-button>
+            <el-button v-else type="primary" :loading="episodeScriptSaving" @click="applyEpisodeScriptShots">确认添加</el-button>
           </template>
           <template v-else>
             <el-button
@@ -1350,9 +1413,11 @@ import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import PointLedgerDialog from './components/PointLedgerDialog.vue'
 import GroupPlayMedal from './components/GroupPlayMedal.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
-import { ElMessageBox } from 'element-plus'
-import { ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, VideoCamera, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
+import { ElMessageBox, type SelectInstance } from 'element-plus'
+import { ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, VideoCamera, VideoPlay, View, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
+import { normalizeSplitScriptText } from './episodeScript'
+import { clearInteriorEpisodeContacts, contactEditableEpisodeIds, renameEpisodeContacts } from './episodeContacts'
 import { effectiveProductionData, mergePointInvoices, normalizePointInvoices, remapPointInvoices } from './pointLedger'
 import { normalizeGroupResults, pendingGroupResults } from './groupResults'
 import type { PointInvoice } from './types'
@@ -1510,6 +1575,7 @@ const detectionDialogVisible = ref(false)
 const detectionConflictShotId = ref<string | null>(null)
 const sidebarCollapsed = ref(false)
 const sidebarManagementTab = ref<SidebarManagementTab>('scripts')
+const showFullGroupNames = ref(false)
 const isDarkMode = ref(document.documentElement.classList.contains('dark'))
 const materialDialogMode = ref<MaterialDialogMode>('add')
 const materialDialogKind = ref<MaterialKind>('characters')
@@ -1592,6 +1658,8 @@ const activeReviewEpisodeId = ref<string | null>(null)
 const reviewOpenedFromSummary = ref(false)
 const reviewSummaryEpisodeId = ref<string | null>(null)
 const activeGroupSummaryId = ref<string | null>(null)
+const activeContactEpisodeId = ref<string | null>(null)
+const contactPersonSelector = ref<SelectInstance | null>(null)
 const reviewDraft = ref<PromptReview>(createPromptReview())
 const reviewDrawCountMode = ref<ReviewDrawCountMode>('')
 const reviewCustomDrawCount = ref<number | undefined>()
@@ -1614,6 +1682,8 @@ const activeDialogueTiming = computed(() => {
 const timingPopoverVisible = computed(() => Boolean(activeTimingSegment.value))
 const reviewNotePrefixPath = ref<string[]>([])
 const episodeScriptDraft = ref('')
+const splitScriptDraft = ref('')
+const episodeScriptSaving = ref(false)
 const weeklyReportWeek = ref<Date | string | null>(null)
 const archivedTreeId = 'archived'
 const reviewRateTexts = ['拉完了', 'NPC', '人上人', '顶级', '夯']
@@ -1732,6 +1802,7 @@ const pendingResults = computed(() => pendingGroupResults(state.episodeGroups))
 const groupSummaryEpisodes = computed(() => activeGroupSummaryId.value === 'ungrouped'
   ? sortedUngroupedEpisodes.value
   : activeGroupSummaryId.value ? episodesForGroup(activeGroupSummaryId.value) : [])
+const contactEditableIds = computed(() => contactEditableEpisodeIds(state.episodes))
 const promptProfileOptions = computed(() => state.globalConfig.prompt.profiles.map((profile) => ({
   label: profile.name,
   value: profile.id,
@@ -1920,8 +1991,39 @@ function remapGroupPromptProfiles(sourceConfig: GlobalConfig, targetConfig: Glob
 function saveGlobalConfig(config: GlobalConfig) {
   const previousConfig = state.globalConfig
   const nextConfig = cloneGlobalConfig(config)
+  renameEpisodeContacts(state.episodes, previousConfig.dataCollection.contactPersonOptions, nextConfig.dataCollection.contactPersonOptions)
   remapGroupPromptProfiles(previousConfig, nextConfig)
   state.globalConfig = nextConfig
+}
+
+async function openContactPersonSelector(episode: Episode) {
+  if (!contactEditableIds.value.has(episode.id)) return
+  activeContactEpisodeId.value = episode.id
+  await nextTick()
+  contactPersonSelector.value?.focus()
+  contactPersonSelector.value?.toggleMenu()
+}
+
+function selectEpisodeContactPerson(episode: Episode, value: unknown) {
+  if (!contactEditableIds.value.has(episode.id) || typeof value !== 'string') return
+  if (value && !state.globalConfig.dataCollection.contactPersonOptions.some((option) => option.label === value)) return
+  episode.contactPerson = value
+  activeContactEpisodeId.value = null
+}
+
+function isHistoricalContactPerson(episode: Episode) {
+  return episode.contactPerson && !state.globalConfig.dataCollection.contactPersonOptions.some((option) => option.label === episode.contactPerson)
+}
+
+function handleContactSelectorVisibleChange(visible: boolean) {
+  if (!visible) activeContactEpisodeId.value = null
+}
+
+function handleContactSelectorEscape(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || !activeContactEpisodeId.value) return
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  activeContactEpisodeId.value = null
 }
 
 function openPointLedger() {
@@ -2207,6 +2309,10 @@ function toggleGroupIfNotEmpty(id: string) {
   }
 }
 
+
+function sidebarGroupTitle(group: EpisodeGroup) {
+  return showFullGroupNames.value ? group.fullName.trim() || group.title : group.title
+}
 
 function groupSortTitle(group: EpisodeGroup) {
   return editingGroupId.value === group.id ? editingGroupOriginalTitle.value : group.title
@@ -2555,7 +2661,7 @@ function addEpisodeGroup() {
   expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, myEpisodesTreeId, group.id]))
   editingGroupOriginalTitle.value = group.title
   editingGroupId.value = group.id
-  focusRenameInput('group', group.id, false)
+  focusRenameInput('group', group.id, true)
 }
 
 function setScriptHighlightRef(id: string, element: unknown) {
@@ -2799,6 +2905,17 @@ watch(
 )
 
 watch(
+  () => JSON.stringify(state.episodes.map(({ id, groupId, title }) => ({ id, groupId, title }))),
+  () => clearInteriorEpisodeContacts(state.episodes),
+)
+
+watch([dataDialogVisible, dataDialogView, activeGroupSummaryId, contactEditableIds], ([visible, view, groupId], [, , previousGroupId]) => {
+  if (!visible || view !== 'group' || groupId !== previousGroupId || (activeContactEpisodeId.value && !contactEditableIds.value.has(activeContactEpisodeId.value))) {
+    activeContactEpisodeId.value = null
+  }
+})
+
+watch(
   () => activeEpisode.value?.shots.map((shot) => shot.id).join('\u0000') ?? '',
   () => {
     if (state.singleExpandedShotId && !isCurrentEpisodeShot(state.singleExpandedShotId)) {
@@ -2817,6 +2934,16 @@ watch(
   () => void nextTick(syncDialogueHighlightScroll),
   { flush: 'post' },
 )
+
+watch([episodeScriptDialogVisible, episodeScriptActiveTab], ([visible, tab]) => {
+  const episode = activeEpisode.value
+  if (!visible || tab !== 'shots' || !episode) return
+  if (episode.splitScriptText === null) {
+    episode.splitScriptText = normalizeSplitScriptText(null, episode.shots) ?? episode.scriptText
+  }
+  splitScriptDraft.value = episode.splitScriptText
+  batchShotSegments.value = splitBatchShotText(splitScriptDraft.value)
+})
 
 watch(
   [episodeScriptDialogVisible, materialDialogVisible, episodeScriptActiveTab, () => materialSceneDrafts.value.length],
@@ -3024,14 +3151,28 @@ function confirmMaterialDialog() {
   }
 }
 
-function continueFromEpisodeScriptMaterials() {
-  addMaterialDrafts()
-  episodeScriptActiveTab.value = 'shots'
+async function commitEpisodeScriptMaterials() {
+  const episode = activeEpisode.value
+  if (!episode || episodeScriptSaving.value) return false
+  episodeScriptSaving.value = true
+  try {
+    episode.scriptText = episodeScriptDraft.value
+    addMaterialDrafts(false)
+    if (!await saveNow()) return false
+    refreshEpisodeScriptDerivedDrafts()
+    notify.success('已保存原始剧本和素材')
+    return true
+  } finally {
+    episodeScriptSaving.value = false
+  }
 }
 
-function addEpisodeScriptMaterialsDirectly() {
-  addMaterialDrafts()
-  episodeScriptDialogVisible.value = false
+async function continueFromEpisodeScriptMaterials() {
+  if (await commitEpisodeScriptMaterials()) episodeScriptActiveTab.value = 'shots'
+}
+
+async function saveEpisodeScriptMaterials() {
+  if (await commitEpisodeScriptMaterials()) episodeScriptDialogVisible.value = false
 }
 
 function handleMaterialDialogClosed() {
@@ -3060,7 +3201,7 @@ function resetMaterialDrafts(sceneCount = 1) {
 }
 
 function batchShotUnitCount() {
-  return batchShotSegments.value.reduce((maximum, segment) => Math.max(maximum, segment.unitNumber), 0)
+  return splitBatchShotText(episodeScriptDraft.value).reduce((maximum, segment) => Math.max(maximum, segment.unitNumber), 0)
 }
 
 function requiredMaterialSceneDraftCount() {
@@ -3536,14 +3677,48 @@ function addEpisode() {
   focusRenameInput('episode', episode.id, false)
 }
 
-function addEpisodeToGroup(groupId: string) {
+async function addEpisodeToGroup(groupId: string, count = 1) {
   const group = state.episodeGroups.find((item) => item.id === groupId)
   if (!group || group.archived) {
     return
   }
 
-  selectedEpisodeGroupId.value = groupId
-  addEpisode()
+  if (count === 1) {
+    selectedEpisodeGroupId.value = groupId
+    addEpisode()
+    return
+  }
+
+  let startNumber: number
+  try {
+    const { value } = await ElMessageBox.prompt(`输入起始集号，将连续添加 ${count} 集。`, `添加 ${count} 集`, {
+      confirmButtonText: '添加',
+      cancelButtonText: '取消',
+      inputPlaceholder: '输入起始集号',
+      inputValidator: (value) => {
+        const input = value.trim()
+        const start = Number(input)
+        if (!/^\d+$/.test(input) || start <= 0 || !Number.isSafeInteger(start) || !Number.isSafeInteger(start + count - 1)) {
+          return '请输入有效的正整数集号'
+        }
+        for (let offset = 0; offset < count; offset += 1) {
+          if (isEpisodeNumberUsed(groupId, start + offset)) {
+            return `当前分组已存在${formatEpisodeTitle(start + offset)}`
+          }
+        }
+        return true
+      },
+    })
+    startNumber = Number(value.trim())
+  } catch {
+    return
+  }
+
+  const episodes = Array.from({ length: count }, (_, index) => ({ ...createEpisode(startNumber + index), groupId }))
+  state.episodes.push(...episodes)
+  selectEpisode(episodes[0])
+  expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, myEpisodesTreeId, groupId]))
+  notify.success(`已添加 ${count} 集`)
 }
 
 
@@ -3905,13 +4080,14 @@ function removeCharacterFromShot(shot: Shot, id: string) {
 
 function characterCloneSources(target: Shot) {
   const targetIndex = shotIndex(target)
-  return activeEpisode.value?.shots.map((shot, index) => ({ shot, index, isAdjacent: Math.abs(index - targetIndex) === 1 }))
-    .filter((item) => item.shot.id !== target.id) ?? []
+  return activeEpisode.value?.shots.map((shot, index) => ({
+    shot, index, adjacentLabel: index === targetIndex - 1 ? '前' : index === targetIndex + 1 ? '后' : '',
+  })) ?? []
 }
 
 function cloneShotCharacters(target: Shot, sourceId: string) {
   const source = characterCloneSources(target).find((item) => item.shot.id === sourceId)?.shot
-  if (!source?.characters.length) return
+  if (sourceId === target.id || !source?.characters.length) return
 
   const voices = new Set(detectCharacters(effectiveShotText(target), source.characters.map((character) => character.name))
     .filter((character) => character.includeVoice)
@@ -4680,14 +4856,17 @@ function openEpisodeScriptDialog(tab: EpisodeScriptTab) {
   episodeScriptActiveTab.value = tab
   dialogueView.value = 'original'
   episodeScriptDraft.value = activeEpisode.value?.scriptText ?? ''
+  splitScriptDraft.value = activeEpisode.value?.splitScriptText ?? ''
   refreshEpisodeScriptDerivedDrafts()
   resetMaterialDrafts(requiredMaterialSceneDraftCount())
   episodeScriptDialogVisible.value = true
 }
 
 function organizeEpisodeScriptDraft() {
+  const isSplitScript = episodeScriptActiveTab.value === 'shots'
+  const draft = isSplitScript ? splitScriptDraft.value : episodeScriptDraft.value
   const protectedRemarks: Array<{ marker: '---' | '+++'; remark: string }> = []
-  const protectedDraft = episodeScriptDraft.value
+  const protectedDraft = draft
     .replace(/\r\n/g, '\n')
     .replace(/:/g, '：')
     .replace(/[ \t　]*(---|\+\+\+)[ \t　]*#([^#\r\n]*)#[ \t　]*/g, (_match, marker: '---' | '+++', remark: string) => {
@@ -4696,7 +4875,7 @@ function organizeEpisodeScriptDraft() {
       return placeholder
     })
 
-  episodeScriptDraft.value = protectedDraft
+  const organizedDraft = protectedDraft
     .replace(/[ \t　]*===[ \t　]*/g, '\n===\n')
     .replace(/[ \t　]*---[ \t　]*/g, '\n---\n')
     .replace(/[ \t　]*\+\+\+[ \t　]*/g, '\n+++\n')
@@ -4711,29 +4890,41 @@ function organizeEpisodeScriptDraft() {
       const protectedRemark = protectedRemarks[Number(index)]
       return `${protectedRemark.marker} #${protectedRemark.remark}#`
     })
-  syncEpisodeScriptDraft()
+  if (isSplitScript) {
+    splitScriptDraft.value = organizedDraft
+    syncSplitScriptDraft()
+  } else {
+    episodeScriptDraft.value = organizedDraft
+    syncMaterialSceneDraftCount()
+  }
   notify.success('已整理剧本文字')
 }
 
 function refreshEpisodeScriptDerivedDrafts() {
-  batchShotSegments.value = splitBatchShotText(episodeScriptDraft.value)
+  batchShotSegments.value = splitBatchShotText(splitScriptDraft.value)
   syncMaterialSceneDraftCount()
-  dialogueOriginalDraft.value = extractDialogueText(episodeScriptDraft.value)
-  dialogueReplacedDraft.value = extractDialogueText(episodeScriptDraft.value, state.globalConfig.dialogueExtraction.replacementRules)
+  const original = activeEpisode.value?.scriptText ?? ''
+  dialogueOriginalDraft.value = extractDialogueText(original)
+  dialogueReplacedDraft.value = extractDialogueText(original, state.globalConfig.dialogueExtraction.replacementRules)
 }
 
-function syncEpisodeScriptDraft() {
+function syncSplitScriptDraft() {
   const episode = activeEpisode.value
 
   if (episode) {
-    episode.scriptText = episodeScriptDraft.value
+    episode.splitScriptText = splitScriptDraft.value
   }
 
-  refreshEpisodeScriptDerivedDrafts()
+  batchShotSegments.value = splitBatchShotText(splitScriptDraft.value)
+}
+
+function resetSplitScript() {
+  splitScriptDraft.value = activeEpisode.value?.scriptText ?? ''
+  syncSplitScriptDraft()
 }
 
 function refreshBatchShotSegments() {
-  batchShotSegments.value = splitBatchShotText(episodeScriptDraft.value)
+  batchShotSegments.value = splitBatchShotText(splitScriptDraft.value)
 
   if (!batchShotSegments.value.length) {
     notify.warning('未识别到可用分镜')
@@ -4744,6 +4935,8 @@ function refreshBatchShotSegments() {
 }
 
 function resetEpisodeScriptDialog() {
+  episodeScriptDraft.value = ''
+  splitScriptDraft.value = ''
   batchShotSegments.value = []
   resetMaterialDrafts()
   dialogueOriginalDraft.value = ''
@@ -4779,21 +4972,27 @@ async function copyExtractedDialogue() {
   episodeScriptDialogVisible.value = false
 }
 
-function applyEpisodeScriptShots() {
+async function applyEpisodeScriptShots() {
   const episode = activeEpisode.value
 
-  if (!episode || !refreshBatchShotSegments()) {
+  if (!episode || episodeScriptSaving.value || !refreshBatchShotSegments()) {
     return
   }
 
-  const isUpdate = hasExistingShotConfiguration(episode)
-  const sceneDrafts = materialSceneDrafts.value.map((scene) => ({ ...scene }))
-  episode.scriptText = episodeScriptDraft.value
-  addMaterialDrafts(false)
-  const syncedCount = syncEpisodeShots(episode, batchShotSegments.value, sceneDrafts)
-  episodeScriptDialogVisible.value = false
-  batchShotSegments.value = []
-  notify.success(isUpdate ? `已更新为 ${syncedCount} 条分镜` : `已添加 ${syncedCount} 条分镜`)
+  episodeScriptSaving.value = true
+  try {
+    const isUpdate = hasExistingShotConfiguration(episode)
+    const sceneDrafts = materialSceneDrafts.value.map((scene) => ({ ...scene }))
+    episode.splitScriptText = splitScriptDraft.value
+    addMaterialDrafts(false)
+    const syncedCount = syncEpisodeShots(episode, batchShotSegments.value, sceneDrafts)
+    if (!await saveNow()) return
+    episodeScriptDialogVisible.value = false
+    batchShotSegments.value = []
+    notify.success(isUpdate ? `已更新为 ${syncedCount} 条分镜` : `已添加 ${syncedCount} 条分镜`)
+  } finally {
+    episodeScriptSaving.value = false
+  }
 }
 
 function promptFor(shot: Shot) {
@@ -4978,6 +5177,7 @@ function preventBrowserContextMenu(event: MouseEvent) {
 }
 
 onMounted(() => {
+  window.addEventListener('keydown', handleContactSelectorEscape, true)
   window.addEventListener('keydown', handleShotNumberShortcut)
   document.addEventListener('contextmenu', preventBrowserContextMenu)
   document.addEventListener('pointerdown', handleTimingPopoverPointerDown)
@@ -4986,6 +5186,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleContactSelectorEscape, true)
   window.removeEventListener('keydown', handleShotNumberShortcut)
   document.removeEventListener('contextmenu', preventBrowserContextMenu)
   document.removeEventListener('pointerdown', handleTimingPopoverPointerDown)
@@ -5170,10 +5371,7 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
     expandedGroupIds.value = [myEpisodesTreeId]
   }
 
-  let importedCount = 0
-  const existingEpisodeSignatures = new Map(state.episodes.map((episode) => [episodeImportSignature(episode, state.episodeGroups), episode.id]))
-
-  batches.forEach((batch) => {
+  const preparedBatches = batches.map((batch) => {
     const importedGroups = normalizeImportedEpisodeGroups(
       batch.groups,
       batch.globalConfig ?? state.globalConfig,
@@ -5181,9 +5379,34 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
     )
     const groupIdMap = new Map(importedGroups.map((group) => [group.sourceId, group.group.id]))
     const importedEpisodes = batch.episodes.map((episode) => normalizeImportedEpisode(episode, groupIdMap))
+    return { batch, importedGroups, importedEpisodes }
+  })
+  // Compare contacts using the final group membership, before any imported value is cleared.
+  const mergedGroupIds = new Map<string, string>()
+  state.episodeGroups.forEach((group) => {
+    const key = JSON.stringify([group.title, group.archived])
+    if (!mergedGroupIds.has(key)) mergedGroupIds.set(key, group.id)
+  })
+  const contactEpisodes = state.episodes.map(({ id, groupId, title }) => ({ id, groupId, title }))
+  preparedBatches.forEach(({ importedGroups, importedEpisodes }) => {
+    const groupIdMap = new Map(importedGroups.map(({ group }) => {
+      const key = JSON.stringify([group.title, group.archived])
+      const targetId = importMode === 'merge' ? mergedGroupIds.get(key) ?? group.id : group.id
+      mergedGroupIds.set(key, targetId)
+      return [group.id, targetId]
+    }))
+    contactEpisodes.push(...importedEpisodes.map(({ id, groupId, title }) => ({
+      id, title, groupId: groupId ? groupIdMap.get(groupId) ?? groupId : null,
+    })))
+  })
+  const editableContactIds = contactEditableEpisodeIds(contactEpisodes)
+  let importedCount = 0
+  const existingEpisodeSignatures = new Map(state.episodes.map((episode) => [episodeImportSignature(episode, state.episodeGroups, editableContactIds), episode.id]))
+
+  preparedBatches.forEach(({ batch, importedGroups, importedEpisodes }) => {
     const episodeIdMap = new Map<string, string>()
     const episodesToImport = importedEpisodes.filter((episode, index) => {
-      const signature = episodeImportSignature(episode, importedGroups.map((item) => item.group))
+      const signature = episodeImportSignature(episode, importedGroups.map((item) => item.group), editableContactIds)
       const existingId = importMode === 'merge' ? existingEpisodeSignatures.get(signature) : undefined
       episodeIdMap.set(batch.episodes[index].id, existingId ?? episode.id)
       if (existingId) return false
@@ -5228,6 +5451,7 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
     selectEpisode(episode)
   }
 
+  clearInteriorEpisodeContacts(state.episodes)
   return importedCount
 }
 
@@ -5299,14 +5523,16 @@ function normalizeSceneAssets(scenes: unknown): SceneAsset[] {
   return normalized.filter((scene, index, list) => list.findIndex((item) => item.name === scene.name) === index)
 }
 
-function episodeComparableSignature(episode: Episode) {
+function episodeComparableSignature(episode: Episode, contactPerson: string) {
   return JSON.stringify({
     title: episode.title,
     characters: episode.characters,
+    contactPerson,
     scenes: episode.scenes,
     props: episode.props,
     productionData: episode.productionData,
     scriptText: episode.scriptText,
+    splitScriptText: episode.splitScriptText,
     shots: episode.shots.map((shot) => ({
       text: shot.text,
       remark: shot.remark,
@@ -5349,9 +5575,10 @@ function episodeComparableSignature(episode: Episode) {
   })
 }
 
-function episodeImportSignature(episode: Episode, groups: EpisodeGroup[]) {
+function episodeImportSignature(episode: Episode, groups: EpisodeGroup[], editableContactIds: Set<string>) {
   const group = groups.find((item) => item.id === episode.groupId)
-  return JSON.stringify([group?.title ?? null, group?.archived ?? false, episodeComparableSignature(episode)])
+  const contactPerson = editableContactIds.has(episode.id) ? episode.contactPerson : ''
+  return JSON.stringify([group?.title ?? null, group?.archived ?? false, episodeComparableSignature(episode, contactPerson)])
 }
 
 function normalizeImportedShotScene(scene: unknown, assets: SceneAsset[]): SceneConfig | null {
@@ -5485,10 +5712,12 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
     groupId,
     starred: Boolean(episode.starred),
     characters: normalizeCharacterAssets(episode.characters),
+    contactPerson: typeof episode.contactPerson === 'string' ? episode.contactPerson.trim() : '',
     scenes,
     props: [],
     productionData: normalizeEpisodeProductionData(episode.productionData),
     scriptText: typeof episode.scriptText === 'string' ? episode.scriptText : '',
+    splitScriptText: normalizeSplitScriptText(episode.splitScriptText, normalizedShots),
     shots: normalizedShots,
   }
 }

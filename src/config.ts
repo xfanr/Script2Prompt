@@ -1,6 +1,7 @@
 import { normalizeDialogueReplacementRules } from './dialogue'
 import { createId, createReviewNotePrefixOption, normalizeReviewNotePrefixOptions } from './defaults'
-import type { DialogueReplacementRule, GlobalConfig, PromptProfile, ReviewNotePrefixOption } from './types'
+import { mergeContactPersonOptions } from './episodeContacts'
+import type { ContactPersonOption, DialogueReplacementRule, GlobalConfig, PromptProfile, ReviewNotePrefixOption } from './types'
 
 const RUNTIME_CONFIG_SCHEMA_VERSION = 1
 const RUNTIME_CONFIG_CACHE_KEY = 'script2prompt.runtimeDefaultConfig.v1'
@@ -53,6 +54,7 @@ export function normalizeGlobalConfig(value: unknown): GlobalConfig | null {
   const durationRange = normalizeDurationRange(value.dataCollection.recommendedDurationRange)
   const defaultPointCost = value.dataCollection.defaultPointCost
   const reviewNotePrefixOptions = normalizeReviewOptions(value.dataCollection.reviewNotePrefixOptions)
+  const contactPersonOptions = normalizeContactOptions(value.dataCollection.contactPersonOptions)
   const replacementRules = normalizeDialogueRules(value.dialogueExtraction.replacementRules)
 
   if (
@@ -61,6 +63,7 @@ export function normalizeGlobalConfig(value: unknown): GlobalConfig | null {
     || !Number.isFinite(defaultPointCost)
     || defaultPointCost < 0
     || !reviewNotePrefixOptions
+    || !contactPersonOptions
     || !replacementRules
   ) {
     return null
@@ -72,6 +75,7 @@ export function normalizeGlobalConfig(value: unknown): GlobalConfig | null {
       recommendedDurationRange: durationRange,
       defaultPointCost: Number(defaultPointCost.toFixed(4)),
       reviewNotePrefixOptions,
+      contactPersonOptions,
     },
     dialogueExtraction: {
       replacementRules,
@@ -182,6 +186,7 @@ export function migrateLegacyGlobalConfig(
       },
       defaultPointCost: Math.max(0, Number(defaultPointCost.toFixed(4))),
       reviewNotePrefixOptions: reviewOptions,
+      contactPersonOptions: cloneGlobalConfig(fallback).dataCollection.contactPersonOptions,
     },
     dialogueExtraction: {
       replacementRules: dialogueRules,
@@ -192,6 +197,10 @@ export function migrateLegacyGlobalConfig(
 export function mergeGlobalConfigs(current: GlobalConfig, imported: GlobalConfig): GlobalConfig {
   const result = cloneGlobalConfig(current)
 
+  result.dataCollection.contactPersonOptions = mergeContactPersonOptions(
+    result.dataCollection.contactPersonOptions,
+    imported.dataCollection.contactPersonOptions,
+  )
   result.dataCollection.reviewNotePrefixOptions = normalizeReviewNotePrefixOptions([
     ...result.dataCollection.reviewNotePrefixOptions,
     ...imported.dataCollection.reviewNotePrefixOptions,
@@ -362,6 +371,21 @@ function normalizeReviewOptions(value: unknown): ReviewNotePrefixOption[] | null
   const ids = new Set(options.map((option) => option.id))
   const paths = new Set(options.map((option) => `${option.category}→${option.label}`))
   return ids.size === options.length && paths.size === options.length ? options : null
+}
+
+function normalizeContactOptions(value: unknown): ContactPersonOption[] | null {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) return null
+  const options: ContactPersonOption[] = []
+  for (const item of value) {
+    if (!isRecord(item)) return null
+    const id = normalizedRequiredString(item.id)
+    const label = normalizedRequiredString(item.label)
+    if (!id || !label) return null
+    options.push({ id, label })
+  }
+  return new Set(options.map((option) => option.id)).size === options.length
+    && new Set(options.map((option) => option.label)).size === options.length ? options : null
 }
 
 function normalizeDialogueRules(value: unknown): DialogueReplacementRule[] | null {

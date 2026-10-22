@@ -47,6 +47,7 @@
       "max": 15
     },
     "defaultPointCost": 0,
+    "contactPersonOptions": [],
     "reviewNotePrefixOptions": [
       {
         "id": "review-model-scene",

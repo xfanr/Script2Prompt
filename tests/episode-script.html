@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>Independent episode script storage tests</title>
+<pre id="results">Running…</pre>
+<script type="module">
+  import { runEpisodeScriptTests } from './episode-script.ts'
+  window.testResults = await runEpisodeScriptTests()
+  document.querySelector('#results').textContent = JSON.stringify(window.testResults, null, 2)
+</script>
+</html>

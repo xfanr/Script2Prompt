@@ -1,4 +1,4 @@
-import type { AppState, CharacterAsset, CharacterConfig, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, ReviewNotePrefixOption, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
+import type { AppState, CharacterAsset, CharacterConfig, ContactPersonOption, DialogueReplacementRule, Episode, EpisodeGroup, EpisodeProductionData, GlobalConfig, PromptReview, ReviewNotePrefixOption, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot } from './types'
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
 export const APP_VERSION = 12
@@ -82,6 +82,10 @@ export function createReviewNotePrefixOption(category = '', label = ''): ReviewN
     category,
     label,
   }
+}
+
+export function createContactPersonOption(label = ''): ContactPersonOption {
+  return { id: createId('contact-person'), label }
 }
 
 export function normalizeReviewNotePrefixOptions(options: unknown): ReviewNotePrefixOption[] {
@@ -195,10 +199,12 @@ export function createEpisode(index = 1, pointCost = 0): Episode {
     characters: [],
     groupId: null,
     starred: false,
+    contactPerson: '',
     scenes: [],
     props: [],
     productionData: createEpisodeProductionData(pointCost),
     scriptText: '',
+    splitScriptText: null,
     shots: [createShot()],
   }
 }

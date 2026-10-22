@@ -78,6 +78,21 @@
             <el-form-item>
               <div class="dialogue-rule-config">
                 <div class="dialogue-rule-heading">
+                  <span>对接人选项</span>
+                  <el-button :icon="Plus" text type="primary" @click="addContactPersonOption">添加对接人</el-button>
+                </div>
+                <div v-if="!draft.dataCollection.contactPersonOptions.length" class="empty-note">暂无对接人选项</div>
+                <div v-else class="dialogue-rule-list">
+                  <div v-for="option in draft.dataCollection.contactPersonOptions" :key="option.id" class="contact-person-option-row">
+                    <el-input v-model="option.label" placeholder="输入对接人名称" aria-label="对接人名称" clearable />
+                    <el-button :icon="Delete" text type="danger" aria-label="删除对接人选项" @click="removeContactPersonOption(option.id)" />
+                  </div>
+                </div>
+              </div>
+            </el-form-item>
+            <el-form-item>
+              <div class="dialogue-rule-config">
+                <div class="dialogue-rule-heading">
                   <span>评分备注前缀</span>
                   <el-button :icon="Plus" text type="primary" @click="addReviewNotePrefixOption">添加选项</el-button>
                 </div>
@@ -138,7 +153,7 @@ import { computed, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { Delete, Plus } from '@element-plus/icons-vue'
 import { cloneGlobalConfig, loadRuntimeDefaultConfig, normalizeGlobalConfig } from '../config'
-import { createDialogueReplacementRule, createReviewNotePrefixOption } from '../defaults'
+import { createContactPersonOption, createDialogueReplacementRule, createReviewNotePrefixOption } from '../defaults'
 import type { GlobalConfig } from '../types'
 import { notify } from '../notification'
 import { normalizeWebDavSettings, type WebDavAction, type WebDavSettings } from '../webdav'
@@ -223,6 +238,14 @@ function addReviewNotePrefixOption() {
   draft.value.dataCollection.reviewNotePrefixOptions.push(createReviewNotePrefixOption())
 }
 
+function addContactPersonOption() {
+  draft.value.dataCollection.contactPersonOptions.push(createContactPersonOption())
+}
+
+function removeContactPersonOption(id: string) {
+  draft.value.dataCollection.contactPersonOptions = draft.value.dataCollection.contactPersonOptions.filter((option) => option.id !== id)
+}
+
 function removeReviewNotePrefixOption(id: string) {
   draft.value.dataCollection.reviewNotePrefixOptions = draft.value.dataCollection.reviewNotePrefixOptions.filter((option) => option.id !== id)
 }
@@ -289,6 +312,19 @@ function validatedWebDavSettings() {
 }
 
 function validateDraft() {
+  const contacts = draft.value.dataCollection.contactPersonOptions
+  contacts.forEach((option) => { option.label = option.label.trim() })
+  if (contacts.some((option) => !option.label)) {
+    notify.warning('对接人名称不能为空')
+    activeTab.value = 'data'
+    return null
+  }
+  if (new Set(contacts.map((option) => option.label)).size !== contacts.length) {
+    notify.warning('对接人名称不能重复')
+    activeTab.value = 'data'
+    return null
+  }
+
   const rules = draft.value.dialogueExtraction.replacementRules
   rules.forEach((rule) => {
     rule.forbidden = rule.forbidden.trim()
