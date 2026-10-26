@@ -1,4 +1,4 @@
-import { normalizeGlobalConfig } from './config'
+import { cloneGlobalConfig, normalizeGlobalConfig } from './config'
 import { APP_VERSION } from './defaults'
 import { normalizeAppState } from './stateNormalization'
 import { normalizePointInvoices } from './pointLedger'
@@ -72,6 +72,7 @@ export function parseDataFile(text: string, path: string): DataFile {
         || typeof episode.title !== 'string' || episode.groupId !== (group?.id ?? null)
         || (episode.splitScriptText != null && typeof episode.splitScriptText !== 'string')
         || (episode.contactPerson !== undefined && typeof episode.contactPerson !== 'string')
+        || (episode.splitEpisodeNumber != null && (!Number.isSafeInteger(episode.splitEpisodeNumber) || episode.splitEpisodeNumber < 1))
         || !Array.isArray(episode.shots) || !Array.isArray(episode.characters)
         || episode.characters.some((character: unknown) => typeof character !== 'string' && (
           !object(character)
@@ -120,7 +121,15 @@ export function assembleDataFiles(files: Map<string, DataFile>, ui: Pick<AppStat
 export function mergeDownloadedFiles(local: AppState, downloaded: Map<string, DataFile>) {
   // Keeping the local-only files also preserves their profile slots when settings change.
   const files = buildDataFiles(local)
-  for (const [path, file] of downloaded) files.set(path, file)
+  for (const [path, file] of downloaded) {
+    if (file.kind === 'settings' && file.globalConfig.dataCollection.contactPersonOptions === undefined) {
+      const globalConfig = cloneGlobalConfig(file.globalConfig)
+      globalConfig.dataCollection.contactPersonOptions = local.globalConfig.dataCollection.contactPersonOptions.map((option) => ({ ...option }))
+      files.set(path, { ...file, globalConfig })
+    } else {
+      files.set(path, file)
+    }
+  }
   return assembleDataFiles(files, local)
 }
 

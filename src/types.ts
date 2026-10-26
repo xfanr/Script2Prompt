@@ -210,6 +210,7 @@ export interface Episode {
   starred: boolean
   characters: CharacterAsset[]
   contactPerson: string
+  splitEpisodeNumber: number | null
   scenes: SceneAsset[]
   props: string[]
   productionData: EpisodeProductionData

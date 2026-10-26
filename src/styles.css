@@ -596,6 +596,35 @@ html.dark .episode-panel {
   line-height: 24px;
 }
 
+.group-preview-range {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.group-preview-range + .group-preview-range {
+  margin-top: 8px;
+}
+
+.group-preview-originals {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-around;
+}
+
+.group-preview-originals .group-preview-episode {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-preview-splits {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
 .episode-more-button.el-button {
   visibility: hidden;
   margin-left: auto;
@@ -2440,6 +2469,26 @@ html.dark .episode-panel {
   white-space: nowrap;
 }
 
+.group-summary-dialog .group-summary-table .cell {
+  padding: 0 8px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.episode-split-number-link.el-link {
+  max-width: 100%;
+  line-height: inherit;
+  vertical-align: middle;
+}
+
+.episode-split-number-popover.el-popover.el-popper {
+  min-width: 0;
+}
+
+.episode-split-number-popover .el-input-number {
+  width: 100%;
+}
+
 .group-summary-dialog .el-table .group-summary-total-row td.el-table__cell {
   color: var(--el-text-color-primary);
   font-weight: 900;
@@ -2594,6 +2643,22 @@ html.dark .episode-panel {
 
 .point-invoice-actions .el-button + .el-button {
   margin-left: 0;
+}
+
+.episode-contact-dropdown,
+.episode-contact-link.el-link {
+  max-width: 100%;
+}
+
+.episode-contact-dropdown.el-dropdown {
+  align-items: center;
+  line-height: inherit;
+  vertical-align: middle;
+}
+
+.episode-contact-link .el-link__inner {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .point-episode-trigger.el-button {
@@ -2791,7 +2856,7 @@ html.dark .episode-panel {
   gap: 8px;
 }
 
-.contact-person-select-dropdown .el-select-dropdown__empty {
+.contact-person-dropdown .contact-person-empty {
   padding: 0 10px;
 }
 
@@ -3038,23 +3103,17 @@ html.dark .episode-panel {
 
 .episode-script-panel-title.has-inline-action {
   justify-content: flex-start;
-  gap: 8px;
+  gap: 18px;
 }
 
 .episode-script-panel-title.has-inline-action > span,
-.episode-script-panel-title.has-inline-action > .el-button,
+.episode-script-panel-title.has-inline-action > .el-link,
 .episode-script-panel-title.has-inline-action > .el-dropdown,
-.episode-script-panel-title.has-inline-action > .el-dropdown .el-button {
+.episode-script-panel-title.has-inline-action > .el-dropdown .el-link {
   display: inline-flex;
   height: 24px;
   align-items: center;
   line-height: 24px;
-}
-
-.episode-script-panel-title.has-inline-action > .el-button,
-.episode-script-panel-title.has-inline-action > .el-dropdown .el-button {
-  padding-top: 0;
-  padding-bottom: 0;
 }
 
 .episode-script-source-input,

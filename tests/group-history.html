@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>Historical drama classification regression tests</title>
+<pre id="results">Running…</pre>
+<script type="module">
+  import { runGroupHistoryTests } from './group-history.ts'
+  window.testResults = await runGroupHistoryTests()
+  document.querySelector('#results').textContent = JSON.stringify(window.testResults, null, 2)
+</script>
+</html>

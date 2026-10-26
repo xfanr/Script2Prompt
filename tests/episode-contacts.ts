@@ -1,6 +1,6 @@
 import { mergeGlobalConfigs, migrateLegacyGlobalConfig, normalizeGlobalConfig } from '../src/config'
 import { createEpisode, createEpisodeGroup, createInitialState } from '../src/defaults'
-import { assembleDataFiles, buildDataFiles, parseDataFile } from '../src/dataFiles'
+import { assembleDataFiles, buildDataFiles, mergeDownloadedFiles, parseDataFile } from '../src/dataFiles'
 import { clearInteriorEpisodeContacts, contactEditableEpisodeIds, mergeContactPersonOptions, renameEpisodeContacts } from '../src/episodeContacts'
 import { normalizeAppState } from '../src/stateNormalization'
 import { LocalRepository } from '../src/storage'
@@ -153,6 +153,42 @@ export async function runEpisodeContactTests() {
       const loaded = await repository.load(config)
       assert(loaded.episodes.map((episode) => episode.contactPerson).join('/') === '张三//张三', 'IndexedDB contact normalization failed')
     } finally { repository.close() }
+  })
+  await test('Downloading older WebDAV settings preserves local contact options without changing the remote snapshot', async () => {
+    const repository = new LocalRepository(new MemoryStorage(), testDatabaseName())
+    try {
+      const local = createInitialState(config)
+      local.globalConfig.dataCollection.contactPersonOptions = [{ id: 'local-contact', label: '张三' }]
+      const cloud = createInitialState(config)
+      cloud.globalConfig.dataCollection.defaultPointCost = 0.25
+      delete (cloud.globalConfig.dataCollection as Partial<typeof cloud.globalConfig.dataCollection>).contactPersonOptions
+      const dav = new MockDav()
+      dav.collections.add('groups/')
+      buildDataFiles(cloud).forEach((file, path) => dav.set(path, JSON.stringify(file)))
+      const downloaded = await downloadDataFiles(dav.client())
+      const before = JSON.stringify([...downloaded.files])
+      const merged = mergeDownloadedFiles(local, downloaded.files)
+      assert(merged.globalConfig.dataCollection.contactPersonOptions[0].id === 'local-contact', 'missing cloud field cleared the local list')
+      assert(merged.globalConfig.dataCollection.defaultPointCost === 0.25, 'other downloaded settings not applied')
+      assert(JSON.stringify([...downloaded.files]) === before, 'compatibility changed the downloaded snapshot')
+      await repository.save(merged)
+      const loaded = await repository.load(config)
+      assert(loaded.globalConfig.dataCollection.contactPersonOptions[0].label === '张三', 'preserved options lost after reload')
+      assert(local.globalConfig.dataCollection.defaultPointCost === config.dataCollection.defaultPointCost, 'merge mutated local settings')
+    } finally { repository.close() }
+  })
+  await test('Explicit cloud contact options replace local options, including an intentionally empty list', () => {
+    const local = createInitialState(config)
+    local.globalConfig.dataCollection.contactPersonOptions = [{ id: 'local-contact', label: '张三' }]
+    local.episodes[0].contactPerson = '张三'
+    const cloud = clone(local)
+    cloud.globalConfig.dataCollection.contactPersonOptions = [{ id: 'cloud-contact', label: '李四' }]
+    const merged = mergeDownloadedFiles(local, buildDataFiles(cloud))
+    assert(merged.globalConfig.dataCollection.contactPersonOptions.length === 1 && merged.globalConfig.dataCollection.contactPersonOptions[0].label === '李四', 'explicit cloud list not used')
+    cloud.globalConfig.dataCollection.contactPersonOptions = []
+    const cleared = mergeDownloadedFiles(local, buildDataFiles(cloud))
+    assert(cleared.globalConfig.dataCollection.contactPersonOptions.length === 0, 'explicit empty cloud list ignored')
+    assert(cleared.episodes[0].contactPerson === '张三', 'historical contact erased when the list was cleared')
   })
   await test('WebDAV roundtrip preserves configured and historical contact names', async () => {
     const repository = new LocalRepository(new MemoryStorage(), testDatabaseName())

@@ -149,7 +149,7 @@
                         </div>
                       </div>
 
-                      <section v-for="group in sortedEpisodeGroups" :key="group.id" class="episode-group-block">
+                      <section v-for="group in episodeTreeGroups" :key="group.id" class="episode-group-block">
                         <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @contextmenu.prevent.stop="openRowMoreMenu($event, '.group-more-button')" @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
                           <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
                           <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
@@ -166,12 +166,7 @@
                                 <template #reference>
                                   <el-button class="sidebar-row-action-button" :icon="View" text size="small" aria-label="查看剧集信息" />
                                 </template>
-                                <el-scrollbar max-height="320px">
-                                  <div v-for="episode in episodesForGroup(group.id)" :key="episode.id" class="group-preview-episode">
-                                    {{ formatEpisodeSummaryNumber(episode) }}{{ episode.contactPerson ? ` · ${episode.contactPerson}` : '' }}
-                                  </div>
-                                  <div v-if="isGroupEmpty(group.id)" class="empty-note">暂无分集</div>
-                                </el-scrollbar>
+                                <EpisodeGroupPreview :episodes="episodesForGroup(group.id)" />
                               </el-popover>
                               <el-dropdown trigger="click" @command="(count) => addEpisodeToGroup(group.id, count)">
                                 <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="新建单集" />
@@ -223,13 +218,13 @@
                     </div>
                   </section>
 
-                  <section class="episode-group-block archive-group-block root-group-block">
-                    <div class="episode-group-row archive-group-row root-group-row" :class="{ empty: isGroupEmpty(archivedTreeId) }" role="button" tabindex="0" @contextmenu.prevent.stop @click="toggleArchivedGroupsIfNotEmpty" @keyup.enter="toggleArchivedGroupsIfNotEmpty">
-                      <span class="root-group-title">已归档</span>
-                      <el-icon class="root-group-caret" :class="{ expanded: isGroupExpanded(archivedTreeId) }"><ArrowRight /></el-icon>
+                  <section v-for="section in archivedSections" :key="section.id" class="episode-group-block archive-group-block root-group-block">
+                    <div class="episode-group-row archive-group-row root-group-row" :class="{ empty: isGroupEmpty(section.id) }" role="button" tabindex="0" @contextmenu.prevent.stop @click="toggleGroupIfNotEmpty(section.id)" @keyup.enter="toggleGroupIfNotEmpty(section.id)">
+                      <span class="root-group-title">{{ section.title }}</span>
+                      <el-icon class="root-group-caret" :class="{ expanded: isGroupExpanded(section.id) }"><ArrowRight /></el-icon>
                     </div>
-                    <div v-if="!isGroupEmpty(archivedTreeId) && isGroupExpanded(archivedTreeId)" class="episode-children archived-group-children">
-                      <section v-for="group in sortedArchivedEpisodeGroups" :key="group.id" class="episode-group-block archived-nested-group">
+                    <div v-if="!isGroupEmpty(section.id) && isGroupExpanded(section.id)" class="episode-children archived-group-children">
+                      <section v-for="group in section.groups" :key="group.id" class="episode-group-block archived-nested-group">
                         <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @contextmenu.prevent.stop="openRowMoreMenu($event, '.group-more-button')" @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
                           <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
                           <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
@@ -246,12 +241,7 @@
                                 <template #reference>
                                   <el-button class="sidebar-row-action-button" :icon="View" text size="small" aria-label="查看剧集信息" />
                                 </template>
-                                <el-scrollbar max-height="320px">
-                                  <div v-for="episode in episodesForGroup(group.id)" :key="episode.id" class="group-preview-episode">
-                                    {{ formatEpisodeSummaryNumber(episode) }}{{ episode.contactPerson ? ` · ${episode.contactPerson}` : '' }}
-                                  </div>
-                                  <div v-if="isGroupEmpty(group.id)" class="empty-note">暂无分集</div>
-                                </el-scrollbar>
+                                <EpisodeGroupPreview :episodes="episodesForGroup(group.id)" />
                               </el-popover>
                               <el-dropdown trigger="click" @command="(command) => handleGroupCommand(command, group.id)">
                                 <el-button class="group-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多已归档剧集操作" />
@@ -1016,42 +1006,47 @@
             </div>
           </section>
         </div>
-        <el-table :data="groupSummaryTableRows" max-height="430" empty-text="暂无单集" scrollbar-always-on :row-class-name="groupSummaryRowClass">
-          <el-table-column prop="title" label="单集" min-width="100" fixed="left" show-overflow-tooltip />
-          <el-table-column label="对接人" min-width="100">
+        <el-table :ref="setGroupSummaryTableRef" class="group-summary-table" :data="groupSummaryTableRows" max-height="430" empty-text="暂无单集" :row-class-name="groupSummaryRowClass">
+          <el-table-column prop="title" label="单集" :min-width="1" show-overflow-tooltip />
+          <el-table-column label="拆分集数" :min-width="1">
             <template #default="{ row }">
-              <template v-if="!row.isSummary && contactEditableIds.has(row.episode.id)">
-                <el-select
-                  v-if="activeContactEpisodeId === row.episode.id"
-                  ref="contactPersonSelector"
-                  :model-value="row.episode.contactPerson"
-                  :value-on-clear="''"
-                  :aria-label="`${row.title}对接人`"
-                  placeholder="未选择"
-                  no-data-text="请先在全局设置中添加数据"
-                  popper-class="contact-person-select-dropdown"
-                  clearable
-                  @update:model-value="selectEpisodeContactPerson(row.episode, $event)"
-                  @visible-change="handleContactSelectorVisibleChange"
-                  @blur="activeContactEpisodeId = null"
-                >
-                  <el-option v-if="isHistoricalContactPerson(row.episode)" :label="row.episode.contactPerson" :value="row.episode.contactPerson" disabled />
-                  <el-option v-for="option in state.globalConfig.dataCollection.contactPersonOptions" :key="option.id" :label="option.label" :value="option.label" />
-                </el-select>
-                <el-button v-else class="point-episode-trigger" text :class="{ 'is-placeholder': !row.episode.contactPerson }" :title="row.episode.contactPerson || '未选择'" :aria-label="`${row.title}对接人`" @click="openContactPersonSelector(row.episode)">
-                  <span class="point-episode-selection">{{ row.episode.contactPerson || '未选择' }}</span>
-                </el-button>
-              </template>
+              <EpisodeSplitNumberCell v-if="!row.isSummary && contactEditableIds.has(row.episode.id)" v-model="row.episode.splitEpisodeNumber" :label="`${row.title}拆分集数`" />
               <span v-else>-</span>
             </template>
           </el-table-column>
-          <el-table-column prop="totalCost" label="总成本" min-width="100" />
-          <el-table-column prop="averageText" label="平均分" min-width="100" />
-          <el-table-column label="分镜/抽卡" min-width="100">
+          <el-table-column label="对接人" :min-width="1">
+            <template #default="{ row }">
+              <el-dropdown
+                v-if="!row.isSummary && contactEditableIds.has(row.episode.id)"
+                :ref="(dropdown) => setContactPersonDropdownRef(row.episode.id, dropdown)"
+                class="episode-contact-dropdown"
+                trigger="click"
+                popper-class="contact-person-dropdown"
+                @command="selectEpisodeContactPerson(row.episode, $event)"
+                @visible-change="handleContactDropdownVisibleChange(row.episode.id, $event)"
+              >
+                <el-link class="episode-contact-link" type="primary" underline="never" :title="row.episode.contactPerson || '未选择'" :aria-label="`${row.title}对接人`">
+                  <span class="point-episode-selection">{{ row.episode.contactPerson || '未选择' }}</span>
+                </el-link>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="isHistoricalContactPerson(row.episode)" disabled>{{ row.episode.contactPerson }}</el-dropdown-item>
+                    <el-dropdown-item v-for="option in state.globalConfig.dataCollection.contactPersonOptions" :key="option.id" :command="option.label">{{ option.label }}</el-dropdown-item>
+                    <el-dropdown-item v-if="!state.globalConfig.dataCollection.contactPersonOptions.length" class="contact-person-empty" disabled>请先在全局设置中添加数据</el-dropdown-item>
+                    <el-dropdown-item v-if="row.episode.contactPerson" command="" divided>清空</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="totalCost" label="总成本" :min-width="1" />
+          <el-table-column v-if="showGroupSummaryAverage" prop="averageText" label="平均分" :min-width="1" />
+          <el-table-column label="分镜/抽卡" :min-width="1">
             <template #default="{ row }">{{ row.total }}/{{ row.drawTotal }}</template>
           </el-table-column>
-          <el-table-column prop="averageDrawRate" label="抽卡成功率" min-width="100" />
-          <el-table-column label="操作" min-width="100" fixed="right" align="center" header-align="center">
+          <el-table-column prop="averageDrawRate" label="抽卡成功率" :min-width="1" />
+          <el-table-column label="操作" :min-width="1" align="center" header-align="center">
             <template #default="{ row }">
               <el-link v-if="!row.isSummary" type="primary" href="#" @click.prevent="openReviewSummary(row.episode)">查看</el-link>
             </template>
@@ -1070,7 +1065,7 @@
               <div class="episode-script-source-panel">
                 <div class="episode-script-panel-title has-inline-action">
                   <span>原始剧本</span>
-                  <el-button text type="primary" :disabled="episodeScriptSaving" @click="organizeEpisodeScriptDraft">整理</el-button>
+                  <el-link type="primary" underline="never" href="#" :disabled="episodeScriptSaving" @click.prevent="organizeEpisodeScriptDraft">整理</el-link>
                 </div>
                 <el-input
                   v-model="episodeScriptDraft"
@@ -1087,7 +1082,7 @@
                 <div class="episode-script-panel-title has-inline-action">
                   <span>素材配置</span>
                   <el-dropdown trigger="click" @command="cloneEpisodeMaterials">
-                    <el-button text type="primary" :disabled="episodeScriptSaving">克隆</el-button>
+                    <el-link type="primary" underline="never" :disabled="episodeScriptSaving">克隆</el-link>
                     <template #dropdown>
                       <el-dropdown-menu>
                         <el-dropdown-item v-for="episode in materialCloneSourceEpisodes" :key="episode.id" :command="episode.id">
@@ -1185,10 +1180,10 @@
               <div class="episode-script-source-panel">
                 <div class="episode-script-panel-title has-inline-action">
                   <span>拆分剧本</span>
-                  <el-button text type="primary" :disabled="episodeScriptSaving" @click="organizeEpisodeScriptDraft">整理</el-button>
+                  <el-link type="primary" underline="never" href="#" :disabled="episodeScriptSaving" @click.prevent="organizeEpisodeScriptDraft">整理</el-link>
                   <el-popconfirm title="将使用已保存的原始剧本重置拆分剧本。确认重置？" @confirm="resetSplitScript">
                     <template #reference>
-                      <el-button text type="primary" :disabled="episodeScriptSaving">重置</el-button>
+                      <el-link type="primary" underline="never" :disabled="episodeScriptSaving">重置</el-link>
                     </template>
                   </el-popconfirm>
                 </div>
@@ -1412,14 +1407,18 @@ import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import PointLedgerDialog from './components/PointLedgerDialog.vue'
 import GroupPlayMedal from './components/GroupPlayMedal.vue'
+import EpisodeGroupPreview from './components/EpisodeGroupPreview.vue'
+import EpisodeSplitNumberCell from './components/EpisodeSplitNumberCell.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
-import { ElMessageBox, type SelectInstance } from 'element-plus'
+import { ElMessageBox, type DropdownInstance } from 'element-plus'
 import { ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, VideoCamera, VideoPlay, View, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { normalizeSplitScriptText } from './episodeScript'
 import { clearInteriorEpisodeContacts, contactEditableEpisodeIds, renameEpisodeContacts } from './episodeContacts'
+import { clearInteriorSplitEpisodeNumbers, normalizeSplitEpisodeNumber } from './episodeSplits'
 import { effectiveProductionData, mergePointInvoices, normalizePointInvoices, remapPointInvoices } from './pointLedger'
 import { normalizeGroupResults, pendingGroupResults } from './groupResults'
+import { isHistoricalEpisodeGroup, latestGroupProductionDate as groupProductionDate } from './groupHistory'
 import type { PointInvoice } from './types'
 import {
   createCharacterConfig,
@@ -1440,10 +1439,10 @@ import {
   buildDetectedCharacters,
   composeCharacterSettings,
   composePrompt,
+  composeShotDetail,
   countNonPunctuationCharacters,
   detectCharacters,
   findPhoneVoiceMatches,
-  formatShotDetailText,
   mergeDetectedCharacters,
   normalizeCharacterNameForMatch,
 } from './prompt'
@@ -1595,6 +1594,7 @@ const dialogueOriginalDraft = ref('')
 const dialogueReplacedDraft = ref('')
 const selectedEpisodeGroupId = ref<string | null>(activeEpisode.value?.groupId ?? null)
 const pendingEpisode = ref<Episode | null>(null)
+const pendingEpisodeGroup = ref<EpisodeGroup | null>(null)
 const editingEpisodeId = ref<string | null>(null)
 const editingEpisodeOriginalTitle = ref('')
 const editingEpisodeNumber = ref('')
@@ -1659,7 +1659,10 @@ const reviewOpenedFromSummary = ref(false)
 const reviewSummaryEpisodeId = ref<string | null>(null)
 const activeGroupSummaryId = ref<string | null>(null)
 const activeContactEpisodeId = ref<string | null>(null)
-const contactPersonSelector = ref<SelectInstance | null>(null)
+const contactPersonDropdowns = new Map<string, DropdownInstance>()
+const showGroupSummaryAverage = ref(false)
+let groupSummaryTableElement: HTMLElement | null = null
+let groupSummaryTableObserver: ResizeObserver | null = null
 const reviewDraft = ref<PromptReview>(createPromptReview())
 const reviewDrawCountMode = ref<ReviewDrawCountMode>('')
 const reviewCustomDrawCount = ref<number | undefined>()
@@ -1686,6 +1689,9 @@ const splitScriptDraft = ref('')
 const episodeScriptSaving = ref(false)
 const weeklyReportWeek = ref<Date | string | null>(null)
 const archivedTreeId = 'archived'
+const historicalTreeId = 'historical'
+const historyToday = ref(new Date())
+let historyDateTimer: number | undefined
 const reviewRateTexts = ['拉完了', 'NPC', '人上人', '顶级', '夯']
 const reviewNoteCascaderProps = { expandTrigger: 'hover' as const }
 const isTodayMonday = new Date().getDay() === 1
@@ -1700,12 +1706,20 @@ const shotConnectionMarks = {
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
 const isEpisodeShotUpdateMode = computed(() => Boolean(activeEpisode.value && hasExistingShotConfiguration(activeEpisode.value)))
 const sortedEpisodeGroups = computed(() => state.episodeGroups.filter((group) => !group.archived).sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
+const episodeTreeGroups = computed(() => pendingEpisodeGroup.value ? [...sortedEpisodeGroups.value, pendingEpisodeGroup.value] : sortedEpisodeGroups.value)
 const sortedArchivedEpisodeGroups = computed(() => state.episodeGroups
   .filter((group) => group.archived)
   .sort((a, b) => {
     const dateDiff = latestGroupProductionDate(b.id).localeCompare(latestGroupProductionDate(a.id))
     return dateDiff || state.episodeGroups.indexOf(a) - state.episodeGroups.indexOf(b)
   }))
+const historicalGroupIds = computed(() => new Set(sortedArchivedEpisodeGroups.value
+  .filter((group) => isHistoricalEpisodeGroup(group, latestGroupProductionDate(group.id), historyToday.value))
+  .map((group) => group.id)))
+const archivedSections = computed(() => [
+  { id: archivedTreeId, title: '已归档', groups: sortedArchivedEpisodeGroups.value.filter((group) => !historicalGroupIds.value.has(group.id)) },
+  { id: historicalTreeId, title: '历史项目', groups: sortedArchivedEpisodeGroups.value.filter((group) => historicalGroupIds.value.has(group.id)) },
+])
 const sortedUngroupedEpisodes = computed(() => sortEpisodesForDisplay(state.episodes.filter((episode) => !episode.groupId)))
 const activeGroupEpisodes = computed(() => activeEpisode.value
   ? sortEpisodesForDisplay(state.episodes.filter((episode) => episode.groupId === activeEpisode.value?.groupId))
@@ -1893,6 +1907,18 @@ function groupSummaryRowClass({ row }: { row: { isSummary?: boolean } }) {
   return row.isSummary ? 'group-summary-total-row' : ''
 }
 
+function setGroupSummaryTableRef(table: unknown) {
+  const element = (table as { $el?: HTMLElement } | null)?.$el ?? null
+  if (element === groupSummaryTableElement) return
+  groupSummaryTableObserver?.disconnect()
+  groupSummaryTableElement = element
+  if (!element) return
+  const update = () => { showGroupSummaryAverage.value = element.clientWidth >= 800 }
+  update()
+  groupSummaryTableObserver = new ResizeObserver(update)
+  groupSummaryTableObserver.observe(element)
+}
+
 function summarizeShots(shots: Shot[]) {
   const ratedShots = shots.filter((shot) => shot.review.rating > 0)
   const ratingTotal = ratedShots.reduce((total, shot) => total + shot.review.rating, 0)
@@ -1996,12 +2022,9 @@ function saveGlobalConfig(config: GlobalConfig) {
   state.globalConfig = nextConfig
 }
 
-async function openContactPersonSelector(episode: Episode) {
-  if (!contactEditableIds.value.has(episode.id)) return
-  activeContactEpisodeId.value = episode.id
-  await nextTick()
-  contactPersonSelector.value?.focus()
-  contactPersonSelector.value?.toggleMenu()
+function setContactPersonDropdownRef(id: string, dropdown: unknown) {
+  if (dropdown) contactPersonDropdowns.set(id, dropdown as DropdownInstance)
+  else contactPersonDropdowns.delete(id)
 }
 
 function selectEpisodeContactPerson(episode: Episode, value: unknown) {
@@ -2015,15 +2038,21 @@ function isHistoricalContactPerson(episode: Episode) {
   return episode.contactPerson && !state.globalConfig.dataCollection.contactPersonOptions.some((option) => option.label === episode.contactPerson)
 }
 
-function handleContactSelectorVisibleChange(visible: boolean) {
-  if (!visible) activeContactEpisodeId.value = null
+function handleContactDropdownVisibleChange(id: string, visible: boolean) {
+  if (visible) activeContactEpisodeId.value = id
+  else if (activeContactEpisodeId.value === id) activeContactEpisodeId.value = null
 }
 
-function handleContactSelectorEscape(event: KeyboardEvent) {
+function closeContactPersonDropdown() {
+  if (activeContactEpisodeId.value) contactPersonDropdowns.get(activeContactEpisodeId.value)?.handleClose()
+  activeContactEpisodeId.value = null
+}
+
+function handleContactDropdownEscape(event: KeyboardEvent) {
   if (event.key !== 'Escape' || !activeContactEpisodeId.value) return
   event.preventDefault()
   event.stopImmediatePropagation()
-  activeContactEpisodeId.value = null
+  closeContactPersonDropdown()
 }
 
 function openPointLedger() {
@@ -2227,9 +2256,8 @@ function toggleGroup(id: string) {
 }
 
 function groupEpisodeCount(id: string) {
-  if (id === archivedTreeId) {
-    return sortedArchivedEpisodeGroups.value.length
-  }
+  const section = archivedSections.value.find((section) => section.id === id)
+  if (section) return section.groups.length
 
   return id === 'ungrouped' ? sortedUngroupedEpisodes.value.length : episodesForGroup(id).length
 }
@@ -2239,7 +2267,7 @@ function isGroupEmpty(id: string) {
     return false
   }
 
-  if (id === archivedTreeId || !pendingEpisode.value) {
+  if (id === archivedTreeId || id === historicalTreeId || !pendingEpisode.value) {
     return true
   }
 
@@ -2299,8 +2327,9 @@ function selectGroupAndToggleIfNotEmpty(id: string) {
   toggleGroupIfNotEmpty(id)
 }
 
-function toggleArchivedGroupsIfNotEmpty() {
-  toggleGroupIfNotEmpty(archivedTreeId)
+function groupTreeRootId(group: EpisodeGroup) {
+  if (!group.archived) return myEpisodesTreeId
+  return historicalGroupIds.value.has(group.id) ? historicalTreeId : archivedTreeId
 }
 
 function toggleGroupIfNotEmpty(id: string) {
@@ -2319,11 +2348,19 @@ function groupSortTitle(group: EpisodeGroup) {
 }
 
 function latestGroupProductionDate(groupId: string) {
-  return state.episodes.reduce((latest, episode) => {
-    if (episode.groupId !== groupId) return latest
-    const date = normalizeDateString(productionDataFor(episode).productionDate) ?? ''
-    return date > latest ? date : latest
-  }, '')
+  return groupProductionDate(groupId, state.episodes, state.pointInvoices)
+}
+
+function refreshHistoryDate() {
+  const now = new Date()
+  historyToday.value = now
+  window.clearTimeout(historyDateTimer)
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  historyDateTimer = window.setTimeout(refreshHistoryDate, midnight.getTime() - now.getTime())
+}
+
+function handleHistoryVisibilityChange() {
+  if (document.visibilityState === 'visible') refreshHistoryDate()
 }
 
 function episodeSortTitle(episode: Episode) {
@@ -2622,12 +2659,23 @@ function cancelEpisodeRename(episode: Episode) {
 }
 
 function finishGroupRename() {
+  if (pendingEpisodeGroup.value) {
+    const group = pendingEpisodeGroup.value
+    state.episodeGroups.push(group)
+    selectedEpisodeGroupId.value = group.id
+    expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, group.id]))
+    pendingEpisodeGroup.value = null
+  }
   editingGroupId.value = null
   editingGroupOriginalTitle.value = ''
 }
 
-function cancelGroupRename(group: { title: string }) {
-  group.title = editingGroupOriginalTitle.value || group.title
+function cancelGroupRename(group: EpisodeGroup) {
+  if (pendingEpisodeGroup.value?.id === group.id) {
+    pendingEpisodeGroup.value = null
+  } else {
+    group.title = editingGroupOriginalTitle.value || group.title
+  }
   finishGroupRename()
 }
 
@@ -2649,6 +2697,7 @@ function focusRenameInput(kind: 'episode' | 'group', id: string, selectText: boo
 }
 
 function startGroupRename(group: EpisodeGroup) {
+  pendingEpisodeGroup.value = null
   editingGroupOriginalTitle.value = group.title
   editingGroupId.value = group.id
   focusRenameInput('group', group.id, true)
@@ -2656,9 +2705,8 @@ function startGroupRename(group: EpisodeGroup) {
 
 function addEpisodeGroup() {
   const group = createEpisodeGroup(state.globalConfig.prompt.activeProfileId)
-  state.episodeGroups.push(group)
-  selectedEpisodeGroupId.value = group.id
-  expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, myEpisodesTreeId, group.id]))
+  pendingEpisodeGroup.value = group
+  expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, myEpisodesTreeId]))
   editingGroupOriginalTitle.value = group.title
   editingGroupId.value = group.id
   focusRenameInput('group', group.id, true)
@@ -2906,12 +2954,15 @@ watch(
 
 watch(
   () => JSON.stringify(state.episodes.map(({ id, groupId, title }) => ({ id, groupId, title }))),
-  () => clearInteriorEpisodeContacts(state.episodes),
+  () => {
+    clearInteriorEpisodeContacts(state.episodes)
+    clearInteriorSplitEpisodeNumbers(state.episodes)
+  },
 )
 
 watch([dataDialogVisible, dataDialogView, activeGroupSummaryId, contactEditableIds], ([visible, view, groupId], [, , previousGroupId]) => {
   if (!visible || view !== 'group' || groupId !== previousGroupId || (activeContactEpisodeId.value && !contactEditableIds.value.has(activeContactEpisodeId.value))) {
-    activeContactEpisodeId.value = null
+    closeContactPersonDropdown()
   }
 })
 
@@ -3031,26 +3082,10 @@ async function handleGroupCommand(command: string, groupId: string) {
       return
     }
 
-    if (!group.archived) {
-      const warning = archiveGroupWarningMessage(groupId)
-
-      if (warning) {
-        try {
-          await ElMessageBox.confirm(warning, '归档分组', {
-            type: 'warning',
-            confirmButtonText: '仍要归档',
-            cancelButtonText: '取消',
-          })
-        } catch {
-          return
-        }
-      }
-    }
-
     group.archived = !group.archived
     expandedGroupIds.value = Array.from(new Set([
       ...expandedGroupIds.value,
-      group.archived ? archivedTreeId : myEpisodesTreeId,
+      groupTreeRootId(group),
       group.id,
     ]))
 
@@ -3091,22 +3126,6 @@ async function handleGroupCommand(command: string, groupId: string) {
   }
   state.episodeGroups = state.episodeGroups.filter((item) => item.id !== groupId)
   expandedGroupIds.value = expandedGroupIds.value.filter((id) => id !== groupId)
-}
-
-function archiveGroupWarningMessage(groupId: string) {
-  const episodes = episodesForGroup(groupId)
-  const unreviewedEpisodes = episodes.filter((episode) => episode.shots.some((shot) => !isShotReviewed(shot)))
-  const missingDateEpisodes = episodes.filter((episode) => !normalizeDateString(productionDataFor(episode).productionDate))
-  const lines = [
-    unreviewedEpisodes.length ? `未完成评分：${archiveEpisodeList(unreviewedEpisodes)}` : '',
-    missingDateEpisodes.length ? `未填写制作日期：${archiveEpisodeList(missingDateEpisodes)}` : '',
-  ].filter(Boolean)
-
-  return lines.length ? `以下单集尚未完成：\n${lines.join('\n')}\n\n仍要归档该分组吗？` : ''
-}
-
-function archiveEpisodeList(episodes: Episode[]) {
-  return episodes.map((episode) => episode.title).join('、')
 }
 
 function cloneEpisodeMaterials(sourceEpisodeId: string) {
@@ -4995,16 +5014,16 @@ async function applyEpisodeScriptShots() {
   }
 }
 
-function promptFor(shot: Shot) {
+function promptFor(shot: Shot, detailOnly = false) {
   const group = state.episodeGroups.find((item) => item.id === activeEpisode.value?.groupId)
   const profileId = group?.promptProfileId ?? state.globalConfig.prompt.activeProfileId
-  return composePrompt(
+  const args = [
     state.globalConfig,
     { ...shot, text: effectiveShotText(shot) },
     profileId,
     shotTimingAnalysis(shot).totalSeconds,
-    activeEpisode.value?.characters ?? [],
-  )
+  ] as const
+  return detailOnly ? composeShotDetail(...args) : composePrompt(...args, activeEpisode.value?.characters ?? [])
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
@@ -5151,7 +5170,7 @@ async function copyWeeklyReport(value: Date | string | null = weeklyReportWeek.v
 }
 
 async function copyShotDetail(shot: Shot) {
-  const copied = await copyText(formatShotDetailText(effectiveShotText(shot)))
+  const copied = await copyText(promptFor(shot, true))
 
   if (copied) {
     notify.success('已复制分镜详情')
@@ -5177,7 +5196,10 @@ function preventBrowserContextMenu(event: MouseEvent) {
 }
 
 onMounted(() => {
-  window.addEventListener('keydown', handleContactSelectorEscape, true)
+  refreshHistoryDate()
+  window.addEventListener('focus', refreshHistoryDate)
+  document.addEventListener('visibilitychange', handleHistoryVisibilityChange)
+  window.addEventListener('keydown', handleContactDropdownEscape, true)
   window.addEventListener('keydown', handleShotNumberShortcut)
   document.addEventListener('contextmenu', preventBrowserContextMenu)
   document.addEventListener('pointerdown', handleTimingPopoverPointerDown)
@@ -5186,7 +5208,11 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleContactSelectorEscape, true)
+  groupSummaryTableObserver?.disconnect()
+  window.clearTimeout(historyDateTimer)
+  window.removeEventListener('focus', refreshHistoryDate)
+  document.removeEventListener('visibilitychange', handleHistoryVisibilityChange)
+  window.removeEventListener('keydown', handleContactDropdownEscape, true)
   window.removeEventListener('keydown', handleShotNumberShortcut)
   document.removeEventListener('contextmenu', preventBrowserContextMenu)
   document.removeEventListener('pointerdown', handleTimingPopoverPointerDown)
@@ -5432,7 +5458,6 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
         state.episodeGroups.push(group)
         expandedGroupIds.value = Array.from(new Set([
           ...expandedGroupIds.value,
-          group.archived ? archivedTreeId : myEpisodesTreeId,
           group.id,
         ]))
       })
@@ -5445,6 +5470,11 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
     state.pointInvoices = mergePointInvoices(state.pointInvoices, remapPointInvoices(batch.pointInvoices, episodeIdMap), new Set(state.episodes.map((episode) => episode.id)))
   })
 
+  expandedGroupIds.value = Array.from(new Set([
+    ...expandedGroupIds.value,
+    ...state.episodeGroups.filter((group) => isGroupExpanded(group.id)).map(groupTreeRootId),
+  ]))
+
   if (!state.episodes.length) {
     const episode = createEpisode(1)
     state.episodes = [episode]
@@ -5452,6 +5482,7 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
   }
 
   clearInteriorEpisodeContacts(state.episodes)
+  clearInteriorSplitEpisodeNumbers(state.episodes)
   return importedCount
 }
 
@@ -5523,11 +5554,12 @@ function normalizeSceneAssets(scenes: unknown): SceneAsset[] {
   return normalized.filter((scene, index, list) => list.findIndex((item) => item.name === scene.name) === index)
 }
 
-function episodeComparableSignature(episode: Episode, contactPerson: string) {
+function episodeComparableSignature(episode: Episode, contactPerson: string, splitEpisodeNumber: number | null) {
   return JSON.stringify({
     title: episode.title,
     characters: episode.characters,
     contactPerson,
+    splitEpisodeNumber,
     scenes: episode.scenes,
     props: episode.props,
     productionData: episode.productionData,
@@ -5578,7 +5610,8 @@ function episodeComparableSignature(episode: Episode, contactPerson: string) {
 function episodeImportSignature(episode: Episode, groups: EpisodeGroup[], editableContactIds: Set<string>) {
   const group = groups.find((item) => item.id === episode.groupId)
   const contactPerson = editableContactIds.has(episode.id) ? episode.contactPerson : ''
-  return JSON.stringify([group?.title ?? null, group?.archived ?? false, episodeComparableSignature(episode, contactPerson)])
+  const splitEpisodeNumber = editableContactIds.has(episode.id) ? episode.splitEpisodeNumber : null
+  return JSON.stringify([group?.title ?? null, group?.archived ?? false, episodeComparableSignature(episode, contactPerson, splitEpisodeNumber)])
 }
 
 function normalizeImportedShotScene(scene: unknown, assets: SceneAsset[]): SceneConfig | null {
@@ -5713,6 +5746,7 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
     starred: Boolean(episode.starred),
     characters: normalizeCharacterAssets(episode.characters),
     contactPerson: typeof episode.contactPerson === 'string' ? episode.contactPerson.trim() : '',
+    splitEpisodeNumber: normalizeSplitEpisodeNumber(episode.splitEpisodeNumber),
     scenes,
     props: [],
     productionData: normalizeEpisodeProductionData(episode.productionData),

@@ -3,7 +3,7 @@ import type { ContactPersonOption, Episode } from './types'
 
 type ContactEpisode = Pick<Episode, 'id' | 'groupId' | 'title'>
 
-function episodeNumber(title: string) {
+export function episodeNumber(title: string) {
   const match = title.match(/\d+/)
   const value = match ? Number(match[0]) : 0
   return Number.isFinite(value) && value > 0 ? value : 0

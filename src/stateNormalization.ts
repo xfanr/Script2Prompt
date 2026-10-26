@@ -7,6 +7,7 @@ import { normalizePointInvoices } from './pointLedger'
 import { normalizeGroupResults } from './groupResults'
 import { normalizeSplitScriptText } from './episodeScript'
 import { clearInteriorEpisodeContacts } from './episodeContacts'
+import { clearInteriorSplitEpisodeNumbers, normalizeSplitEpisodeNumber } from './episodeSplits'
 import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
 
 const shotViewModes: ShotViewMode[] = ['expanded', 'single-expanded']
@@ -148,6 +149,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
       episode.groupId = groupIds.has(episode.groupId ?? '') ? episode.groupId : null
       episode.starred ??= false
       episode.contactPerson = typeof episode.contactPerson === 'string' ? episode.contactPerson.trim() : ''
+      episode.splitEpisodeNumber = normalizeSplitEpisodeNumber(episode.splitEpisodeNumber)
       episode.characters = normalizeCharacterAssets(episode.characters)
       episode.scenes = normalizeSceneAssets(episode.scenes)
       episode.props ??= []
@@ -196,6 +198,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     }
 
     clearInteriorEpisodeContacts(parsed.episodes)
+    clearInteriorSplitEpisodeNumbers(parsed.episodes)
     const activeEpisode = parsed.episodes.find((episode) => episode.id === parsed.activeEpisodeId) ?? parsed.episodes[0]
     parsed.activeEpisodeId = activeEpisode?.id ?? ''
     parsed.lastSavedAt = typeof parsed.lastSavedAt === 'string' ? parsed.lastSavedAt : null

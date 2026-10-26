@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>Split episode numbers regression tests</title>
+<pre id="results">Running…</pre>
+<script type="module">
+  import { runEpisodeSplitTests } from './episode-splits.ts'
+  window.testResults = await runEpisodeSplitTests()
+  document.querySelector('#results').textContent = JSON.stringify(window.testResults, null, 2)
+</script>
+</html>

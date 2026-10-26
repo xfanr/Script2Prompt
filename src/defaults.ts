@@ -178,7 +178,7 @@ export function createShot(unitNumber = 1): Shot {
 export function createEpisodeGroup(promptProfileId: string): EpisodeGroup {
   return {
     id: createId('group'),
-    title: '新分组',
+    title: '新剧集',
     fullName: '',
     starred: false,
     archived: false,
@@ -200,6 +200,7 @@ export function createEpisode(index = 1, pointCost = 0): Episode {
     groupId: null,
     starred: false,
     contactPerson: '',
+    splitEpisodeNumber: null,
     scenes: [],
     props: [],
     productionData: createEpisodeProductionData(pointCost),
