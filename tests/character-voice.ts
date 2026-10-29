@@ -38,7 +38,7 @@ export async function runCharacterVoiceTests() {
     const episode = state.episodes[0]
     const text = '程鹏的妆造是@，音色是@，20岁男性浑厚音。'
     assert(composeCharacterSettings(episode.shots[0], episode.characters) === text, 'voice description placement incorrect')
-    assert(composePrompt(config, episode.shots[0], undefined, undefined, episode.characters).includes(text), 'full prompt omitted description')
+    assert(composePrompt(config, episode.shots[0], undefined, undefined, episode.characters).includes('程鹏的妆造是 [程鹏.png] ，音色是 [程鹏.mp3] ，20岁男性浑厚音。'), 'full prompt omitted named references or description')
   })
   await test('Appearance, voice description and shot status retain their order', async () => {
     const state = fixture()

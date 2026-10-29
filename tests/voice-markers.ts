@@ -1,5 +1,5 @@
 import { normalizeGlobalConfig } from '../src/config'
-import { createShot } from '../src/defaults'
+import { createCharacterAsset, createCharacterConfig, createShot } from '../src/defaults'
 import { composePrompt, composeShotDetail, findPhoneVoiceMatches, formatPhoneVoiceText, formatShotDetailText } from '../src/prompt'
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -95,6 +95,56 @@ export async function runVoiceMarkerTests() {
     const detail = composeShotDetail(config, shot, profile.id, 8)
     assert(detail === '00-01秒（景别只能使用远景）\n@\n\n01-8秒（景别不限）', 'placeholder composition wrong')
     assert(composePrompt(config, shot, profile.id, 8).endsWith(`三、分镜详情\n${detail}`), 'empty first-frame detail differs')
+  })
+  test('Full prompt resolves position, appearance and voice references while retaining unrelated at signs', () => {
+    const shot = createShot()
+    shot.characters = [createCharacterConfig('温妤', true)]
+    shot.text = 'AAA@，BBB。\nCCC，[DDD]。\n温妤OS（坚定）：继续。\n温妤VO：回应。\n温妤手机VO：收到。\nVO：旁白。\n手机VO：未知来电。'
+    const assets = [createCharacterAsset('温妤')]
+    const profile = config.prompt.profiles[0]
+    profile.basePrefix = '自填@与[预设]。'
+    const original = shot.text
+    const full = composePrompt(config, shot, profile.id, 12, assets, '20-6')
+    assert(full.includes('多角色位置参考 [20-6.png] （仅参考图中角色'), 'position reference not resolved')
+    assert(full.includes('温妤的妆造是 [温妤.png] ，音色是 [温妤.mp3] 。'), 'character references wrong')
+    assert(full.includes('温妤OS（坚定，嘴巴紧闭，音色参考 [温妤.mp3] ）'), 'OS voice not resolved')
+    assert(full.includes('温妤VO（音色参考 [温妤.mp3] ）') && full.includes('温妤手机传来的VO（音色参考 [温妤.mp3] ）'), 'named VO or phone voice not resolved')
+    assert(full.includes('\nVO（音色参考@）：旁白。') && full.includes('\n手机传来的VO（音色参考@）：未知来电。'), 'unknown speaker was inferred')
+    assert(full.includes('AAA@，BBB。') && full.includes('自填@与 [预设.png] 。'), 'unrelated at signs changed')
+    assert(full.includes('CCC， [DDD.png] 。'), 'manual brackets not spaced')
+    assert(full.endsWith(`三、分镜详情\n${composeShotDetail(config, shot, profile.id, 12, assets)}`), 'detail copy and full prompt differ')
+    assert(shot.text === original, 'source mutated')
+  })
+  test('Reference spacing preserves existing spaces and line breaks without accumulating spaces', () => {
+    const shot = createShot()
+    const profile = config.prompt.profiles[0]
+    profile.shotPrefix = ''
+    shot.text = 'A[X]， [Y] 。\n[Z]\n[U][V]'
+    const result = composeShotDetail(config, shot, profile.id)
+    assert(result === 'A [X.png] ， [Y.png] 。\n [Z.png] \n [U.png] [V.png] ', `spacing wrong: ${JSON.stringify(result)}`)
+    shot.text = result
+    assert(composeShotDetail(config, shot, profile.id) === result, 'spacing accumulates across render passes')
+    shot.text = '温妤\nOS：独立。\nVO：旁白。'
+    assert(composeShotDetail(config, shot, profile.id, 12, [createCharacterAsset('温妤')]).includes('OS（嘴巴紧闭，音色参考@）'), 'speaker leaked across lines')
+  })
+  test('First-frame placeholders use the same shot reference as positioning and standalone detail copy', () => {
+    const shot = createShot()
+    shot.firstFrameMode = true
+    const profile = config.prompt.profiles[0]
+    profile.shotPrefix = ''
+    for (const text of ['VO：旁白。', '（（ ））\nVO：旁白。', '（（@））\nVO：旁白。', '（（未闭合']) {
+      shot.text = text
+      const full = composePrompt(config, shot, profile.id, 8, [], '20-6')
+      const detail = composeShotDetail(config, shot, profile.id, 8, [], '20-6')
+      assert(full.includes('多角色位置参考 [20-6.png] '), 'position reference wrong')
+      assert(detail.startsWith('00-01秒（景别只能使用远景）\n [20-6.png] \n\n01-8秒（景别不限）'), 'first-frame placeholder not resolved')
+      assert(full.endsWith(`三、分镜详情\n${detail}`), 'detail copy differs from full prompt')
+      assert(shot.text === text, 'source changed')
+    }
+    shot.text = '（（自定义首帧@））\n正文@'
+    assert(composeShotDetail(config, shot, profile.id, 8, [], '20-6').includes('自定义首帧@'), 'custom first-frame content changed')
+    shot.firstFrameMode = false
+    assert(composeShotDetail(config, shot, profile.id, 8, [], '20-6') === shot.text, 'disabled first-frame mode changed raw at signs')
   })
   return { passed: results.filter((result) => result.passed).length, total: results.length, results }
 }

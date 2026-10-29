@@ -24,6 +24,7 @@ export async function runEpisodeScriptTests() {
     const episode = createEpisode()
     assert(episode.scriptText === '' && episode.splitScriptText === null, 'unexpected defaults')
     assert(normalizeSplitScriptText(undefined, episode.shots) === null, 'blank placeholder initialized a script')
+    assert(episode.extractedDialogueText === null, 'dialogue should start uninitialized')
   })
   await test('Legacy migration preserves original text and derives split text from actual shots', () => {
     const state = createInitialState(config)
@@ -44,8 +45,10 @@ export async function runEpisodeScriptTests() {
     const state = createInitialState(config)
     state.episodes[0].scriptText = '尚未拆分的原始剧本'
     delete (state.episodes[0] as Partial<typeof state.episodes[0]>).splitScriptText
+    delete (state.episodes[0] as Partial<typeof state.episodes[0]>).extractedDialogueText
     const migrated = normalizeAppState(state, config).episodes[0]
     assert(migrated.splitScriptText === null && migrated.shots[0].text === '', 'load applied original to shots')
+    assert(migrated.extractedDialogueText === null, 'legacy dialogue should start uninitialized')
   })
   await test('Saved split drafts remain independent from confirmed shots and retain exact spacing', () => {
     const state = createInitialState(config)
@@ -70,14 +73,21 @@ export async function runEpisodeScriptTests() {
     state.episodes[0].scriptText = '原始剧本'
     state.episodes[0].splitScriptText = '---\n拆分草稿'
     state.episodes[0].shots[0].text = '已确认正文'
+    state.episodes[0].extractedDialogueText = '\n第一句\n\n第二句\n'
     const files = new Map([...buildDataFiles(state)].map(([path, file]) => [path, parseDataFile(JSON.stringify(file), path)]))
     const loaded = assembleDataFiles(files, state).episodes[0]
     assert(loaded.scriptText === '原始剧本' && loaded.splitScriptText === '---\n拆分草稿' && loaded.shots[0].text === '已确认正文', 'JSON roundtrip conflated data')
+    assert(loaded.extractedDialogueText === '\n第一句\n\n第二句\n', 'JSON lost dialogue line breaks')
     const invalid = JSON.parse(JSON.stringify(files.get('ungrouped.json')))
     invalid.episodes[0].splitScriptText = 42
     let rejected = false
     try { parseDataFile(JSON.stringify(invalid), 'ungrouped.json') } catch { rejected = true }
     assert(rejected, 'invalid split field accepted')
+    invalid.episodes[0].splitScriptText = null
+    invalid.episodes[0].extractedDialogueText = 42
+    rejected = false
+    try { parseDataFile(JSON.stringify(invalid), 'ungrouped.json') } catch { rejected = true }
+    assert(rejected, 'invalid dialogue field accepted')
   })
   await test('IndexedDB reload retains original, pending split draft, and confirmed shots', async () => {
     const repository = new LocalRepository(new MemoryStorage(), testDatabaseName())
@@ -86,9 +96,11 @@ export async function runEpisodeScriptTests() {
       state.episodes[0].scriptText = '原始剧本'
       state.episodes[0].splitScriptText = '+++\n拆分草稿'
       state.episodes[0].shots[0].text = '已确认正文'
+      state.episodes[0].extractedDialogueText = '\n第一句\n\n第二句\n'
       await repository.save(state)
       let loaded = await repository.load(config)
       assert(loaded.episodes[0].scriptText === '原始剧本' && loaded.episodes[0].splitScriptText === '+++\n拆分草稿' && loaded.episodes[0].shots[0].text === '已确认正文', 'reload applied or lost draft')
+      assert(loaded.episodes[0].extractedDialogueText === '\n第一句\n\n第二句\n', 'IndexedDB lost dialogue line breaks')
       loaded.episodes[0].splitScriptText = ''
       await repository.save(loaded)
       loaded = await repository.load(config)
@@ -102,6 +114,7 @@ export async function runEpisodeScriptTests() {
       state.episodes[0].scriptText = '原始剧本'
       state.episodes[0].splitScriptText = '---\n拆分草稿'
       state.episodes[0].shots[0].text = '已确认正文'
+      state.episodes[0].extractedDialogueText = '\n第一句\n\n第二句\n'
       const dav = new MockDav()
       const result = await uploadDataFiles(dav.client(), buildDataFiles(state), {
         repository, identity: 'episode-script-test', confirmOverwrite: async () => true,
@@ -111,6 +124,7 @@ export async function runEpisodeScriptTests() {
       const downloaded = await downloadDataFiles(dav.client())
       const episode = assembleDataFiles(downloaded.files, state).episodes[0]
       assert(episode.scriptText === '原始剧本' && episode.splitScriptText === '---\n拆分草稿' && episode.shots[0].text === '已确认正文', 'WebDAV conflated script data')
+      assert(episode.extractedDialogueText === '\n第一句\n\n第二句\n', 'WebDAV lost dialogue line breaks')
     } finally { repository.close() }
   })
   return { passed: results.filter((result) => result.passed).length, total: results.length, results }

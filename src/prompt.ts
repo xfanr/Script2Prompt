@@ -35,17 +35,21 @@ export function formatPhoneVoiceText(text: string) {
   return formatVoiceMarkers(text, true)
 }
 
-export function formatShotDetailText(text: string) {
-  return formatVoiceMarkers(text)
+export function formatShotDetailText(text: string, characterNames: string[] = []) {
+  return formatVoiceMarkers(text, false, characterNames)
 }
 
-function formatVoiceMarkers(text: string, phoneOnly = false) {
-  return text.replace(VOICE_RENDER_PATTERN, (match, marker: string, chineseContent: string | undefined, englishContent: string | undefined) => {
+function formatVoiceMarkers(text: string, phoneOnly = false, characterNames: string[] = []) {
+  const candidates = buildCharacterMatchCandidates(characterNames).sort((a, b) => b.matchName.length - a.matchName.length)
+  return text.replace(VOICE_RENDER_PATTERN, (match, marker: string, chineseContent: string | undefined, englishContent: string | undefined, offset: number) => {
     const normalizedMarker = marker.toUpperCase()
     if (phoneOnly && normalizedMarker !== '手机VO') return match
-    const content = (chineseContent ?? englishContent ?? '').trim()
-    const additions = normalizedMarker === 'OS' ? ['嘴巴紧闭', '音色参考@'] : ['音色参考@']
-    const parts = [content, ...additions.filter((addition) => !content.includes(addition))].filter(Boolean)
+    const prefix = text.slice(text.lastIndexOf('\n', offset - 1) + 1, offset).trimEnd()
+    const speaker = candidates.find((candidate) => prefix.endsWith(candidate.matchName))
+    const voiceReference = speaker ? `音色参考 [${speaker.name}.] ` : '音色参考@'
+    const content = (chineseContent ?? englishContent ?? '').trim().replace(/音色参考@/g, voiceReference)
+    const additions = normalizedMarker === 'OS' ? ['嘴巴紧闭', voiceReference] : [voiceReference]
+    const parts = [content, ...additions.filter((addition) => addition === voiceReference ? !content.includes('音色参考') : !content.includes(addition))].filter(Boolean)
     const label = normalizedMarker === '手机VO' ? '手机传来的VO' : normalizedMarker
     return `${label}（${parts.join('，')}）`
   })
@@ -133,15 +137,18 @@ export function composeShotDetail(
   shot: Shot,
   promptProfileId?: string,
   estimatedSeconds?: number,
+  characterAssets: CharacterAsset[] = [],
+  referenceName?: string,
+  useShortNames = globalConfig.prompt.useShortReferenceNames,
 ) {
   const profile = activePromptProfile(globalConfig, promptProfileId)
-  const text = formatShotDetailText(shot.text)
+  const text = formatShotDetailText(shot.text, [...shot.characters.map((character) => character.name), ...characterAssets.map((character) => character.name)])
   const firstFrame = shot.firstFrameMode ? parseFirstFrameText(text) : null
-  return joinPromptBlocks([
-    firstFrame ? firstFrameShotPrompt(firstFrame.content, estimatedSeconds) : '',
+  return formatPromptReferences(joinPromptBlocks([
+    firstFrame ? firstFrameShotPrompt(firstFrame.content === '@' && referenceName ? `[${referenceName}]` : firstFrame.content, estimatedSeconds) : '',
     profile.shotPrefix,
     firstFrame ? firstFrame.detailText : text,
-  ])
+  ]), useShortNames)
 }
 
 export function composePrompt(
@@ -150,6 +157,8 @@ export function composePrompt(
   promptProfileId?: string,
   estimatedSeconds?: number,
   characterAssets: CharacterAsset[] = [],
+  referenceName?: string,
+  useShortNames = globalConfig.prompt.useShortReferenceNames,
 ) {
   const profile = activePromptProfile(globalConfig, promptProfileId)
   const characterCount = shot.characters.filter((character) => character.name.trim()).length
@@ -160,25 +169,25 @@ export function composePrompt(
     ])],
     ['二、场景与角色设定', joinPromptBlocks([
       profile.sceneRolePrefix,
-      composeSceneRoleSection(shot, characterAssets),
+      composeSceneRoleSection(shot, characterAssets, referenceName),
       profile.sceneRoleSuffix,
     ])],
-    ['三、分镜详情', composeShotDetail(globalConfig, shot, promptProfileId, estimatedSeconds)],
   ]
 
-  return sections
-    .map(([title, content]) => `${title}\n${content}`)
-    .join('\n\n')
+  return [
+    ...sections.map(([title, content]) => `${title}\n${formatPromptReferences(content, useShortNames)}`),
+    `三、分镜详情\n${composeShotDetail(globalConfig, shot, promptProfileId, estimatedSeconds, characterAssets, referenceName, useShortNames)}`,
+  ].join('\n\n')
 }
 
-function composeSceneRoleSection(shot: Shot, characterAssets: CharacterAsset[]) {
+function composeSceneRoleSection(shot: Shot, characterAssets: CharacterAsset[], referenceName?: string) {
   return joinPromptBlocks([
-    composeSceneSettings(shot),
-    composeCharacterSettings(shot, characterAssets),
+    composeSceneSettings(shot, referenceName),
+    composeCharacterSettings(shot, characterAssets, true),
   ])
 }
 
-export function composeSceneSettings(shot: Shot) {
+export function composeSceneSettings(shot: Shot, referenceName?: string) {
   const lines: string[] = []
 
   shot.scenes
@@ -199,18 +208,19 @@ export function composeSceneSettings(shot: Shot) {
       lines.push(`分镜场景设定在${parts.join('，')}。`)
     })
 
-  lines.push('多角色位置参考@（仅参考图中角色在空间中的位置，角色动作、姿态、情绪均以分镜详情为准）。')
+  lines.push(`多角色位置参考${referenceName ? ` [${referenceName}] ` : '@'}（仅参考图中角色在空间中的位置，角色动作、姿态、情绪均以分镜详情为准）。`)
 
   return lines.join('\n')
 }
 
-export function composeCharacterSettings(shot: Shot, characterAssets: CharacterAsset[] = []) {
+export function composeCharacterSettings(shot: Shot, characterAssets: CharacterAsset[] = [], resolveReferences = false) {
   const lines: string[] = []
 
   shot.characters
     .filter((character) => character.name.trim())
     .forEach((character) => {
-      const parts = [`${character.name.trim()}的妆造是@`]
+      const name = character.name.trim()
+      const parts = [`${name}的妆造是${resolveReferences ? ` [${name}] ` : '@'}`]
       const asset = characterAssets.find((asset) => asset.name === character.name.trim())
       const appearanceDescription = asset?.appearanceDescription.trim()
 
@@ -219,7 +229,7 @@ export function composeCharacterSettings(shot: Shot, characterAssets: CharacterA
       }
 
       if (character.includeVoice) {
-        parts.push('音色是@')
+        parts.push(`音色是${resolveReferences ? ` [${name}.] ` : '@'}`)
         if (asset?.voiceDescription?.trim()) {
           parts.push(asset.voiceDescription.trim())
         }
@@ -237,6 +247,23 @@ export function composeCharacterSettings(shot: Shot, characterAssets: CharacterA
 
 function joinPromptBlocks(blocks: string[]) {
   return blocks.map((block) => block.trim()).filter(Boolean).join('\n')
+}
+
+function formatPromptReferences(text: string, useShortNames: boolean) {
+  const references = text.replace(/\[([^\[\]\r\n]*)\]/g, (match, content: string, offset: number) => {
+    const name = content.trim()
+    if (!name) return match
+    const extension = name.match(/\.[a-z\d]+$/i)?.[0]
+    const isVoice = name.endsWith('.') || extension?.toLowerCase() === '.mp3'
+      || /(?:音色是|音色参考)[ \t]*$/u.test(text.slice(0, offset))
+    const stem = extension ? name.slice(0, -extension.length) : name.replace(/\.+$/u, '')
+    const renderedName = useShortNames
+      ? `${stem}${isVoice ? '.' : ''}`
+      : extension ? name : `${stem}${isVoice ? '.mp3' : '.png'}`
+    return `[${renderedName}]`
+  })
+  return references.replace(/(?<![ \t])(?=\[[^\[\]\r\n]*\])/g, ' ')
+    .replace(/(\[[^\[\]\r\n]*\])(?![ \t])/g, '$1 ')
 }
 
 function removeDialogueContent(text: string, names: string[]) {

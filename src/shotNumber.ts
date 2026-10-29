@@ -4,6 +4,16 @@ export function normalizeShotUnitNumber(value: unknown) {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : 1
 }
 
+export function normalizeReferenceShotNumber(value: unknown, shotCount: number) {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= shotCount ? value : null
+}
+
+export function formatShotReference(episode: Episode, shotIndex: number) {
+  const episodeMatch = episode.title.match(/\d+/)
+  const episodeNumber = episodeMatch ? Number(episodeMatch[0]) : 0
+  return `${episodeNumber}-${episode.shots[shotIndex].referenceShotNumber ?? shotIndex + 1}`
+}
+
 export function compactShotUnitNumbers(shots: Array<{ unitNumber?: unknown }>) {
   const unitMap = new Map<number, number>()
 

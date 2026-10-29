@@ -157,6 +157,7 @@ export function createShot(unitNumber = 1): Shot {
     remark: '',
     thirtySecondMode: true,
     unitNumber: normalizedUnitNumber,
+    referenceShotNumber: null,
     connectPrevious: false,
     connectPreviousCount: 0,
     connectNext: false,
@@ -184,6 +185,9 @@ export function createEpisodeGroup(promptProfileId: string): EpisodeGroup {
     archived: false,
     promptProfileId,
     results: { playCount: 0, commission: 0, received: false },
+    colorGrading: false,
+    filter: false,
+    useShortReferenceNames: false,
   }
 }
 
@@ -206,6 +210,7 @@ export function createEpisode(index = 1, pointCost = 0): Episode {
     productionData: createEpisodeProductionData(pointCost),
     scriptText: '',
     splitScriptText: null,
+    extractedDialogueText: null,
     shots: [createShot()],
   }
 }

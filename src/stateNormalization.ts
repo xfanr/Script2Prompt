@@ -1,7 +1,7 @@
 import { activePromptProfile, cloneGlobalConfig, migrateLegacyGlobalConfig, normalizeGlobalConfig } from './config'
 import { APP_VERSION, createEpisode, createEpisodeProductionData, createPromptReview, createSceneAsset, createSceneConfig, normalizeCharacterAssets, normalizeShotSceneSelection } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
-import { compactShotUnitNumbers, normalizeShotUnitNumber } from './shotNumber'
+import { compactShotUnitNumbers, normalizeReferenceShotNumber, normalizeShotUnitNumber } from './shotNumber'
 import { reconcileTimingSegments } from './timing'
 import { normalizePointInvoices } from './pointLedger'
 import { normalizeGroupResults } from './groupResults'
@@ -140,6 +140,9 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
       group.archived ??= false
       group.fullName = typeof group.fullName === 'string' ? group.fullName : ''
       group.results = normalizeGroupResults(group.results)
+      group.colorGrading = group.colorGrading === true
+      group.filter = group.filter === true
+      group.useShortReferenceNames = group.useShortReferenceNames === true
       group.promptProfileId = activePromptProfile(parsed.globalConfig, group.promptProfileId).id
     })
 
@@ -155,12 +158,14 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
       episode.props ??= []
       episode.productionData = normalizeEpisodeProductionData(episode.productionData)
       episode.scriptText = typeof episode.scriptText === 'string' ? episode.scriptText : ''
+      episode.extractedDialogueText = typeof episode.extractedDialogueText === 'string' ? episode.extractedDialogueText : null
       episode.shots?.forEach((shot, index, shots) => {
         shot.text = typeof shot.text === 'string' ? shot.text : ''
         shot.remark = typeof shot.remark === 'string' ? shot.remark : ''
         const hadStoredThirtySecondMode = typeof shot.thirtySecondMode === 'boolean'
         shot.thirtySecondMode = hadStoredThirtySecondMode ? shot.thirtySecondMode : true
         shot.unitNumber = normalizeShotUnitNumber(shot.unitNumber)
+        shot.referenceShotNumber = normalizeReferenceShotNumber(shot.referenceShotNumber, shots.length)
         Object.assign(shot, normalizeStoredShotConnection(
           shot.connectPreviousCount,
           shot.connectPrevious,

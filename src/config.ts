@@ -70,7 +70,12 @@ export function normalizeGlobalConfig(value: unknown): GlobalConfig | null {
   }
 
   return {
-    prompt,
+    prompt: {
+      ...prompt,
+      useShortReferenceNames: value.prompt.useShortReferenceNames === true,
+      colorGrading: value.prompt.colorGrading === true,
+      filter: value.prompt.filter === true,
+    },
     dataCollection: {
       recommendedDurationRange: durationRange,
       defaultPointCost: Number(defaultPointCost.toFixed(4)),
@@ -178,7 +183,12 @@ export function migrateLegacyGlobalConfig(
   }
 
   return {
-    prompt: normalizePromptProfileSlots([legacyProfile], profileId),
+    prompt: {
+      ...normalizePromptProfileSlots([legacyProfile], profileId),
+      useShortReferenceNames: false,
+      colorGrading: false,
+      filter: false,
+    },
     dataCollection: {
       recommendedDurationRange: {
         min: Math.min(min, max),

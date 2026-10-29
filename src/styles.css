@@ -1833,10 +1833,14 @@ html.dark .episode-panel {
 .scene-line {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(100px, 0.65fr);
+  grid-template-columns: minmax(0, 1fr) minmax(100px, calc((100% - 8px) * 0.65 / 1.65)) 12%;
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+}
+
+.scene-line .reference-shot-select .el-select__placeholder {
+  color: var(--el-text-color-regular);
 }
 
 .scene-config-meta {
@@ -2166,14 +2170,19 @@ html.dark .episode-panel {
   margin-bottom: 14px;
 }
 
+.group-summary-options,
+.group-statistic-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .group-summary-options {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
-  gap: 12px;
   align-items: center;
 }
 
 .group-summary-options .group-full-name {
+  grid-column: span 2;
   min-width: 0;
 }
 
@@ -2225,10 +2234,6 @@ html.dark .episode-panel {
 
 .group-summary-options.is-ungrouped {
   grid-template-columns: 1fr;
-}
-
-.group-statistic-cards {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .episode-card-controls {
@@ -2316,8 +2321,29 @@ html.dark .episode-panel {
   line-height: inherit;
 }
 
-.group-summary-subtitle {
+.group-summary-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin: -4px 0 14px;
+}
+
+.group-summary-flags {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.group-summary-flags .el-checkbox {
+  margin-right: 0;
+}
+
+.group-summary-subtitle {
+  margin: 0;
   color: var(--el-text-color-regular);
   font-size: 13px;
   font-weight: 800;
@@ -3406,6 +3432,10 @@ html.dark .episode-panel {
 
   .group-summary-options {
     grid-template-columns: 1fr;
+  }
+
+  .group-summary-options .group-full-name {
+    grid-column: auto;
   }
 
   .episode-data-panel,

@@ -590,6 +590,16 @@
                         <el-option v-for="item in activeEpisode.scenes" :key="item.name" :label="sceneAssetLabel(item)" :value="item.name" />
                       </el-select>
                       <el-input v-model="scene.statusText" class="scene-status-input" placeholder="输入场景状态" />
+                      <el-select
+                        :model-value="shot.referenceShotNumber"
+                        :placeholder="String(index + 1)"
+                        class="reference-shot-select"
+                        :aria-label="`分镜${index + 1}引用序号`"
+                        title="引用序号"
+                        @update:model-value="shot.referenceShotNumber = $event"
+                      >
+                        <el-option v-for="number in activeEpisode.shots.length" :key="number" :label="String(number)" :value="number" />
+                      </el-select>
                       <el-button
                         class="config-edit-button"
                         :icon="EditPen"
@@ -951,7 +961,14 @@
         </el-table>
         </template>
         <template v-else>
-        <p class="group-summary-subtitle"><GroupPlayMedal :play-count="activeGroupSummary?.results.playCount" />{{ groupSummarySubtitle }}</p>
+        <div class="group-summary-heading">
+          <p class="group-summary-subtitle"><GroupPlayMedal :play-count="activeGroupSummary?.results.playCount" />{{ groupSummarySubtitle }}</p>
+          <div class="group-summary-flags">
+            <el-checkbox v-model="groupProductionOptions.colorGrading" size="small">调色</el-checkbox>
+            <el-checkbox v-model="groupProductionOptions.filter" size="small">滤镜</el-checkbox>
+            <el-checkbox v-model="groupProductionOptions.useShortReferenceNames" size="small">简称</el-checkbox>
+          </div>
+        </div>
         <div class="group-summary-inputs">
           <div class="group-summary-options" :class="{ 'is-ungrouped': !activeGroupSummary }">
             <el-select v-model="groupPromptProfileId" class="group-summary-profile" size="default" aria-label="提示词方案">
@@ -1181,11 +1198,6 @@
                 <div class="episode-script-panel-title has-inline-action">
                   <span>拆分剧本</span>
                   <el-link type="primary" underline="never" href="#" :disabled="episodeScriptSaving" @click.prevent="organizeEpisodeScriptDraft">整理</el-link>
-                  <el-popconfirm title="将使用已保存的原始剧本重置拆分剧本。确认重置？" @confirm="resetSplitScript">
-                    <template #reference>
-                      <el-link type="primary" underline="never" :disabled="episodeScriptSaving">重置</el-link>
-                    </template>
-                  </el-popconfirm>
                 </div>
                 <el-input
                   v-model="splitScriptDraft"
@@ -1199,8 +1211,13 @@
                 />
               </div>
               <div class="episode-script-preview-panel">
-                <div class="episode-script-panel-title">
+                <div class="episode-script-panel-title has-inline-action">
                   <span>分镜列表</span>
+                  <el-popconfirm title="将使用已保存的原始剧本重置拆分剧本。确认重置？" @confirm="resetSplitScript">
+                    <template #reference>
+                      <el-link type="primary" underline="never" :disabled="episodeScriptSaving">重置</el-link>
+                    </template>
+                  </el-popconfirm>
                 </div>
                 <div class="batch-shot-preview">
                   <div
@@ -1244,15 +1261,16 @@
                 />
               </div>
               <div class="dialogue-result-panel">
-                <div class="episode-script-panel-title">
+                <div class="episode-script-panel-title has-inline-action">
                   <span>提取结果</span>
-                  <el-tag size="small" type="info" effect="light">{{ dialogueView === 'replaced' ? '结果' : '原文' }}</el-tag>
+                  <el-link type="primary" underline="never" :disabled="episodeScriptSaving" @click="resetDialogueExtraction">重置</el-link>
                 </div>
                 <div class="dialogue-result-stack" :class="{ 'is-readonly': dialogueView === 'replaced' }">
                   <div :ref="setDialogueHighlightRef" class="dialogue-line-highlight-layer" aria-hidden="true" v-html="highlightedDialogueText"></div>
                   <el-input
                     :ref="setDialogueInputRef"
                     v-model="dialogueOutputDraft"
+                    :disabled="episodeScriptSaving"
                     class="dialogue-result-input"
                     type="textarea"
                     :rows="16"
@@ -1287,12 +1305,12 @@
           </template>
           <template v-else>
             <el-button
-              :disabled="dialogueView === 'original' && !state.globalConfig.dialogueExtraction.replacementRules.length"
+              :disabled="episodeScriptSaving || (dialogueView === 'original' && !state.globalConfig.dialogueExtraction.replacementRules.length)"
               @click="toggleDialogueReplacement"
             >
               {{ dialogueView === 'replaced' ? '原文' : '替换' }}
             </el-button>
-            <el-button type="primary" :disabled="!dialogueOutputDraft.trim()" @click="copyExtractedDialogue">复制台词</el-button>
+            <el-button type="primary" :disabled="!dialogueOutputDraft.trim()" :loading="episodeScriptSaving" @click="copyExtractedDialogue">复制台词</el-button>
           </template>
         </template>
       </el-dialog>
@@ -1447,7 +1465,7 @@ import {
   normalizeCharacterNameForMatch,
 } from './prompt'
 import { normalizeConnectionPunctuationCount, normalizeStoredShotConnection, takeLeadingPunctuationSegments, takeTrailingPunctuationSegments } from './shotContext'
-import { compactShotUnitNumbers, formatShotNumber, normalizeShotUnitNumber } from './shotNumber'
+import { compactShotUnitNumbers, formatShotNumber, formatShotReference, normalizeReferenceShotNumber, normalizeShotUnitNumber } from './shotNumber'
 import {
   analyzeDialogueTiming,
   analyzeTimingRange,
@@ -1798,6 +1816,7 @@ const dataDialogGroupId = computed(() => dataDialogView.value === 'group' ? acti
 const dataDialogGroupTitle = computed(() => getEpisodeGroupTitle(dataDialogGroupId.value === 'ungrouped' ? null : dataDialogGroupId.value))
 const dataDialogTitle = computed(() => ({ group: '全剧数据', episode: '分集数据', shot: '分镜数据' })[dataDialogView.value])
 const activeGroupSummary = computed(() => state.episodeGroups.find((group) => group.id === activeGroupSummaryId.value) ?? null)
+const groupProductionOptions = computed(() => activeGroupSummary.value ?? state.globalConfig.prompt)
 const groupResultTiers = [
   { playCount: 2000, commission: 500, label: '500元丨2千万' },
   { playCount: 5000, commission: 1000, label: '1000元丨5千万' },
@@ -2960,6 +2979,17 @@ watch(
   },
 )
 
+watch(
+  () => state.episodes.map((episode) => episode.shots.length),
+  () => {
+    state.episodes.forEach((episode) => episode.shots.forEach((shot) => {
+      if (shot.referenceShotNumber !== null && shot.referenceShotNumber > episode.shots.length) {
+        shot.referenceShotNumber = null
+      }
+    }))
+  },
+)
+
 watch([dataDialogVisible, dataDialogView, activeGroupSummaryId, contactEditableIds], ([visible, view, groupId], [, , previousGroupId]) => {
   if (!visible || view !== 'group' || groupId !== previousGroupId || (activeContactEpisodeId.value && !contactEditableIds.value.has(activeContactEpisodeId.value))) {
     closeContactPersonDropdown()
@@ -3935,6 +3965,7 @@ function hasModifiedShots(episode: Episode) {
         : segment.mode !== 'async' || segment.shotCount !== 1 || segment.secondsPerShot !== 2
     ))
     || shot.firstFrameMode
+    || shot.referenceShotNumber !== null
     || shot.status !== 'incomplete'
     || !isReviewDefault(shot.review)
   ))
@@ -4915,8 +4946,11 @@ function refreshEpisodeScriptDerivedDrafts() {
   batchShotSegments.value = splitBatchShotText(splitScriptDraft.value)
   syncMaterialSceneDraftCount()
   const original = activeEpisode.value?.scriptText ?? ''
-  dialogueOriginalDraft.value = extractDialogueText(original)
-  dialogueReplacedDraft.value = extractDialogueText(original, state.globalConfig.dialogueExtraction.replacementRules)
+  const savedDialogue = activeEpisode.value?.extractedDialogueText
+  dialogueOriginalDraft.value = savedDialogue ?? extractDialogueText(original)
+  dialogueReplacedDraft.value = savedDialogue == null
+    ? extractDialogueText(original, state.globalConfig.dialogueExtraction.replacementRules)
+    : replaceDialogueText(savedDialogue, state.globalConfig.dialogueExtraction.replacementRules)
 }
 
 function syncSplitScriptDraft() {
@@ -4932,6 +4966,12 @@ function syncSplitScriptDraft() {
 function resetSplitScript() {
   splitScriptDraft.value = activeEpisode.value?.scriptText ?? ''
   syncSplitScriptDraft()
+}
+
+function resetDialogueExtraction() {
+  const original = activeEpisode.value?.scriptText ?? ''
+  dialogueOriginalDraft.value = extractDialogueText(original)
+  dialogueReplacedDraft.value = extractDialogueText(original, state.globalConfig.dialogueExtraction.replacementRules)
 }
 
 function refreshBatchShotSegments() {
@@ -4967,20 +5007,28 @@ function toggleDialogueReplacement() {
 }
 
 async function copyExtractedDialogue() {
+  const episode = activeEpisode.value
+  if (!episode || episodeScriptSaving.value) return
+
   if (!dialogueOutputDraft.value.trim()) {
     notify.warning('暂无可复制的台词')
     return
   }
 
-  const copied = await copyText(dialogueOutputDraft.value)
-
-  if (!copied) {
-    notify.error('复制失败，请手动选择文本复制')
-    return
+  episodeScriptSaving.value = true
+  try {
+    const copied = await copyText(dialogueOutputDraft.value)
+    if (!copied) {
+      notify.error('复制失败，请手动选择文本复制')
+      return
+    }
+    episode.extractedDialogueText = dialogueOutputDraft.value
+    if (!await saveNow()) return
+    notify.success('已复制并保存台词')
+    episodeScriptDialogVisible.value = false
+  } finally {
+    episodeScriptSaving.value = false
   }
-
-  notify.success('已复制台词')
-  episodeScriptDialogVisible.value = false
 }
 
 async function applyEpisodeScriptShots() {
@@ -5015,7 +5063,10 @@ function promptFor(shot: Shot, detailOnly = false) {
     profileId,
     shotTimingAnalysis(shot).totalSeconds,
   ] as const
-  return detailOnly ? composeShotDetail(...args) : composePrompt(...args, activeEpisode.value?.characters ?? [])
+  const characters = activeEpisode.value!.characters
+  const referenceName = formatShotReference(activeEpisode.value!, shotIndex(shot))
+  const useShortNames = group?.useShortReferenceNames ?? state.globalConfig.prompt.useShortReferenceNames
+  return detailOnly ? composeShotDetail(...args, characters, referenceName, useShortNames) : composePrompt(...args, characters, referenceName, useShortNames)
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
@@ -5557,11 +5608,13 @@ function episodeComparableSignature(episode: Episode, contactPerson: string, spl
     productionData: episode.productionData,
     scriptText: episode.scriptText,
     splitScriptText: episode.splitScriptText,
+    extractedDialogueText: episode.extractedDialogueText,
     shots: episode.shots.map((shot) => ({
       text: shot.text,
       remark: shot.remark,
       thirtySecondMode: shot.thirtySecondMode,
       unitNumber: normalizeShotUnitNumber(shot.unitNumber),
+      referenceShotNumber: shot.referenceShotNumber,
       connectPrevious: shot.connectPrevious,
       connectPreviousCount: shot.connectPreviousCount,
       connectNext: shot.connectNext,
@@ -5675,6 +5728,9 @@ function normalizeImportedEpisodeGroups(
           fullName: typeof value.fullName === 'string' ? value.fullName : '',
           archived: Boolean(value.archived),
           results: normalizeGroupResults(value.results),
+          colorGrading: value.colorGrading === true,
+          filter: value.filter === true,
+          useShortReferenceNames: value.useShortReferenceNames === true,
           promptProfileId: mapPromptProfileId(value.promptProfileId, sourceConfig, targetConfig),
         },
       }
@@ -5716,6 +5772,7 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       remark: typeof shot.remark === 'string' ? shot.remark : '',
       thirtySecondMode: typeof shot.thirtySecondMode === 'boolean' ? shot.thirtySecondMode : true,
       unitNumber: normalizeShotUnitNumber(shot.unitNumber),
+      referenceShotNumber: normalizeReferenceShotNumber(shot.referenceShotNumber, shots.length),
       usePositionReference: true,
       useReverseAngle: false,
       firstFrameMode: Boolean(shot.firstFrameMode),
@@ -5744,6 +5801,7 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
     productionData: normalizeEpisodeProductionData(episode.productionData),
     scriptText: typeof episode.scriptText === 'string' ? episode.scriptText : '',
     splitScriptText: normalizeSplitScriptText(episode.splitScriptText, normalizedShots),
+    extractedDialogueText: typeof episode.extractedDialogueText === 'string' ? episode.extractedDialogueText : null,
     shots: normalizedShots,
   }
 }

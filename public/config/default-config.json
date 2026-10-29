@@ -2,6 +2,9 @@
   "schemaVersion": 1,
   "prompt": {
     "activeProfileId": "prompt-slot-1",
+    "useShortReferenceNames": false,
+    "colorGrading": false,
+    "filter": false,
     "profiles": [
       {
         "id": "prompt-slot-1",

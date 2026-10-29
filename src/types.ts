@@ -40,6 +40,10 @@ export interface PromptProfile {
 export interface PromptConfig {
   activeProfileId: string
   profiles: PromptProfile[]
+  // 未分组的全剧选项；自定义剧集的选项保存在 EpisodeGroup。
+  useShortReferenceNames: boolean
+  colorGrading: boolean
+  filter: boolean
 }
 
 export interface DataCollectionConfig {
@@ -170,6 +174,7 @@ export interface Shot {
   remark: string
   thirtySecondMode: boolean
   unitNumber: number
+  referenceShotNumber: number | null
   connectPrevious: boolean
   connectPreviousCount: number
   connectNext: boolean
@@ -201,6 +206,9 @@ export interface EpisodeGroup {
   archived: boolean
   promptProfileId: string
   results: GroupResults
+  colorGrading: boolean
+  filter: boolean
+  useShortReferenceNames: boolean
 }
 
 export interface Episode {
@@ -216,6 +224,7 @@ export interface Episode {
   productionData: EpisodeProductionData
   scriptText: string
   splitScriptText: string | null
+  extractedDialogueText: string | null
   shots: Shot[]
 }
 

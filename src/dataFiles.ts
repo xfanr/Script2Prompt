@@ -71,6 +71,7 @@ export function parseDataFile(text: string, path: string): DataFile {
       if (!object(episode) || typeof episode.id !== 'string' || !episode.id || ids.has(episode.id)
         || typeof episode.title !== 'string' || episode.groupId !== (group?.id ?? null)
         || (episode.splitScriptText != null && typeof episode.splitScriptText !== 'string')
+        || (episode.extractedDialogueText != null && typeof episode.extractedDialogueText !== 'string')
         || (episode.contactPerson !== undefined && typeof episode.contactPerson !== 'string')
         || (episode.splitEpisodeNumber != null && (!Number.isSafeInteger(episode.splitEpisodeNumber) || episode.splitEpisodeNumber < 1))
         || !Array.isArray(episode.shots) || !Array.isArray(episode.characters)
