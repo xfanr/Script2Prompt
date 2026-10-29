@@ -3,7 +3,7 @@
     <template #reference>
       <el-link class="episode-split-number-link" type="primary" underline="never" href="#" :aria-label="label" @click.prevent>{{ modelValue === null ? '未填写' : String(modelValue).padStart(2, '0') }}</el-link>
     </template>
-    <el-input-number ref="input" v-model="draft" :min="1" :precision="0" :controls="false" :aria-label="label" placeholder="填写集号" @change="updateNumber" @keydown.enter.stop="visible = false" @keydown.esc.stop.prevent="visible = false" />
+    <el-input-number ref="input" v-model="draft" :min="1" :precision="0" :controls="false" :aria-label="label" @change="updateNumber" @keydown.enter.stop="visible = false" @keydown.esc.stop.prevent="visible = false" />
   </el-popover>
 </template>
 

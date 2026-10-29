@@ -1008,9 +1008,9 @@
         </div>
         <el-table :ref="setGroupSummaryTableRef" class="group-summary-table" :data="groupSummaryTableRows" max-height="430" empty-text="暂无单集" :row-class-name="groupSummaryRowClass">
           <el-table-column prop="title" label="单集" :min-width="1" show-overflow-tooltip />
-          <el-table-column label="拆分集数" :min-width="1">
+          <el-table-column label="拆分集号" :min-width="1">
             <template #default="{ row }">
-              <EpisodeSplitNumberCell v-if="!row.isSummary && contactEditableIds.has(row.episode.id)" v-model="row.episode.splitEpisodeNumber" :label="`${row.title}拆分集数`" />
+              <EpisodeSplitNumberCell v-if="!row.isSummary && contactEditableIds.has(row.episode.id)" v-model="row.episode.splitEpisodeNumber" :label="`${row.title}拆分集号`" />
               <span v-else>-</span>
             </template>
           </el-table-column>
@@ -1141,7 +1141,7 @@
                         <el-input
                           v-model="scene.name"
                           clearable
-                          :placeholder="materialSceneDraftPlaceholder(index)"
+                          :placeholder="batchShotUnitCount() ? `${formatUnitLabel(index + 1)}场景` : '场景名称'"
                           @keyup.enter="continueFromEpisodeScriptMaterials"
                         />
                       </div>
@@ -1810,7 +1810,7 @@ const groupResultPlaceholder = computed(() => {
   const results = activeGroupSummary.value?.results
   return results && (results.playCount || results.commission)
     ? `${results.commission}元丨${results.playCount >= 10000 ? `${results.playCount / 10000}亿` : `${results.playCount}万`}（原数据）`
-    : '选择播放与提成档位'
+    : '选择档位'
 })
 const pendingResults = computed(() => pendingGroupResults(state.episodeGroups))
 const groupSummaryEpisodes = computed(() => activeGroupSummaryId.value === 'ungrouped'
@@ -3224,29 +3224,21 @@ function batchShotUnitCount() {
 }
 
 function requiredMaterialSceneDraftCount() {
-  return Math.max(1, batchShotUnitCount() + 1)
+  return Math.max(1, batchShotUnitCount())
 }
 
 function syncMaterialSceneDraftCount() {
-  const requiredUnitCount = batchShotUnitCount()
-  const currentUnitCount = Math.max(0, materialSceneDrafts.value.length - 1)
+  const requiredUnitCount = requiredMaterialSceneDraftCount()
+  const currentUnitCount = materialSceneDrafts.value.length
 
   if (currentUnitCount < requiredUnitCount) {
-    materialSceneDrafts.value.splice(
-      materialSceneDrafts.value.length - 1,
-      0,
-      ...createMaterialSceneDrafts(requiredUnitCount - currentUnitCount),
-    )
+    materialSceneDrafts.value.push(...createMaterialSceneDrafts(requiredUnitCount - currentUnitCount))
     return
   }
 
   if (currentUnitCount > requiredUnitCount) {
     materialSceneDrafts.value.splice(requiredUnitCount, currentUnitCount - requiredUnitCount)
   }
-}
-
-function materialSceneDraftPlaceholder(index: number) {
-  return index < batchShotUnitCount() ? `${formatUnitLabel(index + 1)}场景` : '补充场景'
 }
 
 function segmentedOptionLabel(item: unknown) {
