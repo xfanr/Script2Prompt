@@ -78,6 +78,7 @@ export function parseDataFile(text: string, path: string): DataFile {
         || episode.characters.some((character: unknown) => typeof character !== 'string' && (
           !object(character)
           || typeof character.name !== 'string'
+          || (character.isEnsemble !== undefined && typeof character.isEnsemble !== 'boolean')
           || (character.appearanceDescription !== undefined && typeof character.appearanceDescription !== 'string')
           || (character.voiceDescription !== undefined && typeof character.voiceDescription !== 'string')
         ))

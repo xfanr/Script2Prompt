@@ -1,5 +1,5 @@
 import { normalizeDialogueReplacementRules } from './dialogue'
-import { createId, createReviewNotePrefixOption, normalizeReviewNotePrefixOptions } from './defaults'
+import { createId, createReviewNotePrefixOption, DEFAULT_ENSEMBLE_APPEARANCE_TEMPLATE, normalizeReviewNotePrefixOptions } from './defaults'
 import { mergeContactPersonOptions } from './episodeContacts'
 import type { ContactPersonOption, DialogueReplacementRule, GlobalConfig, PromptProfile, ReviewNotePrefixOption } from './types'
 
@@ -72,6 +72,7 @@ export function normalizeGlobalConfig(value: unknown): GlobalConfig | null {
   return {
     prompt: {
       ...prompt,
+      ensembleAppearanceTemplate: typeof value.prompt.ensembleAppearanceTemplate === 'string' ? value.prompt.ensembleAppearanceTemplate : DEFAULT_ENSEMBLE_APPEARANCE_TEMPLATE,
       useShortReferenceNames: value.prompt.useShortReferenceNames === true,
       colorGrading: value.prompt.colorGrading === true,
       filter: value.prompt.filter === true,
@@ -185,6 +186,7 @@ export function migrateLegacyGlobalConfig(
   return {
     prompt: {
       ...normalizePromptProfileSlots([legacyProfile], profileId),
+      ensembleAppearanceTemplate: fallback.prompt.ensembleAppearanceTemplate,
       useShortReferenceNames: false,
       colorGrading: false,
       filter: false,

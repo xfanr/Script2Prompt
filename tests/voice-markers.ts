@@ -111,7 +111,7 @@ export async function runVoiceMarkerTests() {
     assert(full.includes('温妤VO（音色参考 [温妤.mp3] ）') && full.includes('温妤手机传来的VO（音色参考 [温妤.mp3] ）'), 'named VO or phone voice not resolved')
     assert(full.includes('\nVO（音色参考@）：旁白。') && full.includes('\n手机传来的VO（音色参考@）：未知来电。'), 'unknown speaker was inferred')
     assert(full.includes('AAA@，BBB。') && full.includes('自填@与 [预设.png] 。'), 'unrelated at signs changed')
-    assert(full.includes('CCC， [DDD.png] 。'), 'manual brackets not spaced')
+    assert(full.includes('CCC，DDD [DDD.png] 。'), 'manual brackets not expanded and spaced')
     assert(full.endsWith(`三、分镜详情\n${composeShotDetail(config, shot, profile.id, 12, assets)}`), 'detail copy and full prompt differ')
     assert(shot.text === original, 'source mutated')
   })
@@ -121,9 +121,8 @@ export async function runVoiceMarkerTests() {
     profile.shotPrefix = ''
     shot.text = 'A[X]， [Y] 。\n[Z]\n[U][V]'
     const result = composeShotDetail(config, shot, profile.id)
-    assert(result === 'A [X.png] ， [Y.png] 。\n [Z.png] \n [U.png] [V.png] ', `spacing wrong: ${JSON.stringify(result)}`)
-    shot.text = result
-    assert(composeShotDetail(config, shot, profile.id) === result, 'spacing accumulates across render passes')
+    assert(result === 'AX [X.png] ， Y [Y.png] 。\nZ [Z.png] \nU [U.png] V [V.png] ', `spacing wrong: ${JSON.stringify(result)}`)
+    assert(composeShotDetail(config, shot, profile.id) === result, 'spacing accumulates across renders')
     shot.text = '温妤\nOS：独立。\nVO：旁白。'
     assert(composeShotDetail(config, shot, profile.id, 12, [createCharacterAsset('温妤')]).includes('OS（嘴巴紧闭，音色参考@）'), 'speaker leaked across lines')
   })

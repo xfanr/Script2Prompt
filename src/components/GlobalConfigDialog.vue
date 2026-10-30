@@ -67,6 +67,9 @@
                 aria-label="提示词方案"
               />
             </el-form-item>
+            <el-form-item label="角色群像形象描述模板">
+              <el-input v-model="draft.prompt.ensembleAppearanceTemplate" type="textarea" :rows="3" resize="vertical" />
+            </el-form-item>
           </el-form>
 
         </div>

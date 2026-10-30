@@ -68,12 +68,31 @@ export async function runReferenceNameTests() {
     const original = shot.text
     const full = composePrompt(current, shot, profile.id)
     assert(full.includes('基础 [图片.png] ，音色参考 [甲.mp3] 。') && full.includes('设定 [场景.png] 。'), 'scheme references missing')
-    assert(full.includes('首帧 [画面.png] ，原样@') && full.includes(' [X.png] [Y.png] \n [Z.png] '), 'first-frame or spacing wrong')
+    assert(full.includes('首帧画面 [画面.png] ，原样@') && full.includes('X [X.png] Y [Y.png] \nZ [Z.png] '), 'first-frame or spacing wrong')
     current.prompt.useShortReferenceNames = true
     const detail = composeShotDetail(current, shot, profile.id)
     assert(detail.includes('前缀 [镜头.v2] 。'), 'short filename stem changed')
     assert(composePrompt(current, shot, profile.id).endsWith(`三、分镜详情\n${detail}`), 'detail converted more than once')
     assert(shot.text === original && profile.basePrefix.includes('[图片]'), 'stored source or scheme mutated')
+  })
+  await test('Handwritten shot references repeat their content while generated references retain their format', () => {
+    const shot = createShot()
+    shot.text = 'AA[BB]，dd。\n甲：看[背景]，再看[另一处]。\n音色是[甲]，音色参考 [乙]。\n[已有.png][声音.mp3]，空[]，未闭合[结束'
+    shot.characters = [createCharacterConfig('甲', true)]
+    const source = shot.text
+    for (const short of [false, true]) {
+      const full = composePrompt(config, shot, undefined, 8, [], '5-6', short)
+      const detail = composeShotDetail(config, shot, undefined, 8, [], '5-6', short)
+      assert(detail.startsWith(`AABB [${short ? 'BB' : 'BB.png'}] ，dd。`), 'handwritten reference not repeated exactly once')
+      assert(detail.includes(`看背景 [${short ? '背景' : '背景.png'}] `), 'dialogue reference not repeated')
+      assert(detail.includes(`音色是甲 [${short ? '甲.' : '甲.mp3'}] `) && detail.includes(`音色参考 乙 [${short ? '乙.' : '乙.mp3'}] `), 'voice context lost during expansion')
+      assert(detail.includes(`已有.png [${short ? '已有' : '已有.png'}] 声音.mp3 [${short ? '声音.' : '声音.mp3'}] `), 'explicit extensions changed')
+      assert(detail.includes('空 [] ') && detail.endsWith('未闭合[结束'), 'empty or unclosed references changed')
+      assert(full.includes(`多角色位置参考 [${short ? '5-6' : '5-6.png'}] `), 'generated position reference expanded')
+      assert(full.includes(`甲的妆造是 [${short ? '甲' : '甲.png'}] ，音色是 [${short ? '甲.' : '甲.mp3'}] `), 'generated character reference expanded')
+      assert(full.endsWith(`三、分镜详情\n${detail}`), 'copy entrances differ')
+    }
+    assert(shot.text === source, 'source rewritten')
   })
   await test('Missing legacy flag defaults off; cloning and merges retain ungrouped options', () => {
     assert(config.prompt.useShortReferenceNames === false, 'runtime default should be off')

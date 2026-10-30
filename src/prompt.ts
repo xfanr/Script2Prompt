@@ -142,7 +142,14 @@ export function composeShotDetail(
   useShortNames = globalConfig.prompt.useShortReferenceNames,
 ) {
   const profile = activePromptProfile(globalConfig, promptProfileId)
-  const text = formatShotDetailText(shot.text, [...shot.characters.map((character) => character.name), ...characterAssets.map((character) => character.name)])
+  const expandedText = shot.text.replace(/\[([^\[\]\r\n]+)\]/g, (match, content: string, offset: number) => {
+    const name = content.trim()
+    if (!name) return match
+    const voiceContext = /(?:音色是|音色参考)[ \t]*$/u.test(shot.text.slice(0, offset))
+    const reference = voiceContext && !/\.[a-z\d]+$/i.test(name) && !name.endsWith('.') ? `${name}.` : name
+    return `${name}[${reference}]`
+  })
+  const text = formatShotDetailText(expandedText, [...shot.characters.map((character) => character.name), ...characterAssets.map((character) => character.name)])
   const firstFrame = shot.firstFrameMode ? parseFirstFrameText(text) : null
   return formatPromptReferences(joinPromptBlocks([
     firstFrame ? firstFrameShotPrompt(firstFrame.content === '@' && referenceName ? `[${referenceName}]` : firstFrame.content, estimatedSeconds) : '',
@@ -220,15 +227,15 @@ export function composeCharacterSettings(shot: Shot, characterAssets: CharacterA
     .filter((character) => character.name.trim())
     .forEach((character) => {
       const name = character.name.trim()
-      const parts = [`${name}的妆造是${resolveReferences ? ` [${name}] ` : '@'}`]
       const asset = characterAssets.find((asset) => asset.name === character.name.trim())
+      const parts = [asset?.isEnsemble ? name : `${name}的妆造是${resolveReferences ? ` [${name}] ` : '@'}`]
       const appearanceDescription = asset?.appearanceDescription.trim()
 
       if (appearanceDescription) {
         parts.push(appearanceDescription)
       }
 
-      if (character.includeVoice) {
+      if (character.includeVoice && !asset?.isEnsemble) {
         parts.push(`音色是${resolveReferences ? ` [${name}.] ` : '@'}`)
         if (asset?.voiceDescription?.trim()) {
           parts.push(asset.voiceDescription.trim())

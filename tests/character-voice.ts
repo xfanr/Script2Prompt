@@ -25,6 +25,40 @@ export async function runCharacterVoiceTests() {
     episode.shots[0].characters = [createCharacterConfig('程鹏', true)]
     return state
   }
+  await test('Ensemble suffixes apply only to new assets and manual overrides survive loading', () => {
+    for (const name of ['村民们', '保安群像', '路人若干']) assert(createCharacterAsset(name).isEnsemble, 'ensemble suffix not detected: ' + name)
+    for (const name of ['他们的队长', '群像演员', '程鹏']) assert(!createCharacterAsset(name).isEnsemble, 'non-suffix name misclassified: ' + name)
+    const assets = normalizeCharacterAssets(['村民们', { name: '保安群像' }, createCharacterAsset('路人若干', '', '', false), createCharacterAsset('群众', '', '', true)])
+    assert(assets.slice(0, 3).every(asset => !asset.isEnsemble) && assets[3].isEnsemble, 'legacy defaults or explicit flags changed')
+  })
+  await test('Ensembles output name, appearance and status without appearance or voice references', () => {
+    const state = fixture()
+    const episode = state.episodes[0]
+    episode.characters = [createCharacterAsset('村民们', '男女老少，穿着各异', '不应输出的音色')]
+    episode.shots[0].characters = [createCharacterConfig('村民们', true)]
+    assert(composeCharacterSettings(episode.shots[0], episode.characters) === '村民们，男女老少，穿着各异。', 'ensemble output incorrect')
+    episode.shots[0].characters[0].statusText = '站在广场上'
+    assert(composeCharacterSettings(episode.shots[0], episode.characters, true) === '村民们，男女老少，穿着各异，站在广场上。', 'ensemble status lost')
+    assert(!composePrompt(config, episode.shots[0], undefined, undefined, episode.characters).includes('村民们.png'), 'ensemble got an appearance reference')
+    episode.characters[0].isEnsemble = false
+    assert(composeCharacterSettings(episode.shots[0], episode.characters).includes('的妆造是@') && composeCharacterSettings(episode.shots[0], episode.characters).includes('音色是@'), 'manual switch did not restore normal rendering')
+  })
+  await test('Ensemble state and template persist through IndexedDB, JSON and downloaded files', async () => {
+    const state = fixture()
+    state.episodes[0].characters[0].isEnsemble = true
+    state.globalConfig.prompt.ensembleAppearanceTemplate = '自定义群像模板\n保留换行'
+    const repository = new LocalRepository(new MemoryStorage(), testDatabaseName())
+    await repository.save(state)
+    const loaded = await repository.load(config)
+    assert(loaded.episodes[0].characters[0].isEnsemble && loaded.globalConfig.prompt.ensembleAppearanceTemplate === state.globalConfig.prompt.ensembleAppearanceTemplate, 'IndexedDB dropped ensemble settings')
+    const files = new Map([...buildDataFiles(state)].map(([path, file]) => [path, parseDataFile(JSON.stringify(file), path)]))
+    const imported = assembleDataFiles(files, state)
+    assert(imported.episodes[0].characters[0].isEnsemble && imported.globalConfig.prompt.ensembleAppearanceTemplate === state.globalConfig.prompt.ensembleAppearanceTemplate, 'JSON or WebDAV dropped ensemble settings')
+    const legacyConfig = JSON.parse(JSON.stringify(config))
+    delete legacyConfig.prompt.ensembleAppearanceTemplate
+    assert(normalizeGlobalConfig(legacyConfig)!.prompt.ensembleAppearanceTemplate.length > 0, 'legacy config has no usable template')
+    repository.close()
+  })
   await test('New characters default to an empty optional voice description', async () => {
     assert(createCharacterAsset('程鹏').voiceDescription === '', 'new voice field must be empty')
   })

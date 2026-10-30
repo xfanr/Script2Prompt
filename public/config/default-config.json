@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "prompt": {
+    "ensembleAppearanceTemplate": "一组外貌、发型和服装各不相同的角色，保持个体差异，避免重复面孔。",
     "activeProfileId": "prompt-slot-1",
     "useShortReferenceNames": false,
     "colorGrading": false,

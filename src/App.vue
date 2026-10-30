@@ -407,6 +407,14 @@
                   >
                     <span class="shot-order">{{ index + 1 }}</span>
                     <span class="shot-number">{{ formatShotNumber(activeEpisode, index) }}</span>
+                    <el-dropdown class="shot-reference-dropdown" trigger="click" :max-height="280" @command="shot.referenceShotNumber = $event" @dblclick.stop>
+                      <span class="shot-number shot-reference-number" role="button" tabindex="0" :aria-label="`分镜${index + 1}引用序号`">({{ shot.referenceShotNumber ?? index + 1 }})</span>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item v-for="number in activeEpisode.shots.length" :key="number" :command="number">{{ number }}</el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
                   </span>
                 </div>
                 <div class="shot-tools">
@@ -590,16 +598,6 @@
                         <el-option v-for="item in activeEpisode.scenes" :key="item.name" :label="sceneAssetLabel(item)" :value="item.name" />
                       </el-select>
                       <el-input v-model="scene.statusText" class="scene-status-input" placeholder="输入场景状态" />
-                      <el-select
-                        :model-value="shot.referenceShotNumber"
-                        :placeholder="String(index + 1)"
-                        class="reference-shot-select"
-                        :aria-label="`分镜${index + 1}引用序号`"
-                        title="引用序号"
-                        @update:model-value="shot.referenceShotNumber = $event"
-                      >
-                        <el-option v-for="number in activeEpisode.shots.length" :key="number" :label="String(number)" :value="number" />
-                      </el-select>
                       <el-button
                         class="config-edit-button"
                         :icon="EditPen"
@@ -649,12 +647,25 @@
                             </el-tooltip>
                           </template>
                           <template #append>
+                            <el-popconfirm
+                              v-if="isEnsembleCharacter(character.name)"
+                              title="取消群像将影响本集所有相关分镜，并关闭音色。"
+                              :width="280"
+                              confirm-button-text="取消"
+                              cancel-button-text="保留"
+                              @confirm="toggleCharacterVoice(character)"
+                            >
+                              <template #reference>
+                                <el-button type="primary" :icon="Grape" title="角色群像，点击改为普通角色" aria-label="角色群像，点击改为普通角色" />
+                              </template>
+                            </el-popconfirm>
                             <el-button
+                              v-else
                               :type="!shot.thirtySecondMode && isVoiceOverflow(shot) && character.includeVoice ? 'danger' : character.includeVoice ? 'primary' : undefined"
                               :icon="character.includeVoice ? Microphone : Mute"
                               :title="characterVoiceDescription(character.name) || (character.includeVoice ? '关闭音色' : '开启音色')"
                               :aria-label="character.includeVoice ? '关闭音色' : '开启音色'"
-                              @click="character.includeVoice = !character.includeVoice"
+                              @click="toggleCharacterVoice(character)"
                             />
                           </template>
                         </el-input>
@@ -1322,10 +1333,19 @@
               class="material-character-input"
               clearable
               placeholder="请输入角色名称"
+              @input="materialCharacterIsEnsembleDraft = /(?:们|群像|若干)$/.test($event.trim())"
               @keyup.enter="confirmMaterialDialog"
-            />
+            >
+              <template #append>
+                <el-button :icon="Grape" :type="materialCharacterIsEnsembleDraft ? 'primary' : undefined" :aria-pressed="materialCharacterIsEnsembleDraft" aria-label="角色群像" title="角色群像" @click="materialCharacterIsEnsembleDraft = !materialCharacterIsEnsembleDraft" />
+              </template>
+            </el-input>
           </el-form-item>
-          <el-form-item v-if="shouldShowMaterialCharacters" label="形象描述">
+          <el-form-item v-if="shouldShowMaterialCharacters" class="material-appearance-field" label="形象描述">
+            <template #label>
+              <span>形象描述</span>
+              <el-button v-if="materialCharacterIsEnsembleDraft" class="title-copy-button" :icon="Download" size="small" text type="primary" title="填入群像模板" aria-label="填入群像模板" @click="materialCharacterAppearanceDraft = state.globalConfig.prompt.ensembleAppearanceTemplate" />
+            </template>
             <el-input
               v-model="materialCharacterAppearanceDraft"
               type="textarea"
@@ -1337,6 +1357,7 @@
           <el-form-item v-if="shouldShowMaterialCharacters" label="音色描述">
             <el-input
               v-model="materialCharacterVoiceDraft"
+              :disabled="materialCharacterIsEnsembleDraft"
               type="textarea"
               :rows="2"
               resize="vertical"
@@ -1399,7 +1420,7 @@
         @opened="focusCharacterPasteInput"
         @closed="resetCharacterPasteDialog"
       >
-        <p class="character-paste-hint">浏览器无法自动读取剪切板，请在下方填写CSV或JSON数据。<br />CSV：角色名,形象描述,音色描述；JSON：name、appearanceDescription、voiceDescription</p>
+        <p class="character-paste-hint">浏览器无法自动读取剪切板，请在下方填写CSV或JSON数据。<br />CSV：角色名,形象描述,音色描述；JSON：name、appearanceDescription、voiceDescription、isEnsemble（选填）</p>
         <el-input
           ref="characterPasteInputRef"
           v-model="characterPasteDraft"
@@ -1429,7 +1450,7 @@ import EpisodeGroupPreview from './components/EpisodeGroupPreview.vue'
 import EpisodeSplitNumberCell from './components/EpisodeSplitNumberCell.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox, type DropdownInstance } from 'element-plus'
-import { ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, VideoCamera, VideoPlay, View, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Grape, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, VideoCamera, VideoPlay, View, WarningFilled } from '@element-plus/icons-vue'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { normalizeSplitScriptText } from './episodeScript'
 import { clearInteriorEpisodeContacts, contactEditableEpisodeIds, renameEpisodeContacts } from './episodeContacts'
@@ -1525,6 +1546,7 @@ type MaterialAddResult = {
 }
 type CharacterDescriptionImport = {
   name: string
+  isEnsemble?: boolean
   appearanceDescription?: string
   voiceDescription?: string
 }
@@ -1600,6 +1622,7 @@ const editingMaterial = ref<EditingMaterial | null>(null)
 const materialCharacterDraft = ref('')
 const materialCharacterAppearanceDraft = ref('')
 const materialCharacterVoiceDraft = ref('')
+const materialCharacterIsEnsembleDraft = ref(false)
 const characterPasteDialogVisible = ref(false)
 const characterPasteDraft = ref('')
 const characterPasteInputRef = ref<{ focus: () => void } | null>(null)
@@ -3174,7 +3197,7 @@ function cloneEpisodeMaterials(sourceEpisodeId: string) {
   const existingCharacterNames = new Set(targetEpisode.characters.map((character) => character.name))
   const characters = sourceEpisode.characters
     .filter((character) => !existingCharacterNames.has(character.name))
-    .map((character) => createCharacterAsset(character.name, character.appearanceDescription, character.voiceDescription))
+    .map((character) => createCharacterAsset(character.name, character.appearanceDescription, character.voiceDescription, character.isEnsemble))
   const existingSceneNames = new Set(targetEpisode.scenes.map((scene) => scene.name))
   const scenes = sourceEpisode.scenes
     .filter((scene) => !existingSceneNames.has(scene.name))
@@ -3246,6 +3269,7 @@ function resetMaterialDrafts(sceneCount = 1) {
   materialCharacterDraft.value = ''
   materialCharacterAppearanceDraft.value = ''
   materialCharacterVoiceDraft.value = ''
+  materialCharacterIsEnsembleDraft.value = false
   materialSceneDrafts.value = createMaterialSceneDrafts(sceneCount)
 }
 
@@ -3336,6 +3360,7 @@ function openMaterialEditDialog(kind: MaterialKind, value: string) {
     materialCharacterDraft.value = character.name
     materialCharacterAppearanceDraft.value = character.appearanceDescription
     materialCharacterVoiceDraft.value = character.voiceDescription
+    materialCharacterIsEnsembleDraft.value = character.isEnsemble
   } else {
     const scene = episode.scenes.find((item) => item.name === value)
 
@@ -3376,10 +3401,10 @@ function commitMaterialDialog() {
     }
 
     if (adding) {
-      episode.characters.push(createCharacterAsset(nextName, materialCharacterAppearanceDraft.value.trim(), materialCharacterVoiceDraft.value.trim()))
+      episode.characters.push(createCharacterAsset(nextName, materialCharacterAppearanceDraft.value.trim(), materialCharacterVoiceDraft.value.trim(), materialCharacterIsEnsembleDraft.value))
       notify.success('已添加角色')
     } else {
-      updateCharacterMaterial(editing!.value, nextName, materialCharacterAppearanceDraft.value, materialCharacterVoiceDraft.value)
+      updateCharacterMaterial(editing!.value, nextName, materialCharacterAppearanceDraft.value, materialCharacterVoiceDraft.value, materialCharacterIsEnsembleDraft.value)
     }
     return true
   }
@@ -3410,7 +3435,7 @@ function commitMaterialDialog() {
   return true
 }
 
-function updateCharacterMaterial(oldName: string, nextName: string, appearanceDescription: string, voiceDescription: string) {
+function updateCharacterMaterial(oldName: string, nextName: string, appearanceDescription: string, voiceDescription: string, isEnsemble: boolean) {
   const episode = activeEpisode.value
 
   if (!episode) {
@@ -3426,6 +3451,7 @@ function updateCharacterMaterial(oldName: string, nextName: string, appearanceDe
   characterAsset.name = nextName
   characterAsset.appearanceDescription = appearanceDescription.trim()
   characterAsset.voiceDescription = voiceDescription.trim()
+  characterAsset.isEnsemble = isEnsemble
   episode.shots.forEach((shot) => {
     shot.characters.forEach((character) => {
       if (character.name === oldName) {
@@ -3462,17 +3488,18 @@ function parseCharacterDescriptionClipboard(text: string): CharacterDescriptionI
         throw new Error(`JSON 第 ${index + 1} 项格式无效`)
       }
 
-      const item = entry as { name?: unknown; statusText?: unknown; appearanceDescription?: unknown; voiceDescription?: unknown }
+      const item = entry as { name?: unknown; statusText?: unknown; appearanceDescription?: unknown; voiceDescription?: unknown; isEnsemble?: unknown }
       const name = typeof item.name === 'string' ? item.name.trim() : ''
       const appearanceDescription = item.appearanceDescription !== undefined ? item.appearanceDescription : item.statusText
-      if (!name || (appearanceDescription === undefined && item.voiceDescription === undefined)) {
+      if (!name || (appearanceDescription === undefined && item.voiceDescription === undefined && item.isEnsemble === undefined)) {
         throw new Error(`JSON 第 ${index + 1} 项缺少 name 或描述字段`)
       }
       if ((appearanceDescription !== undefined && typeof appearanceDescription !== 'string')
         || (item.voiceDescription !== undefined && typeof item.voiceDescription !== 'string')) {
         throw new Error(`JSON 第 ${index + 1} 项描述必须是文字`)
       }
-      return { name, appearanceDescription: appearanceDescription?.trim(), voiceDescription: item.voiceDescription?.trim() }
+      if (item.isEnsemble !== undefined && typeof item.isEnsemble !== 'boolean') throw new Error(`JSON 第 ${index + 1} 项 isEnsemble 必须是布尔值`)
+      return { name, appearanceDescription: appearanceDescription?.trim(), voiceDescription: item.voiceDescription?.trim(), isEnsemble: item.isEnsemble }
     })
   }
 
@@ -3554,6 +3581,7 @@ function applyCharacterDescriptionText(text: string) {
     if (character) {
       if (item.appearanceDescription !== undefined) character.appearanceDescription = item.appearanceDescription
       if (item.voiceDescription !== undefined) character.voiceDescription = item.voiceDescription
+      character.isEnsemble = item.isEnsemble ?? /(?:们|群像|若干)$/.test(character.name)
       updatedNames.add(character.name)
     } else if (normalizedMatches.length > 1) {
       ambiguousNames.push(item.name)
@@ -3581,10 +3609,11 @@ function applyCharacterDescriptionText(text: string) {
 }
 
 function openCharacterPasteDialog() {
-  characterPasteDraft.value = JSON.stringify(activeEpisode.value?.characters.map(({ name, appearanceDescription, voiceDescription }) => ({
+  characterPasteDraft.value = JSON.stringify(activeEpisode.value?.characters.map(({ name, appearanceDescription, voiceDescription, isEnsemble }) => ({
     name,
     appearanceDescription,
     voiceDescription,
+    isEnsemble,
   })) ?? [], null, 2)
   characterPasteDialogVisible.value = true
 }
@@ -4132,7 +4161,7 @@ function cloneShotCharacters(target: Shot, sourceId: string) {
   if (sourceId === target.id || !source?.characters.length) return
 
   const voices = new Set(detectCharacters(effectiveShotText(target), source.characters.map((character) => character.name))
-    .filter((character) => character.includeVoice)
+    .filter((character) => character.includeVoice && !isEnsembleCharacter(character.name))
     .map((character) => character.name))
   target.characters = source.characters.map((character) => ({
     ...character,
@@ -4153,8 +4182,25 @@ function characterVoiceDescription(name: string) {
   return activeEpisode.value?.characters.find((character) => character.name === name)?.voiceDescription?.trim() ?? ''
 }
 
+function isEnsembleCharacter(name: string) {
+  return activeEpisode.value?.characters.find((character) => character.name === name)?.isEnsemble ?? false
+}
+
+function toggleCharacterVoice(character: CharacterConfig) {
+  const episode = activeEpisode.value!
+  const asset = episode.characters.find((asset) => asset.name === character.name)
+  if (asset?.isEnsemble) {
+    asset.isEnsemble = false
+    episode.shots.forEach((shot) => shot.characters.forEach((item) => {
+      if (item.name === character.name) item.includeVoice = false
+    }))
+  } else {
+    character.includeVoice = !character.includeVoice
+  }
+}
+
 function isVoiceOverflow(shot: Shot) {
-  return shot.characters.filter((character) => character.includeVoice).length > 3
+  return shot.characters.filter((character) => character.includeVoice && !isEnsembleCharacter(character.name)).length > 3
 }
 
 function hasConfiguredScenes(shot: Shot) {
@@ -4291,14 +4337,20 @@ function promptPreviewStatus(shot: Shot): { type: 'success' | 'warning'; message
 
 function highlightedShotText(shot: Shot) {
   const text = shot.text || ' '
-  const phoneVoices = findPhoneVoiceMatches(text)
+  const highlightedRanges = [
+    ...Array.from(text.matchAll(/\[([^\[\]\r\n]+)\]/g))
+      .filter((match) => match[1].trim())
+      .map((match) => ({ start: match.index, end: match.index + match[0].length, className: 'manual-reference' })),
+    ...findPhoneVoiceMatches(text)
+      .map((match) => ({ start: match.index, end: match.index + match[0].length, className: 'phone-voice-marker' })),
+  ].sort((a, b) => a.start - b.start)
   const characters = shot.characters
     .map((character) => {
       const name = character.name.trim()
       return {
         name,
         matchName: normalizeCharacterNameForMatch(name),
-        includeVoice: character.includeVoice,
+        includeVoice: character.includeVoice && !isEnsembleCharacter(character.name),
       }
     })
     .filter((character, index, list) => character.name && character.matchName && list.findIndex((item) => item.matchName === character.matchName) === index)
@@ -4324,12 +4376,12 @@ function highlightedShotText(shot: Shot) {
   const highlightRange = (start: number, end: number, render: (value: string) => string) => {
     const parts: string[] = []
     let cursor = start
-    phoneVoices.forEach((match) => {
-      const matchStart = Math.max(start, match.index)
-      const matchEnd = Math.min(end, match.index + match[0].length)
+    highlightedRanges.forEach((match) => {
+      const matchStart = Math.max(start, match.start, cursor)
+      const matchEnd = Math.min(end, match.end)
       if (matchStart >= matchEnd) return
       parts.push(render(text.slice(cursor, matchStart)))
-      parts.push(`<mark class="phone-voice-marker">${escapeHtml(text.slice(matchStart, matchEnd))}</mark>`)
+      parts.push(`<mark class="${match.className}">${escapeHtml(text.slice(matchStart, matchEnd))}</mark>`)
       cursor = matchEnd
     })
     parts.push(render(text.slice(cursor, end)))
@@ -4514,6 +4566,7 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
   }
 
   const detected = detectCharacters(effectiveShotText(shot), episode.characters.map((character) => character.name))
+    .map((character) => ({ ...character, includeVoice: character.includeVoice && !isEnsembleCharacter(character.name) }))
   shot.autoSyncNotice = null
 
   if (!detected.length) {

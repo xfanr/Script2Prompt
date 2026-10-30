@@ -40,6 +40,7 @@ export interface PromptProfile {
 export interface PromptConfig {
   activeProfileId: string
   profiles: PromptProfile[]
+  ensembleAppearanceTemplate: string
   // 未分组的全剧选项；自定义剧集的选项保存在 EpisodeGroup。
   useShortReferenceNames: boolean
   colorGrading: boolean
@@ -79,6 +80,7 @@ export interface SceneAsset {
 
 export interface CharacterAsset {
   name: string
+  isEnsemble: boolean
   appearanceDescription: string
   voiceDescription: string
 }

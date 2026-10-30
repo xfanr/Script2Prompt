@@ -2,6 +2,7 @@ import type { AppState, CharacterAsset, CharacterConfig, ContactPersonOption, Di
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
 export const APP_VERSION = 12
+export const DEFAULT_ENSEMBLE_APPEARANCE_TEMPLATE = '一组外貌、发型和服装各不相同的角色，保持个体差异，避免重复面孔。'
 
 export function createId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -20,9 +21,10 @@ export function createSceneAsset(name = '', time: SceneTime = '白天', space: S
   }
 }
 
-export function createCharacterAsset(name = '', appearanceDescription = '', voiceDescription = ''): CharacterAsset {
+export function createCharacterAsset(name = '', appearanceDescription = '', voiceDescription = '', isEnsemble = /(?:们|群像|若干)$/.test(name.trim())): CharacterAsset {
   return {
     name,
+    isEnsemble,
     appearanceDescription,
     voiceDescription,
   }
@@ -36,7 +38,7 @@ export function normalizeCharacterAssets(value: unknown): CharacterAsset[] {
   const assets = value.map((item) => {
     if (typeof item === 'string') {
       const name = item.trim()
-      return name ? createCharacterAsset(name) : null
+      return name ? createCharacterAsset(name, '', '', false) : null
     }
 
     if (!item || typeof item !== 'object') {
@@ -47,7 +49,7 @@ export function normalizeCharacterAssets(value: unknown): CharacterAsset[] {
     const name = typeof asset.name === 'string' ? asset.name.trim() : ''
 
     return name
-      ? createCharacterAsset(name, typeof asset.appearanceDescription === 'string' ? asset.appearanceDescription : '', typeof asset.voiceDescription === 'string' ? asset.voiceDescription : '')
+      ? createCharacterAsset(name, typeof asset.appearanceDescription === 'string' ? asset.appearanceDescription : '', typeof asset.voiceDescription === 'string' ? asset.voiceDescription : '', asset.isEnsemble === true)
       : null
   }).filter((item): item is CharacterAsset => Boolean(item))
 
