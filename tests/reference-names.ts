@@ -26,7 +26,7 @@ export async function runReferenceNameTests() {
     const assets = [createCharacterAsset('温妤')]
     for (const short of [false, true]) {
       const current = cloneGlobalConfig(config)
-      current.prompt.useShortReferenceNames = short
+      current.prompt.referenceMode = short ? 'short' : 'full'
       for (const profile of current.prompt.profiles) {
         const full = composePrompt(current, shot, profile.id, 8, assets, '5-6')
         const detail = composeShotDetail(current, shot, profile.id, 8, assets, '5-6')
@@ -52,7 +52,7 @@ export async function runReferenceNameTests() {
     }
     assert(!full.includes('.png.png') && !full.includes('..mp3') && full.endsWith('正文@'), 'duplicate suffix or custom at sign changed')
     const shortConfig = cloneGlobalConfig(config)
-    shortConfig.prompt.useShortReferenceNames = true
+    shortConfig.prompt.referenceMode = 'short'
     const short = composeShotDetail(shortConfig, shot)
     for (const name of ['场景', '甲.', '乙.', '丙.', '丁.', '原图', '照片']) assert(short.includes(` [${name}] `), `missing short name: ${name}`)
   })
@@ -69,7 +69,7 @@ export async function runReferenceNameTests() {
     const full = composePrompt(current, shot, profile.id)
     assert(full.includes('基础 [图片.png] ，音色参考 [甲.mp3] 。') && full.includes('设定 [场景.png] 。'), 'scheme references missing')
     assert(full.includes('首帧画面 [画面.png] ，原样@') && full.includes('X [X.png] Y [Y.png] \nZ [Z.png] '), 'first-frame or spacing wrong')
-    current.prompt.useShortReferenceNames = true
+    current.prompt.referenceMode = 'short'
     const detail = composeShotDetail(current, shot, profile.id)
     assert(detail.includes('前缀 [镜头.v2] 。'), 'short filename stem changed')
     assert(composePrompt(current, shot, profile.id).endsWith(`三、分镜详情\n${detail}`), 'detail converted more than once')
@@ -81,8 +81,8 @@ export async function runReferenceNameTests() {
     shot.characters = [createCharacterConfig('甲', true)]
     const source = shot.text
     for (const short of [false, true]) {
-      const full = composePrompt(config, shot, undefined, 8, [], '5-6', short)
-      const detail = composeShotDetail(config, shot, undefined, 8, [], '5-6', short)
+      const full = composePrompt(config, shot, undefined, 8, [], '5-6', short ? 'short' : 'full')
+      const detail = composeShotDetail(config, shot, undefined, 8, [], '5-6', short ? 'short' : 'full')
       assert(detail.startsWith(`AABB [${short ? 'BB' : 'BB.png'}] ，dd。`), 'handwritten reference not repeated exactly once')
       assert(detail.includes(`看背景 [${short ? '背景' : '背景.png'}] `), 'dialogue reference not repeated')
       assert(detail.includes(`音色是甲 [${short ? '甲.' : '甲.mp3'}] `) && detail.includes(`音色参考 乙 [${short ? '乙.' : '乙.mp3'}] `), 'voice context lost during expansion')
@@ -94,78 +94,142 @@ export async function runReferenceNameTests() {
     }
     assert(shot.text === source, 'source rewritten')
   })
-  await test('Missing legacy flag defaults off; cloning and merges retain ungrouped options', () => {
-    assert(config.prompt.useShortReferenceNames === false, 'runtime default should be off')
+  await test('All four modes render automatic references while retaining manual brackets and source text', () => {
+    const shot = createShot()
+    shot.firstFrameMode = true
+    shot.characters = [createCharacterConfig('宋绪', true)]
+    shot.text = '（（@））\n宋绪OS（情绪坚定）：继续。\nVO：旁白。\n配饰[徽章]，音色参考[手填]。'
+    const source = shot.text
+    const assets = [createCharacterAsset('宋绪', '黑色外套', '低沉男声')]
+    for (const mode of ['basic', 'short', 'full', 'detailed'] as const) {
+      const full = composePrompt(config, shot, undefined, 8, assets, '10-6', mode, '10-1')
+      const detail = composeShotDetail(config, shot, undefined, 8, assets, '10-6', mode)
+      if (mode === 'basic') {
+        assert(full.includes('宋绪的妆造是@，黑色外套，音色是@，低沉男声。'), 'basic character references resolved')
+        assert(full.includes('多角色位置参考@') && detail.includes('\n@\n'), 'basic position or first-frame resolved')
+        assert(detail.includes('宋绪OS（情绪坚定，嘴巴紧闭，音色参考@）'), 'basic OS voice resolved')
+      } else {
+        const appearance = mode === 'short' ? '宋绪' : mode === 'detailed' ? '10-1宋绪.png' : '宋绪.png'
+        const voice = mode === 'short' ? '宋绪.' : '宋绪.mp3'
+        const position = mode === 'short' ? '10-6' : '10-6.png'
+        assert(full.includes(`宋绪的妆造是 [${appearance}] ，黑色外套，音色是 [${voice}] ，低沉男声。`), mode + ': character references wrong')
+        assert(full.includes(`多角色位置参考 [${position}] `) && detail.includes(`\n [${position}] \n`), mode + ': position or first-frame wrong')
+        assert(detail.includes(`宋绪OS（情绪坚定，嘴巴紧闭，音色参考 [${voice}] ）`), mode + ': OS voice wrong')
+      }
+      assert(detail.includes(`配饰徽章 [${mode === 'short' ? '徽章' : '徽章.png'}] `), mode + ': manual image changed')
+      assert(detail.includes(`音色参考手填 [${mode === 'short' ? '手填.' : '手填.mp3'}] `), mode + ': manual voice changed')
+      assert(detail.includes('VO（音色参考@）：旁白。'), mode + ': unknown voice resolved')
+      assert(full.endsWith(`三、分镜详情\n${detail}`), mode + ': detail entrance differs')
+    }
+    assert(shot.text === source && assets[0].appearanceDescription === '黑色外套', 'stored source changed')
+  })
+  await test('Detailed appearance prefixes follow actual episode and unit; voice and manual references stay unprefixed', () => {
+    const shot = createShot()
+    shot.characters = [createCharacterConfig('宋绪', true)]
+    shot.text = '宋绪VO：出发。\n道具[宋绪]。'
+    for (const prefix of ['10-1', '10-2', '11-1']) {
+      const full = composePrompt(config, shot, undefined, 8, [], '10-9', 'detailed', prefix)
+      assert(full.includes(`宋绪的妆造是 [${prefix}宋绪.png] `), 'appearance prefix missing: ' + prefix)
+      assert(full.includes('音色是 [宋绪.mp3] ') && full.includes('音色参考 [宋绪.mp3] '), 'voice gained appearance prefix')
+      assert(full.includes('道具宋绪 [宋绪.png] ') && full.includes('多角色位置参考 [10-9.png] '), 'manual or position reference gained prefix')
+    }
+  })
+  await test('Ensemble output remains name and appearance across all reference modes', () => {
+    const shot = createShot()
+    shot.characters = [createCharacterConfig('村民们', true)]
+    const assets = [createCharacterAsset('村民们', '衣着各异')]
+    for (const mode of ['basic', 'short', 'full', 'detailed'] as const) {
+      const full = composePrompt(config, shot, undefined, 8, assets, '10-6', mode, '10-1')
+      assert(full.includes('村民们，衣着各异。') && !full.includes('的妆造是') && !full.includes('音色是'), mode + ': ensemble gained references')
+    }
+  })
+  await test('Legacy flags migrate to modes; cloning and merges retain ungrouped options', () => {
+    assert(config.prompt.referenceMode === 'full', 'runtime default should be full')
     const legacy = JSON.parse(JSON.stringify(config))
-    delete legacy.prompt.useShortReferenceNames
-    assert(normalizeGlobalConfig(legacy)!.prompt.useShortReferenceNames === false, 'legacy flag missing default')
-    const local = cloneGlobalConfig(config)
-    local.prompt.useShortReferenceNames = true
-    assert(normalizeGlobalConfig(local)!.prompt.useShortReferenceNames, 'normalization lost flag')
-    assert(cloneGlobalConfig(local).prompt.useShortReferenceNames, 'clone lost flag')
-    assert(mergeGlobalConfigs(local, config).prompt.useShortReferenceNames, 'merge replaced local choice')
+    delete legacy.prompt.referenceMode
+    assert(normalizeGlobalConfig(legacy)!.prompt.referenceMode === 'full', 'legacy missing default')
+    for (const short of [false, true]) {
+      legacy.prompt.useShortReferenceNames = short
+      assert(normalizeGlobalConfig(legacy)!.prompt.referenceMode === (short ? 'short' : 'full'), 'legacy flag not migrated')
+    }
+    for (const mode of ['basic', 'short', 'full', 'detailed'] as const) {
+      const local = cloneGlobalConfig(config)
+      local.prompt.referenceMode = mode
+      assert(normalizeGlobalConfig(local)!.prompt.referenceMode === mode, 'normalization lost mode')
+      assert(cloneGlobalConfig(local).prompt.referenceMode === mode, 'clone lost mode')
+      assert(mergeGlobalConfigs(local, config).prompt.referenceMode === mode, 'merge replaced local choice')
+    }
+    legacy.prompt.referenceMode = 'basic'
+    assert(normalizeGlobalConfig(legacy)!.prompt.referenceMode === 'basic', 'new mode should override legacy flag')
   })
   await test('IndexedDB, JSON and downloaded settings preserve or replace ungrouped options', async () => {
     const state = createInitialState(config)
-    state.globalConfig.prompt.useShortReferenceNames = true
+    state.globalConfig.prompt.referenceMode = 'basic'
     state.globalConfig.prompt.colorGrading = true
     state.globalConfig.prompt.filter = true
     const repository = new LocalRepository(new MemoryStorage(), testDatabaseName())
     await repository.save(state)
-    assert((await repository.load(config)).globalConfig.prompt.useShortReferenceNames, 'reload lost choice')
+    assert((await repository.load(config)).globalConfig.prompt.referenceMode === 'basic', 'reload lost choice')
     const files = new Map([...buildDataFiles(state)].map(([path, file]) => [path, parseDataFile(JSON.stringify(file), path)]))
-    assert(assembleDataFiles(files, state).globalConfig.prompt.useShortReferenceNames, 'JSON lost choice')
+    assert(assembleDataFiles(files, state).globalConfig.prompt.referenceMode === 'basic', 'JSON lost choice')
     assert(assembleDataFiles(files, state).globalConfig.prompt.colorGrading && assembleDataFiles(files, state).globalConfig.prompt.filter, 'ungrouped flags lost')
-    assert(mergeDownloadedFiles(createInitialState(config), files).globalConfig.prompt.useShortReferenceNames, 'download did not apply true')
-    assert(!mergeDownloadedFiles(state, buildDataFiles(createInitialState(config))).globalConfig.prompt.useShortReferenceNames, 'download did not apply false')
+    assert(mergeDownloadedFiles(createInitialState(config), files).globalConfig.prompt.referenceMode === 'basic', 'download did not apply mode')
+    assert(mergeDownloadedFiles(state, buildDataFiles(createInitialState(config))).globalConfig.prompt.referenceMode === 'full', 'download did not apply full')
     const settings = JSON.parse(JSON.stringify(files.get('settings.json')))
-    delete settings.globalConfig.prompt.useShortReferenceNames
+    delete settings.globalConfig.prompt.referenceMode
+    settings.globalConfig.prompt.useShortReferenceNames = true
     files.set('settings.json', parseDataFile(JSON.stringify(settings), 'settings.json'))
-    assert(!mergeDownloadedFiles(state, files).globalConfig.prompt.useShortReferenceNames, 'legacy download should default off')
+    assert(mergeDownloadedFiles(state, files).globalConfig.prompt.referenceMode === 'short', 'legacy download should migrate flag')
+    repository.close()
   })
   await test('Each group retains independent flags and can override ungrouped reference mode', async () => {
     const state = createInitialState(config)
-    state.globalConfig.prompt.useShortReferenceNames = true
+    state.globalConfig.prompt.referenceMode = 'basic'
     const first = createEpisodeGroup(config.prompt.activeProfileId)
     const second = createEpisodeGroup(config.prompt.activeProfileId)
     first.colorGrading = true
     second.filter = true
-    second.useShortReferenceNames = true
+    second.referenceMode = 'detailed'
     state.episodeGroups = [first, second]
     state.episodes[0].groupId = first.id
     state.episodes[0].shots[0].firstFrameMode = true
     const shot = state.episodes[0].shots[0]
-    const full = composePrompt(state.globalConfig, shot, first.promptProfileId, 8, [], '5-6', first.useShortReferenceNames)
-    const short = composePrompt(state.globalConfig, shot, second.promptProfileId, 8, [], '5-6', second.useShortReferenceNames)
+    const full = composePrompt(state.globalConfig, shot, first.promptProfileId, 8, [], '5-6', first.referenceMode)
+    const detailed = composePrompt(state.globalConfig, shot, second.promptProfileId, 8, [], '5-6', second.referenceMode, '5-1')
     assert(full.includes('多角色位置参考 [5-6.png] ') && full.includes('\n [5-6.png] \n'), 'group false did not override ungrouped true')
-    assert(short.includes('多角色位置参考 [5-6] ') && short.includes('\n [5-6] \n'), 'group true did not use short names')
+    assert(detailed.includes('多角色位置参考 [5-6.png] ') && detailed.includes('\n [5-6.png] \n'), 'detailed group inherited ungrouped mode')
     const repository = new LocalRepository(new MemoryStorage(), testDatabaseName())
     await repository.save(state)
     const reloaded = await repository.load(config)
-    assert(reloaded.episodeGroups[0].colorGrading && !reloaded.episodeGroups[0].filter && !reloaded.episodeGroups[0].useShortReferenceNames, 'first group flags lost')
-    assert(!reloaded.episodeGroups[1].colorGrading && reloaded.episodeGroups[1].filter && reloaded.episodeGroups[1].useShortReferenceNames, 'second group flags lost')
+    assert(reloaded.episodeGroups[0].colorGrading && !reloaded.episodeGroups[0].filter && reloaded.episodeGroups[0].referenceMode === 'full', 'first group options lost')
+    assert(!reloaded.episodeGroups[1].colorGrading && reloaded.episodeGroups[1].filter && reloaded.episodeGroups[1].referenceMode === 'detailed', 'second group options lost')
     const files = new Map([...buildDataFiles(state)].map(([path, file]) => [path, parseDataFile(JSON.stringify(file), path)]))
     const imported = assembleDataFiles(files, state)
     assert(canonicalJson(imported.episodeGroups) === canonicalJson(state.episodeGroups), 'JSON changed group flags')
     const downloaded = mergeDownloadedFiles(createInitialState(config), files)
-    assert(downloaded.episodeGroups[0].colorGrading && downloaded.episodeGroups[1].filter && downloaded.episodeGroups[1].useShortReferenceNames, 'WebDAV lost group flags')
+    assert(downloaded.episodeGroups[0].colorGrading && downloaded.episodeGroups[1].filter && downloaded.episodeGroups[1].referenceMode === 'detailed', 'WebDAV lost group options')
+    repository.close()
   })
-  await test('Groups missing a short-name preference default off without inheriting ungrouped mode', () => {
+  await test('Legacy groups migrate independently without inheriting ungrouped mode', () => {
     const state = createInitialState(config)
-    state.globalConfig.prompt.useShortReferenceNames = true
+    state.globalConfig.prompt.referenceMode = 'basic'
     state.episodeGroups = [createEpisodeGroup(config.prompt.activeProfileId)]
     const legacy = JSON.parse(JSON.stringify(state))
-    delete legacy.episodeGroups[0].useShortReferenceNames
+    delete legacy.episodeGroups[0].referenceMode
     delete legacy.episodeGroups[0].colorGrading
     delete legacy.episodeGroups[0].filter
     const migrated = normalizeAppState(legacy, config)
-    assert(!migrated.episodeGroups[0].useShortReferenceNames, 'missing group preference should default off')
+    assert(migrated.episodeGroups[0].referenceMode === 'full', 'missing group mode should default full')
     assert(!migrated.episodeGroups[0].colorGrading && !migrated.episodeGroups[0].filter, 'new flags should default false')
-    migrated.episodeGroups[0].useShortReferenceNames = false
-    const reloaded = normalizeAppState(migrated, config)
-    assert(!reloaded.episodeGroups[0].useShortReferenceNames && reloaded.globalConfig.prompt.useShortReferenceNames, 'explicit group false was replaced by ungrouped preference')
-    migrated.episodeGroups[0].useShortReferenceNames = true
-    assert(normalizeAppState(migrated, config).episodeGroups[0].useShortReferenceNames, 'explicit short-name selection should be retained')
+    for (const short of [false, true]) {
+      legacy.episodeGroups[0].useShortReferenceNames = short
+      const reloaded = normalizeAppState(legacy, config)
+      assert(reloaded.episodeGroups[0].referenceMode === (short ? 'short' : 'full'), 'legacy group flag not migrated')
+      assert(reloaded.globalConfig.prompt.referenceMode === 'basic', 'group changed ungrouped mode')
+      assert(!('useShortReferenceNames' in reloaded.episodeGroups[0]), 'legacy group flag retained')
+    }
+    legacy.episodeGroups[0].referenceMode = 'detailed'
+    assert(normalizeAppState(legacy, config).episodeGroups[0].referenceMode === 'detailed', 'explicit mode should override legacy flag')
   })
   return { passed: results.filter(result => result.passed).length, total: results.length, results }
 }

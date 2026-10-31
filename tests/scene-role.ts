@@ -32,12 +32,12 @@ export async function runSceneRoleTests() {
     const empty = normalizeShotSceneSelection([])
     assert(empty.length === 1 && empty[0].name === '', 'empty selection needs one editable scene')
   })
-  await test('State migration keeps one scene, enables position reference and preserves compatibility fields', async () => {
+  await test('State migration keeps one scene and the selected position reference mode', async () => {
     const migrated = normalizeAppState(state, config)
     const migratedShot = migrated.episodes[0].shots[0]
     assert(migratedShot.scenes.length === 1 && migratedShot.scenes[0].name === 'Office', 'multiple scenes remain')
     assert(migratedShot.scenes[0].time === '深夜' && migratedShot.scenes[0].space === '室外' && migratedShot.scenes[0].statusText === 'Rain', 'scene configuration changed')
-    assert(migratedShot.usePositionReference && !migratedShot.useReverseAngle, 'position reference is not permanent')
+    assert(!migratedShot.usePositionReference && !migratedShot.useReverseAngle, 'position reference mode changed')
     assert(migrated.episodes[0].props[0] === 'legacy prop', 'compatibility field lost')
   })
   await test('Legacy browser storage migrates and reloads the single scene', async () => {
@@ -46,15 +46,41 @@ export async function runSceneRoleTests() {
     const repository = new LocalRepository(storage, testDatabaseName())
     await repository.load(config)
     const reloaded = (await repository.load(config)).episodes[0].shots[0]
-    assert(reloaded.scenes.length === 1 && reloaded.scenes[0].statusText === 'Rain' && reloaded.usePositionReference, 'storage roundtrip changed configuration')
+    assert(reloaded.scenes.length === 1 && reloaded.scenes[0].statusText === 'Rain' && !reloaded.usePositionReference, 'storage roundtrip changed configuration')
   })
   await test('Data-file import normalizes multiple scenes and disabled position reference', async () => {
     const imported = assembleDataFiles(buildDataFiles(state)).episodes[0].shots[0]
-    assert(imported.scenes.length === 1 && imported.scenes[0].name === 'Office' && imported.usePositionReference, 'data-file import did not normalize scene configuration')
+    assert(imported.scenes.length === 1 && imported.scenes[0].name === 'Office' && !imported.usePositionReference, 'data-file import did not preserve scene configuration')
   })
-  await test('Prompt always includes positioning even with a legacy disabled flag', async () => {
+  await test('Disabled positioning adds only the scene name reference and preserves existing scene state', async () => {
     const text = composeSceneSettings({ ...shot, scenes: [selected] })
-    assert(text.includes('深夜，室外，Office，Rain') && text.includes('多角色位置参考@'), 'scene state or permanent positioning missing')
+    assert(text.includes('深夜，室外，Office，Rain [Office] ') && !text.includes('多角色位置参考'), 'scene reference or state incorrect')
+  })
+  await test('Positioning defaults on for new and legacy shots and scene references follow output modes', () => {
+    assert(createShot().usePositionReference, 'new shot default disabled')
+    const legacy = JSON.parse(JSON.stringify(state))
+    delete legacy.episodes[0].shots[0].usePositionReference
+    assert(normalizeAppState(legacy, config).episodes[0].shots[0].usePositionReference, 'legacy default disabled')
+    const current = createShot()
+    current.scenes = [createSceneConfig('民政局门口', '白天', '室外')]
+    current.usePositionReference = false
+    current.firstFrameMode = true
+    current.text = '（（@））\n正文'
+    for (const mode of ['basic', 'short', 'full', 'detailed'] as const) {
+      const text = composePrompt(config, current, undefined, 8, [], '5-6', mode)
+      const sceneName = mode === 'short' ? '民政局门口' : '民政局门口.png'
+      assert(text.includes(`白天，室外，民政局门口${mode === 'basic' ? '@' : ` [${sceneName}] `}`), mode + ': incorrect scene reference')
+      if (mode === 'basic') assert(!text.includes('[民政局门口'), 'basic mode added brackets')
+      assert(!text.includes('多角色位置参考'), mode + ': position reference remains')
+      assert(!text.includes('[白天') && !text.includes('[室外'), 'time or space added to reference name')
+      assert(mode === 'basic' ? text.includes('\n@\n') : text.includes(`\n [${mode === 'short' ? '5-6' : '5-6.png'}] \n`), 'first frame affected by positioning switch')
+    }
+    current.usePositionReference = true
+    const text = composePrompt(config, current, undefined, 8, [], '5-6')
+    assert(text.includes('多角色位置参考 [5-6.png] ') && !text.includes('[民政局门口'), 're-enabling positioning retained scene reference')
+    current.scenes[0].name = ''
+    current.usePositionReference = false
+    assert(!composeSceneSettings(current).includes('[]'), 'empty scene added a reference')
   })
   await test('Reference defaults span units and selected numbers drive both prompt references', () => {
     const episode = createInitialState(config).episodes[0]
@@ -92,12 +118,15 @@ export async function runSceneRoleTests() {
     const stored = createInitialState(config)
     stored.episodes[0].shots.push(createShot())
     stored.episodes[0].shots[0].referenceShotNumber = 2
+    stored.episodes[0].shots[0].usePositionReference = false
     const repository = new LocalRepository(new MemoryStorage(), testDatabaseName())
     await repository.save(stored)
     assert((await repository.load(config)).episodes[0].shots[0].referenceShotNumber === 2, 'IndexedDB lost reference')
+    assert(!(await repository.load(config)).episodes[0].shots[0].usePositionReference, 'IndexedDB lost positioning choice')
     const files = new Map([...buildDataFiles(stored)].map(([path, file]) => [path, parseDataFile(JSON.stringify(file), path)]))
     assert(assembleDataFiles(files, stored).episodes[0].shots[0].referenceShotNumber === 2, 'JSON lost reference')
     assert(mergeDownloadedFiles(createInitialState(config), files).episodes[0].shots[0].referenceShotNumber === 2, 'download lost reference')
+    assert(!mergeDownloadedFiles(createInitialState(config), files).episodes[0].shots[0].usePositionReference, 'download lost positioning choice')
     stored.episodes[0].shots.pop()
     const shrunk = normalizeAppState(stored, config)
     assert(shrunk.episodes[0].shots[0].referenceShotNumber === null, 'out-of-range reference retained after shrink')

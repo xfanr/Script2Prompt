@@ -66,5 +66,18 @@ export async function runReviewDataTests() {
     second.episodes[0].shots[0].review.noSubtitleCount = 0
     assert(canonicalJson(normalizeAppState(first, config)) === canonicalJson(normalizeAppState(second, config)), 'obsolete data still affects normalized comparison')
   })
+  await test('Half draw counts survive normalization, local reload and exported files', async () => {
+    const repository = new LocalRepository(new MemoryStorage(), testDatabaseName())
+    for (const drawCount of [1, 1.5, 2, 2.5, 3, 3.5, 4, 5.5, 8]) {
+      const state = createInitialState(config)
+      state.episodes[0].shots[0].review = { rating: 4, drawCount, notePrefix: '', note: '半次抽卡' }
+      assert(normalizeAppState(state, config).episodes[0].shots[0].review.drawCount === drawCount, 'normalization rounded half count')
+      await repository.save(state)
+      assert((await repository.load(config)).episodes[0].shots[0].review.drawCount === drawCount, 'local reload rounded half count')
+      const restored = assembleDataFiles(buildDataFiles(state), state)
+      assert(restored.episodes[0].shots[0].review.drawCount === drawCount, 'file roundtrip rounded half count')
+    }
+    repository.close()
+  })
   return { passed: results.filter((result) => result.passed).length, total: results.length, results }
 }

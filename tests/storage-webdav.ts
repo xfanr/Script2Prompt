@@ -1,6 +1,6 @@
 import { buildDataFiles, canonicalJson, groupFilePath, mergeDownloadedFiles, parseDataFile } from '../src/dataFiles'
 import { createEpisode, createEpisodeGroup, createInitialState, STORAGE_KEY } from '../src/defaults'
-import { normalizeGlobalConfig } from '../src/config'
+import { cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfig } from '../src/config'
 import { LocalRepository, STORE_PREFIX, readSyncTarget, updateSyncTarget } from '../src/storage'
 import { WebDavClient, parseWebDavListing, type WebDavSettings } from '../src/webdav'
 import { acceptDownloadedFiles, downloadDataFiles, legacySnapshotFiles, migrateLegacyFiles, uploadDataFiles, type UploadOptions } from '../src/webdavSync'
@@ -124,6 +124,63 @@ export async function runTests() {
   }
   const upload = (dav: MockDav, f: Awaited<ReturnType<typeof fixture>>, overrides: Partial<UploadOptions> = {}) =>
     uploadDataFiles(dav.client(), buildDataFiles(f.state), options(f.repository, f.state, overrides))
+
+  await test('Profile lists retain any positive count, custom names, order and active ID', () => {
+    for (const count of [1, 7, 40]) {
+      const custom = cloneGlobalConfig(config)
+      custom.prompt.profiles = Array.from({ length: count }, (_, index) => ({ ...config.prompt.profiles[0], id: `custom-${index}`, name: `自定义方案 ${index + 1}` }))
+      custom.prompt.activeProfileId = custom.prompt.profiles[count - 1].id
+      const normalized = normalizeGlobalConfig(custom)!
+      assert(canonicalJson(normalized.prompt.profiles) === canonicalJson(custom.prompt.profiles), 'profile list truncated or expanded')
+      const state = createInitialState(normalized)
+      state.episodeGroups = [createEpisodeGroup(custom.prompt.activeProfileId)]
+      const reloaded = normalizeAppState(state, config)
+      assert(canonicalJson(reloaded.globalConfig.prompt.profiles) === canonicalJson(custom.prompt.profiles), 'runtime defaults replaced custom names or order')
+      assert(reloaded.episodeGroups[0].promptProfileId === custom.prompt.activeProfileId, 'active binding changed')
+    }
+  })
+  await test('Profile merges preserve local definitions and append new names without a count limit', () => {
+    const imported = cloneGlobalConfig(config)
+    imported.prompt.profiles[0].name = '同 ID 的云端名称'
+    imported.prompt.profiles.push({ ...imported.prompt.profiles[0], id: 'new-scheme', name: '新增方案' })
+    imported.prompt.profiles.push({ ...imported.prompt.profiles[1], id: 'same-name-other-id' })
+    const merged = mergeGlobalConfigs(config, imported)
+    assert(merged.prompt.profiles.length === config.prompt.profiles.length + 1, 'new profile lost or duplicate added')
+    assert(merged.prompt.profiles[0].name === config.prompt.profiles[0].name, 'local definition changed')
+    assert(merged.prompt.profiles.at(-1)?.id === 'new-scheme', 'new profile not appended')
+    assert(merged.prompt.activeProfileId === config.prompt.activeProfileId, 'local default changed')
+  })
+  await test('More than four profiles and group bindings survive local storage and WebDAV', async () => {
+    const f = await fixture(), dav = new MockDav()
+    f.state.globalConfig.prompt.profiles = Array.from({ length: 7 }, (_, index) => ({ ...config.prompt.profiles[0], id: `custom-${index}`, name: `方案 ${index + 1}` }))
+    f.state.globalConfig.prompt.activeProfileId = 'custom-6'
+    f.state.episodeGroups[0].promptProfileId = 'custom-6'
+    f.state.episodeGroups[1].promptProfileId = 'custom-4'
+    await f.repository.save(f.state)
+    const local = await f.repository.load(config)
+    assert(local.globalConfig.prompt.profiles.length === 7 && local.episodeGroups[0].promptProfileId === 'custom-6', 'local reload truncated schemes')
+    await upload(dav, f)
+    const downloaded = mergeDownloadedFiles(createInitialState(config), (await downloadDataFiles(dav.client())).files)
+    assert(canonicalJson(downloaded.globalConfig.prompt.profiles) === canonicalJson(f.state.globalConfig.prompt.profiles), 'WebDAV changed names or order')
+    assert(downloaded.episodeGroups.find(group => group.id === f.state.episodeGroups[0].id)?.promptProfileId === 'custom-6', 'seventh scheme binding lost')
+    const legacyFile = JSON.parse(dav.files.get(f.a)!.text)
+    delete legacyFile.group.promptProfileId
+    dav.set(f.a, JSON.stringify(legacyFile))
+    const legacy = mergeDownloadedFiles(createInitialState(config), (await downloadDataFiles(dav.client())).files)
+    assert(legacy.episodeGroups.find(group => group.id === f.state.episodeGroups[0].id)?.promptProfileId === 'custom-6', 'legacy slot beyond four rejected')
+  })
+  await test('Reordered remote profiles preserve local-only group bindings by ID', async () => {
+    const f = await fixture(), dav = new MockDav()
+    const local = (await fixture()).state
+    const groupId = local.episodeGroups[1].id
+    const expected = local.episodeGroups[1].promptProfileId
+    f.state.globalConfig.prompt.profiles.reverse()
+    f.state.globalConfig.prompt.profiles.forEach(profile => { profile.name = '改名 ' + profile.name })
+    await upload(dav, f)
+    const next = mergeDownloadedFiles(local, (await downloadDataFiles(dav.client())).files)
+    assert(next.episodeGroups.find(group => group.id === groupId)?.promptProfileId === expected, 'sort or rename changed local-only binding')
+    assert(next.globalConfig.prompt.profiles[0].name.startsWith('改名 '), 'custom names replaced by runtime defaults')
+  })
 
   await test('Group results migrate from version 10 and normalize numeric values', async () => {
     const old = clone((await fixture()).state)

@@ -189,7 +189,7 @@ export function createEpisodeGroup(promptProfileId: string): EpisodeGroup {
     results: { playCount: 0, commission: 0, received: false },
     colorGrading: false,
     filter: false,
-    useShortReferenceNames: false,
+    referenceMode: 'full',
   }
 }
 

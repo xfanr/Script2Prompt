@@ -8,6 +8,125 @@
     @update:model-value="emit('update:modelValue', $event)"
   >
     <el-tabs v-model="activeTab" class="global-config-tabs">
+      <el-tab-pane label="提示词" name="prompt">
+        <div class="global-config-scroll-pane">
+          <el-form v-if="selectedProfile" class="global-config-form" label-position="top">
+            <el-form-item>
+              <el-select
+                ref="profileSelectRef"
+                v-model="selectedProfileId"
+                class="prompt-profile-select"
+                aria-label="提示词方案"
+              >
+                <template #prefix><span class="group-summary-select-prefix prompt-profile-select-prefix">提示词方案</span></template>
+                <template #header>
+                  <button type="button" class="prompt-profile-select-header" @click.stop="openProfileManager('prompt')">
+                    <el-icon><CategoryManagementIcon /></el-icon>方案管理
+                  </button>
+                </template>
+                <el-option v-for="profile in draft.prompt.profiles" :key="profile.id" :label="profile.name" :value="profile.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="基础设定前缀">
+              <el-input v-model="selectedProfile.basePrefix" class="global-config-textarea" type="textarea" :rows="7" resize="vertical" />
+            </el-form-item>
+            <el-form-item label="基础设定后缀">
+              <el-input v-model="selectedProfile.baseSuffix" />
+              <div class="config-field-help">仅在当前分镜配置的有效角色超过 2 个时追加。</div>
+            </el-form-item>
+            <el-form-item label="场景与角色设定前缀">
+              <el-input v-model="selectedProfile.sceneRolePrefix" />
+            </el-form-item>
+            <el-form-item label="场景与角色设定后缀">
+              <el-input v-model="selectedProfile.sceneRoleSuffix" />
+            </el-form-item>
+            <el-form-item label="分镜详情前缀">
+              <el-input v-model="selectedProfile.shotPrefix" />
+            </el-form-item>
+            <el-divider />
+            <el-form-item>
+              <el-select ref="templateSelectRef" v-model="draft.prompt.activeEnsembleAppearanceTemplateId" class="prompt-profile-select" aria-label="群像模板">
+                <template #prefix><span class="group-summary-select-prefix prompt-profile-select-prefix">群像模板</span></template>
+                <template #header>
+                  <button type="button" class="prompt-profile-select-header" @click.stop="openProfileManager('ensemble')">
+                    <el-icon><CategoryManagementIcon /></el-icon>模板管理
+                  </button>
+                </template>
+                <el-option v-for="template in draft.prompt.ensembleAppearanceTemplates" :key="template.id" :label="template.name" :value="template.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="群像描述模板">
+              <el-input v-model="selectedTemplate.content" type="textarea" :rows="3" resize="vertical" />
+            </el-form-item>
+          </el-form>
+
+        </div>
+      </el-tab-pane>
+
+      <el-tab-pane label="数据收集" name="data">
+        <div class="global-config-scroll-pane">
+          <el-form class="global-config-form" label-position="top">
+            <el-form-item>
+              <div class="dialogue-rule-config">
+                <div class="dialogue-rule-heading">
+                  <span>对接人选项</span>
+                  <el-button :icon="Plus" text type="primary" @click="addContactPersonOption">添加人员</el-button>
+                </div>
+                <div v-if="!draft.dataCollection.contactPersonOptions.length" class="empty-note">暂无对接人选项</div>
+                <VueDraggable v-else v-model="draft.dataCollection.contactPersonOptions" class="dialogue-rule-list" :animation="150" :bubble-scroll="false" handle=".config-option-drag-handle" ghost-class="character-drag-ghost">
+                  <div v-for="option in draft.dataCollection.contactPersonOptions" :key="option.id" class="contact-person-option-row">
+                    <el-button class="config-option-drag-handle" :icon="Sort" text type="primary" :aria-label="`拖拽排序人员${option.label}`" title="拖拽排序" />
+                    <el-input v-model="option.label" placeholder="输入对接人名称" aria-label="对接人名称" clearable />
+                    <el-button :icon="Delete" text type="danger" aria-label="删除对接人选项" @click="removeContactPersonOption(option.id)" />
+                  </div>
+                </VueDraggable>
+              </div>
+            </el-form-item>
+            <el-form-item>
+              <div class="dialogue-rule-config">
+                <div class="dialogue-rule-heading">
+                  <span>评分备注前缀</span>
+                  <el-button :icon="Plus" text type="primary" @click="addReviewNotePrefixOption">添加选项</el-button>
+                </div>
+                <div v-if="!draft.dataCollection.reviewNotePrefixOptions.length" class="empty-note">暂无评分备注前缀</div>
+                <VueDraggable v-else v-model="draft.dataCollection.reviewNotePrefixOptions" class="dialogue-rule-list" :animation="150" :bubble-scroll="false" handle=".config-option-drag-handle" ghost-class="character-drag-ghost">
+                  <div v-for="option in draft.dataCollection.reviewNotePrefixOptions" :key="option.id" class="dialogue-rule-row">
+                    <el-button class="config-option-drag-handle" :icon="Sort" text type="primary" :aria-label="`拖拽排序评分备注${option.category}→${option.label}`" title="拖拽排序" />
+                    <el-input v-model="option.category" placeholder="输入一级分类" clearable />
+                    <el-input v-model="option.label" placeholder="输入二级选项" clearable />
+                    <el-button :icon="Delete" text type="danger" aria-label="删除评分备注前缀" @click="removeReviewNotePrefixOption(option.id)" />
+                  </div>
+                </VueDraggable>
+              </div>
+            </el-form-item>
+          </el-form>
+        </div>
+      </el-tab-pane>
+
+      <el-tab-pane label="提取台词" name="dialogue">
+        <div class="global-config-scroll-pane">
+          <el-form class="global-config-form" label-position="top">
+            <el-form-item>
+              <div class="dialogue-rule-config">
+                <div class="dialogue-rule-heading">
+                  <span>台词替换规则</span>
+                  <el-button :icon="Plus" text type="primary" @click="addDialogueReplacementRule">添加规则</el-button>
+                </div>
+                <div v-if="!draft.dialogueExtraction.replacementRules.length" class="empty-note">暂无替换规则</div>
+                <VueDraggable v-else v-model="draft.dialogueExtraction.replacementRules" class="dialogue-rule-list" :animation="150" :bubble-scroll="false" handle=".config-option-drag-handle" ghost-class="character-drag-ghost">
+                  <div v-for="rule in draft.dialogueExtraction.replacementRules" :key="rule.id" class="dialogue-rule-row">
+                    <el-button class="config-option-drag-handle" :icon="Sort" text type="primary" :aria-label="`拖拽排序替换规则${rule.forbidden}`" title="拖拽排序" />
+                    <el-input v-model="rule.forbidden" placeholder="输入待替换词语" clearable />
+                    <el-input v-model="rule.replacement" placeholder="输入替换内容，可留空" clearable />
+                    <el-button :icon="Delete" text type="danger" aria-label="删除替换规则" @click="removeDialogueReplacementRule(rule.id)" />
+                  </div>
+                </VueDraggable>
+              </div>
+            </el-form-item>
+          </el-form>
+        </div>
+      </el-tab-pane>
+
       <el-tab-pane label="WebDAV" name="webdav">
         <div class="global-config-scroll-pane">
           <el-form id="webdav-settings-form" name="webdav-settings" method="post" class="global-config-form" autocomplete="on" label-position="top" :disabled="Boolean(webDavAction)" @submit.prevent="saveWebDavSettingsDraft">
@@ -38,104 +157,6 @@
           </el-form>
         </div>
       </el-tab-pane>
-
-      <el-tab-pane label="提示词" name="prompt">
-        <div class="global-config-scroll-pane">
-          <el-form v-if="selectedProfile" class="global-config-form" label-position="top">
-            <el-form-item label="基础设定前缀">
-              <el-input v-model="selectedProfile.basePrefix" class="global-config-textarea" type="textarea" :rows="7" resize="vertical" />
-            </el-form-item>
-            <el-form-item label="基础设定后缀">
-              <el-input v-model="selectedProfile.baseSuffix" />
-              <div class="config-field-help">仅在当前分镜配置的有效角色超过 2 个时追加。</div>
-            </el-form-item>
-            <el-form-item label="场景与角色设定前缀">
-              <el-input v-model="selectedProfile.sceneRolePrefix" />
-            </el-form-item>
-            <el-form-item label="场景与角色设定后缀">
-              <el-input v-model="selectedProfile.sceneRoleSuffix" />
-            </el-form-item>
-            <el-form-item label="分镜详情前缀">
-              <el-input v-model="selectedProfile.shotPrefix" />
-            </el-form-item>
-            <el-form-item label="提示词方案">
-              <el-segmented
-                v-model="selectedProfileId"
-                class="prompt-profile-slots"
-                :options="promptProfileOptions"
-                size="small"
-                aria-label="提示词方案"
-              />
-            </el-form-item>
-            <el-form-item label="角色群像形象描述模板">
-              <el-input v-model="draft.prompt.ensembleAppearanceTemplate" type="textarea" :rows="3" resize="vertical" />
-            </el-form-item>
-          </el-form>
-
-        </div>
-      </el-tab-pane>
-
-      <el-tab-pane label="数据收集" name="data">
-        <div class="global-config-scroll-pane">
-          <el-form class="global-config-form" label-position="top">
-            <el-form-item>
-              <div class="dialogue-rule-config">
-                <div class="dialogue-rule-heading">
-                  <span>对接人选项</span>
-                  <el-button :icon="Plus" text type="primary" @click="addContactPersonOption">添加对接人</el-button>
-                </div>
-                <div v-if="!draft.dataCollection.contactPersonOptions.length" class="empty-note">暂无对接人选项</div>
-                <div v-else class="dialogue-rule-list">
-                  <div v-for="option in draft.dataCollection.contactPersonOptions" :key="option.id" class="contact-person-option-row">
-                    <el-input v-model="option.label" placeholder="输入对接人名称" aria-label="对接人名称" clearable />
-                    <el-button :icon="Delete" text type="danger" aria-label="删除对接人选项" @click="removeContactPersonOption(option.id)" />
-                  </div>
-                </div>
-              </div>
-            </el-form-item>
-            <el-form-item>
-              <div class="dialogue-rule-config">
-                <div class="dialogue-rule-heading">
-                  <span>评分备注前缀</span>
-                  <el-button :icon="Plus" text type="primary" @click="addReviewNotePrefixOption">添加选项</el-button>
-                </div>
-                <div v-if="!draft.dataCollection.reviewNotePrefixOptions.length" class="empty-note">暂无评分备注前缀</div>
-                <div v-else class="dialogue-rule-list">
-                  <div v-for="option in draft.dataCollection.reviewNotePrefixOptions" :key="option.id" class="dialogue-rule-row">
-                    <el-input v-model="option.category" placeholder="输入一级分类" clearable />
-                    <el-input v-model="option.label" placeholder="输入二级选项" clearable />
-                    <el-button :icon="Delete" text type="danger" aria-label="删除评分备注前缀" @click="removeReviewNotePrefixOption(option.id)" />
-                  </div>
-                </div>
-              </div>
-            </el-form-item>
-          </el-form>
-        </div>
-      </el-tab-pane>
-
-      <el-tab-pane label="提取台词" name="dialogue">
-        <div class="global-config-scroll-pane">
-          <el-form class="global-config-form" label-position="top">
-            <el-form-item>
-              <div class="dialogue-rule-config">
-                <div class="dialogue-rule-heading">
-                  <span>台词替换规则</span>
-                  <el-button :icon="Plus" text type="primary" @click="addDialogueReplacementRule">添加规则</el-button>
-                </div>
-                <div v-if="!draft.dialogueExtraction.replacementRules.length" class="empty-note">暂无替换规则</div>
-                <div v-else class="dialogue-rule-list">
-                  <div v-for="rule in draft.dialogueExtraction.replacementRules" :key="rule.id" class="dialogue-rule-row">
-                    <el-input v-model="rule.forbidden" placeholder="输入待替换词语" clearable />
-                    <el-input v-model="rule.replacement" placeholder="输入替换内容，可留空" clearable />
-                    <el-button :icon="Delete" text type="danger" aria-label="删除替换规则" @click="removeDialogueReplacementRule(rule.id)" />
-                  </div>
-                </div>
-              </div>
-            </el-form-item>
-          </el-form>
-        </div>
-      </el-tab-pane>
-
     </el-tabs>
 
     <template #footer>
@@ -149,19 +170,33 @@
       </template>
     </template>
   </el-dialog>
+  <SchemeManagerDrawer
+    v-model="profileManagerVisible"
+    :title="managerKind === 'prompt' ? '方案管理' : '模板管理'"
+    :item-label="managerKind === 'prompt' ? '方案' : '模板'"
+    :items="managedSchemes"
+    @add="addManagedScheme"
+    @remove="removeManagedScheme"
+    @rename="renameManagedScheme"
+    @select="selectManagedScheme"
+    @reorder="reorderManagedSchemes"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ElMessageBox } from 'element-plus'
-import { Delete, Plus } from '../icons'
-import { cloneGlobalConfig, loadRuntimeDefaultConfig, normalizeGlobalConfig } from '../config'
-import { createContactPersonOption, createDialogueReplacementRule, createReviewNotePrefixOption } from '../defaults'
+import { VueDraggable } from 'vue-draggable-plus'
+import { ElMessageBox, type SelectInstance } from 'element-plus'
+import { CategoryManagementIcon, Delete, Plus, Sort } from '../icons'
+import SchemeManagerDrawer from './SchemeManagerDrawer.vue'
+import { activeEnsembleAppearanceTemplate, cloneGlobalConfig, loadRuntimeDefaultConfig, normalizeGlobalConfig } from '../config'
+import { createContactPersonOption, createDialogueReplacementRule, createId, createReviewNotePrefixOption } from '../defaults'
 import type { GlobalConfig } from '../types'
 import { notify } from '../notification'
 import { normalizeWebDavSettings, type WebDavAction, type WebDavSettings } from '../webdav'
 
 type GlobalConfigTab = 'prompt' | 'data' | 'dialogue' | 'webdav'
+type SchemeKind = 'prompt' | 'ensemble'
 
 const props = defineProps<{
   modelValue: boolean
@@ -178,19 +213,21 @@ const emit = defineEmits<{
   'webdav-migrate': [settings: WebDavSettings]
 }>()
 
-const activeTab = ref<GlobalConfigTab>('webdav')
+const activeTab = ref<GlobalConfigTab>('prompt')
 const draft = ref<GlobalConfig>(cloneGlobalConfig(props.config))
 const selectedProfileId = ref(props.config.prompt.activeProfileId)
+const profileSelectRef = ref<SelectInstance | null>(null)
+const templateSelectRef = ref<SelectInstance | null>(null)
+const profileManagerVisible = ref(false)
+const managerKind = ref<SchemeKind>('prompt')
 const initialSignature = ref('')
 const webDavDraft = ref<WebDavSettings>({ ...props.webDavSettings })
 const initialWebDavSignature = ref('')
 const isResetting = ref(false)
 
 const selectedProfile = computed(() => draft.value.prompt.profiles.find((profile) => profile.id === selectedProfileId.value) ?? null)
-const promptProfileOptions = computed(() => draft.value.prompt.profiles.map((profile) => ({
-  label: profile.name,
-  value: profile.id,
-})))
+const selectedTemplate = computed(() => activeEnsembleAppearanceTemplate(draft.value))
+const managedSchemes = computed(() => managerKind.value === 'prompt' ? draft.value.prompt.profiles : draft.value.prompt.ensembleAppearanceTemplates)
 const isGlobalConfigDirty = computed(() => JSON.stringify(draft.value) !== initialSignature.value)
 const isWebDavDirty = computed(() => JSON.stringify(webDavDraft.value) !== initialWebDavSignature.value)
 const isDirty = computed(() => isGlobalConfigDirty.value || isWebDavDirty.value)
@@ -206,6 +243,8 @@ const formattedWebDavSyncTime = computed(() => {
 watch(() => props.modelValue, (visible) => {
   if (visible) {
     initializeDraft(props.config, props.webDavSettings)
+  } else {
+    profileManagerVisible.value = false
   }
 })
 
@@ -221,12 +260,62 @@ watch(() => props.config, (config) => {
 })
 
 function initializeDraft(config: GlobalConfig, webDavSettings: WebDavSettings) {
+  profileManagerVisible.value = false
   draft.value = cloneGlobalConfig(config)
   webDavDraft.value = { ...webDavSettings }
   selectedProfileId.value = config.prompt.activeProfileId
-  activeTab.value = 'webdav'
+  activeTab.value = 'prompt'
   initialSignature.value = JSON.stringify(draft.value)
   initialWebDavSignature.value = JSON.stringify(webDavDraft.value)
+}
+
+function openProfileManager(kind: SchemeKind) {
+  managerKind.value = kind
+  if (kind === 'prompt') profileSelectRef.value?.blur()
+  else templateSelectRef.value?.blur()
+  profileManagerVisible.value = true
+}
+
+function addManagedScheme() {
+  const baseName = managerKind.value === 'prompt' ? '新方案' : '新模板'
+  let name = baseName
+  let number = 2
+  while (managedSchemes.value.some((scheme) => scheme.name.trim() === name)) {
+    name = `${baseName} ${number++}`
+  }
+  const id = createId(managerKind.value === 'prompt' ? 'prompt-profile' : 'ensemble-template')
+  if (managerKind.value === 'prompt') {
+    draft.value.prompt.profiles.push({ id, name, basePrefix: '', baseSuffix: '', sceneRolePrefix: '', sceneRoleSuffix: '', shotPrefix: '' })
+  } else {
+    draft.value.prompt.ensembleAppearanceTemplates.push({ id, name, content: '' })
+  }
+  selectManagedScheme(id)
+}
+
+function selectManagedScheme(id: string) {
+  if (managerKind.value === 'prompt') selectedProfileId.value = id
+  else draft.value.prompt.activeEnsembleAppearanceTemplateId = id
+}
+
+function renameManagedScheme(id: string, name: string) {
+  managedSchemes.value.find((scheme) => scheme.id === id)!.name = name
+}
+
+function reorderManagedSchemes(ids: string[]) {
+  const order = new Map(ids.map((id, index) => [id, index]))
+  managedSchemes.value.sort((a, b) => order.get(a.id)! - order.get(b.id)!)
+}
+
+function removeManagedScheme(id: string) {
+  const prompt = draft.value.prompt
+  if (managerKind.value === 'prompt') {
+    prompt.profiles = prompt.profiles.filter((profile) => profile.id !== id)
+    if (prompt.activeProfileId === id) prompt.activeProfileId = prompt.profiles[0].id
+    if (selectedProfileId.value === id) selectedProfileId.value = prompt.activeProfileId
+  } else {
+    prompt.ensembleAppearanceTemplates = prompt.ensembleAppearanceTemplates.filter((template) => template.id !== id)
+    if (prompt.activeEnsembleAppearanceTemplateId === id) prompt.activeEnsembleAppearanceTemplateId = prompt.ensembleAppearanceTemplates[0].id
+  }
 }
 
 function addDialogueReplacementRule() {
@@ -315,6 +404,16 @@ function validatedWebDavSettings() {
 }
 
 function validateDraft() {
+  for (const kind of ['prompt', 'ensemble'] as const) {
+    const schemes = kind === 'prompt' ? draft.value.prompt.profiles : draft.value.prompt.ensembleAppearanceTemplates
+    schemes.forEach((scheme) => { scheme.name = scheme.name.trim() })
+    if (schemes.some((scheme) => !scheme.name) || new Set(schemes.map((scheme) => scheme.name)).size !== schemes.length) {
+      notify.warning(`${kind === 'prompt' ? '方案' : '模板'}名称不能为空或重复`)
+      activeTab.value = 'prompt'
+      openProfileManager(kind)
+      return null
+    }
+  }
   const contacts = draft.value.dataCollection.contactPersonOptions
   contacts.forEach((option) => { option.label = option.label.trim() })
   if (contacts.some((option) => !option.label)) {

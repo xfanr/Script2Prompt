@@ -4,6 +4,7 @@ export type SceneTime = '白天' | '深夜'
 export type SceneSpace = '室内' | '室外' | '无'
 export type DialogueSpeechRate = 'slow' | 'medium' | 'fast'
 export type ActionTimingMode = 'sync' | 'async'
+export type ReferenceMode = 'basic' | 'short' | 'full' | 'detailed'
 
 export interface DurationRange {
   min: number
@@ -40,11 +41,18 @@ export interface PromptProfile {
 export interface PromptConfig {
   activeProfileId: string
   profiles: PromptProfile[]
-  ensembleAppearanceTemplate: string
+  ensembleAppearanceTemplates: EnsembleAppearanceTemplate[]
+  activeEnsembleAppearanceTemplateId: string
   // 未分组的全剧选项；自定义剧集的选项保存在 EpisodeGroup。
-  useShortReferenceNames: boolean
+  referenceMode: ReferenceMode
   colorGrading: boolean
   filter: boolean
+}
+
+export interface EnsembleAppearanceTemplate {
+  id: string
+  name: string
+  content: string
 }
 
 export interface DataCollectionConfig {
@@ -210,7 +218,7 @@ export interface EpisodeGroup {
   results: GroupResults
   colorGrading: boolean
   filter: boolean
-  useShortReferenceNames: boolean
+  referenceMode: ReferenceMode
 }
 
 export interface Episode {

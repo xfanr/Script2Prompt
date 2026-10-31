@@ -1,4 +1,4 @@
-import { activePromptProfile, cloneGlobalConfig, migrateLegacyGlobalConfig, normalizeGlobalConfig } from './config'
+import { activePromptProfile, cloneGlobalConfig, migrateLegacyGlobalConfig, normalizeGlobalConfig, normalizeReferenceMode } from './config'
 import { APP_VERSION, createEpisode, createEpisodeProductionData, createPromptReview, createSceneAsset, createSceneConfig, normalizeCharacterAssets, normalizeShotSceneSelection } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
 import { compactShotUnitNumbers, normalizeReferenceShotNumber, normalizeShotUnitNumber } from './shotNumber'
@@ -81,7 +81,7 @@ function normalizePromptReview(review: unknown): PromptReview {
     ? Math.max(0, Math.min(5, Math.round(value.rating)))
     : 0
   const drawCount = typeof value.drawCount === 'number' && Number.isFinite(value.drawCount)
-    ? Math.max(1, Math.min(8, Math.round(value.drawCount)))
+    ? Math.max(1, Math.min(8, Math.round(value.drawCount * 2) / 2))
     : 1
 
   return {
@@ -127,10 +127,6 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
       ? migrateLegacyGlobalConfig(parsed.globalConfig, storedVersion, defaultGlobalConfig)
       : normalizeGlobalConfig(parsed.globalConfig)
 
-    if (normalizedGlobalConfig) {
-      syncPromptProfileNames(normalizedGlobalConfig, defaultGlobalConfig)
-    }
-
     parsed.globalConfig = normalizedGlobalConfig ?? cloneGlobalConfig(defaultGlobalConfig)
     parsed.version = APP_VERSION
     parsed.pointInvoices = normalizePointInvoices(parsed.pointInvoices)
@@ -142,7 +138,9 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
       group.results = normalizeGroupResults(group.results)
       group.colorGrading = group.colorGrading === true
       group.filter = group.filter === true
-      group.useShortReferenceNames = group.useShortReferenceNames === true
+      const legacy = group as typeof group & { useShortReferenceNames?: unknown }
+      group.referenceMode = normalizeReferenceMode(group.referenceMode, legacy.useShortReferenceNames)
+      delete legacy.useShortReferenceNames
       group.promptProfileId = activePromptProfile(parsed.globalConfig, group.promptProfileId).id
     })
 
@@ -175,7 +173,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
           index < shots.length - 1,
         ))
         shot.scenes = normalizeShotScenes(shot.scenes, episode.scenes)
-        shot.usePositionReference = true
+        shot.usePositionReference = shot.usePositionReference !== false
         shot.useReverseAngle = false
         const hadStoredFirstFrameMode = typeof shot.firstFrameMode === 'boolean'
         shot.firstFrameMode = hadStoredFirstFrameMode ? shot.firstFrameMode : false
@@ -221,10 +219,4 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     }
 
     return parsed
-}
-
-function syncPromptProfileNames(config: GlobalConfig, runtimeConfig: GlobalConfig) {
-  config.prompt.profiles.forEach((profile, index) => {
-    profile.name = runtimeConfig.prompt.profiles[index]?.name ?? profile.name
-  })
 }

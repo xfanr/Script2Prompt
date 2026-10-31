@@ -1,9 +1,16 @@
 {
   "schemaVersion": 1,
   "prompt": {
-    "ensembleAppearanceTemplate": "一组外貌、发型和服装各不相同的角色，保持个体差异，避免重复面孔。",
+    "ensembleAppearanceTemplates": [
+      {
+        "id": "ensemble-template-default",
+        "name": "默认模板",
+        "content": "一组外貌、发型和服装各不相同的角色，保持个体差异，避免重复面孔。"
+      }
+    ],
+    "activeEnsembleAppearanceTemplateId": "ensemble-template-default",
     "activeProfileId": "prompt-slot-1",
-    "useShortReferenceNames": false,
+    "referenceMode": "full",
     "colorGrading": false,
     "filter": false,
     "profiles": [

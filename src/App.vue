@@ -407,14 +407,6 @@
                   >
                     <span class="shot-order">{{ index + 1 }}</span>
                     <span class="shot-number">{{ formatShotNumber(activeEpisode, index) }}</span>
-                    <el-dropdown class="shot-reference-dropdown" trigger="click" :max-height="280" @command="shot.referenceShotNumber = $event" @dblclick.stop>
-                      <span class="shot-number shot-reference-number" role="button" tabindex="0" :aria-label="`分镜${index + 1}引用序号`">({{ shot.referenceShotNumber ?? index + 1 }})</span>
-                      <template #dropdown>
-                        <el-dropdown-menu>
-                          <el-dropdown-item v-for="number in activeEpisode.shots.length" :key="number" :command="number">{{ number }}</el-dropdown-item>
-                        </el-dropdown-menu>
-                      </template>
-                    </el-dropdown>
                   </span>
                 </div>
                 <div class="shot-tools">
@@ -460,7 +452,6 @@
                           type="primary"
                           text
                           :bg="shot.firstFrameMode"
-                          :icon="VideoPlay"
                           :title="`${shot.firstFrameMode ? '关闭首帧' : '开启首帧'}；右键应用到本集全部分镜`"
                           :aria-label="shot.firstFrameMode ? '关闭首帧' : '开启首帧'"
                           @click="shot.firstFrameMode = !shot.firstFrameMode"
@@ -598,11 +589,17 @@
                       </div>
                     </div>
                     <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line">
-                      <el-select v-model="scene.name" placeholder="选择场景" aria-label="选择场景" @change="syncSceneFromAsset(scene)">
-                        <template #label="{ label }">{{ scene.name ? sceneAssetLabel(scene) : label }}</template>
-                        <el-option v-for="item in activeEpisode.scenes" :key="item.name" :label="sceneAssetLabel(item)" :value="item.name" />
+                      <div class="scene-selection-controls">
+                        <el-select v-model="scene.name" placeholder="选择场景" aria-label="选择场景" @change="syncSceneFromAsset(scene)">
+                          <template #label="{ label }">{{ scene.name ? sceneAssetLabel(scene) : label }}</template>
+                          <el-option v-for="item in activeEpisode.scenes" :key="item.name" :label="sceneAssetLabel(item)" :value="item.name" />
+                        </el-select>
+                        <el-button :icon="PositionReference" :type="shot.usePositionReference ? 'primary' : undefined" :aria-pressed="shot.usePositionReference" aria-label="多角色位置参考" :title="shot.usePositionReference ? '关闭多角色位置参考' : '开启多角色位置参考'" @click="shot.usePositionReference = !shot.usePositionReference" />
+                      </div>
+                      <el-select :model-value="shot.referenceShotNumber ?? index + 1" :aria-label="`分镜${index + 1}引用序号`" @update:model-value="shot.referenceShotNumber = $event">
+                        <el-option v-for="number in activeEpisode.shots.length" :key="number" :label="String(number)" :value="number" />
                       </el-select>
-                      <el-input v-model="scene.statusText" class="scene-status-input" placeholder="输入场景状态" />
+                      <el-input v-model="scene.statusText" class="scene-status-input" placeholder="场景状态" aria-label="场景状态" />
                       <el-button
                         class="config-edit-button"
                         :icon="EditPen"
@@ -824,7 +821,7 @@
         </template>
       </el-dialog>
       <PointLedgerDialog v-model="pointLedgerVisible" :invoices="state.pointInvoices" :episodes="state.episodes" :episode-groups="state.episodeGroups" @save="savePointInvoices" />
-      <el-dialog v-model="detectionDialogVisible" title="角色识别冲突" width="820px" :show-close="false" class="detection-dialog" @closed="cancelActiveDetection">
+      <el-drawer v-model="detectionDialogVisible" title="角色识别冲突" size="380px" direction="rtl" :modal="false" append-to-body class="app-drawer detection-dialog" @closed="cancelActiveDetection">
         <div v-if="detectionConflict" class="detection-compare">
           <div class="detection-compare-row">
             <span>当前配置</span>
@@ -862,8 +859,17 @@
           <el-button :disabled="!detectionMergeChanged()" @click="mergeActiveDetection">合并角色</el-button>
           <el-button type="primary" :disabled="!detectionReplaceChanged()" @click="replaceActiveDetection">替换角色</el-button>
         </template>
-      </el-dialog>
-      <el-dialog v-model="dataDialogVisible" :title="dataDialogTitle" width="820px" :show-close="false" class="data-dialog" :class="{ 'review-dialog': dataDialogView === 'shot', 'review-summary-dialog': dataDialogView === 'episode', 'group-summary-dialog': dataDialogView === 'group' }" @closed="clearDataDialogContext">
+      </el-drawer>
+      <component
+        :is="dataDialogView === 'shot' ? ElDrawer : ElDialog"
+        v-model="dataDialogVisible"
+        :title="dataDialogTitle"
+        v-bind="dataDialogView === 'shot' ? { size: '380px', direction: 'rtl', modal: false, appendToBody: true } : { width: '820px' }"
+        :show-close="dataDialogView === 'shot'"
+        class="data-dialog"
+        :class="{ 'app-drawer review-dialog': dataDialogView === 'shot', 'review-summary-dialog': dataDialogView === 'episode', 'group-summary-dialog': dataDialogView === 'group' }"
+        @closed="clearDataDialogContext"
+      >
         <template #header="{ titleId, titleClass }">
           <span :id="titleId" :class="titleClass" role="heading" aria-level="2">{{ dataDialogTitle }}</span>
           <el-breadcrumb separator="/" class="data-dialog-breadcrumb">
@@ -890,29 +896,25 @@
             />
           </el-form-item>
           <el-form-item label="抽卡次数">
-            <div class="review-choice-field">
-              <el-radio-group v-model="reviewDrawCountMode" @change="selectReviewDrawCountMode">
-                <el-radio-button value="one">1次</el-radio-button>
-                <el-radio-button value="two">2次</el-radio-button>
-                <el-radio-button value="three">3次</el-radio-button>
-                <el-radio-button value="four">4次</el-radio-button>
-              </el-radio-group>
+              <el-radio-group v-model="reviewDrawCountMode" class="review-choice-field" @change="selectReviewDrawCountMode">
+                <el-radio-button v-for="count in reviewDrawCountOptions" :key="count" :value="count">{{ count }}</el-radio-button>
               <el-input-number
                 v-model="reviewCustomDrawCount"
                 :min="1"
                 :max="8"
-                :step="1"
+                :step="0.5"
+                step-strictly
                 :controls="false"
-                placeholder="输入次数"
+                placeholder="输入"
                 aria-label="自定义抽卡次数"
+                @focus="reviewDrawCountMode = ''"
                 @input="updateReviewCustomDrawCount"
                 @blur="finalizeReviewDrawCountInput"
               />
-            </div>
+              </el-radio-group>
           </el-form-item>
           <el-form-item label="备注">
-            <el-input v-model="reviewDraft.note" class="review-note-input" placeholder="输入评分备注" clearable>
-              <template #prepend>
+            <div class="review-note-field">
                 <el-cascader
                   v-model="reviewNotePrefixPath"
                   :options="reviewNoteCascaderOptions"
@@ -922,8 +924,8 @@
                   clearable
                   @change="updateReviewNotePrefix"
                 />
-              </template>
-            </el-input>
+              <el-input v-model="reviewDraft.note" placeholder="输入评分备注" clearable />
+            </div>
           </el-form-item>
           </el-form>
         </template>
@@ -982,7 +984,13 @@
           <div class="group-summary-flags">
             <el-checkbox v-model="groupProductionOptions.colorGrading" size="small">调色</el-checkbox>
             <el-checkbox v-model="groupProductionOptions.filter" size="small">滤镜</el-checkbox>
-            <el-checkbox v-model="groupProductionOptions.useShortReferenceNames" size="small">简称</el-checkbox>
+            <el-segmented
+              v-model="groupProductionOptions.referenceMode"
+              :options="referenceModeOptions"
+              class="reference-mode-segmented"
+              size="small"
+              aria-label="引用模式"
+            />
           </div>
         </div>
         <div class="group-summary-inputs">
@@ -1090,7 +1098,7 @@
           <el-button @click="clearReviewDialog">清空</el-button>
           <el-button type="primary" @click="saveReviewDialog">保存</el-button>
         </template>
-      </el-dialog>
+      </component>
       <el-dialog v-model="episodeScriptDialogVisible" width="820px" class="episode-script-dialog" :show-close="false" :close-on-click-modal="!episodeScriptSaving" :close-on-press-escape="!episodeScriptSaving" @closed="resetEpisodeScriptDialog">
         <el-tabs v-model="episodeScriptActiveTab" class="episode-script-tabs" :before-leave="() => !episodeScriptSaving">
           <el-tab-pane label="素材" name="materials">
@@ -1330,7 +1338,7 @@
           </template>
         </template>
       </el-dialog>
-      <el-dialog v-model="materialDialogVisible" :title="materialDialogTitle" width="820px" :show-close="false" class="material-dialog" @closed="handleMaterialDialogClosed">
+      <el-drawer v-model="materialDialogVisible" :title="materialDialogTitle" size="380px" direction="rtl" :modal="false" append-to-body class="app-drawer material-dialog" @closed="handleMaterialDialogClosed">
         <el-form class="material-form" label-position="top" @submit.prevent>
           <el-form-item v-if="shouldShowMaterialCharacters" label="角色">
             <el-input
@@ -1349,7 +1357,14 @@
           <el-form-item v-if="shouldShowMaterialCharacters" class="material-appearance-field" label="形象描述">
             <template #label>
               <span>形象描述</span>
-              <el-button v-if="materialCharacterIsEnsembleDraft" class="title-copy-button" :icon="Download" size="small" text type="primary" title="填入群像模板" aria-label="填入群像模板" @click="materialCharacterAppearanceDraft = state.globalConfig.prompt.ensembleAppearanceTemplate" />
+              <el-dropdown v-if="materialCharacterIsEnsembleDraft" trigger="click" @command="(content) => materialCharacterAppearanceDraft = content">
+                <el-link type="primary" underline="never">模板</el-link>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-for="template in state.globalConfig.prompt.ensembleAppearanceTemplates" :key="template.id" :command="template.content">{{ template.name }}</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </template>
             <el-input
               v-model="materialCharacterAppearanceDraft"
@@ -1415,13 +1430,15 @@
         <template #footer>
           <el-button type="primary" @click="confirmMaterialDialog">{{ materialDialogConfirmText }}</el-button>
         </template>
-      </el-dialog>
-      <el-dialog
+      </el-drawer>
+      <el-drawer
         v-model="characterPasteDialogVisible"
         title="智能识别"
-        width="560px"
-        :show-close="false"
-        class="character-paste-dialog"
+        size="380px"
+        direction="rtl"
+        :modal="false"
+        append-to-body
+        class="app-drawer character-paste-dialog"
         @opened="focusCharacterPasteInput"
         @closed="resetCharacterPasteDialog"
       >
@@ -1440,7 +1457,7 @@
           <el-button @click="characterPasteDialogVisible = false">取消</el-button>
           <el-button type="primary" :disabled="!characterPasteDraft.trim()" @click="confirmCharacterPaste">识别</el-button>
         </template>
-      </el-dialog>
+      </el-drawer>
   </el-config-provider>
 </template>
 
@@ -1453,9 +1470,9 @@ import PointLedgerDialog from './components/PointLedgerDialog.vue'
 import GroupPlayMedal from './components/GroupPlayMedal.vue'
 import EpisodeGroupPreview from './components/EpisodeGroupPreview.vue'
 import EpisodeSplitNumberCell from './components/EpisodeSplitNumberCell.vue'
-import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
-import { ElMessageBox, type DropdownInstance } from 'element-plus'
-import { AddIcon, ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, Files, Grape, Location, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, Position, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, VideoPlay, View, WarningFilled } from './icons'
+import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot, normalizeReferenceMode } from './config'
+import { ElDialog, ElDrawer, ElMessageBox, type DropdownInstance } from 'element-plus'
+import { AddIcon, ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, Files, Grape, Location, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, Position, PositionReference, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, View, WarningFilled } from './icons'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { normalizeSplitScriptText } from './episodeScript'
 import { clearInteriorEpisodeContacts, contactEditableEpisodeIds, renameEpisodeContacts } from './episodeContacts'
@@ -1576,7 +1593,8 @@ type ImportBatch = {
   globalConfig: GlobalConfig | null
   pointInvoices: PointInvoice[]
 }
-type ReviewDrawCountMode = '' | 'one' | 'two' | 'three' | 'four'
+const reviewDrawCountOptions = [1, 1.5, 2, 2.5, 3, 3.5, 4] as const
+type ReviewDrawCountMode = '' | typeof reviewDrawCountOptions[number]
 type WeeklyReportPickerCell = {
   dayjs?: {
     format: (pattern: string) => string
@@ -1845,6 +1863,12 @@ const dataDialogGroupTitle = computed(() => getEpisodeGroupTitle(dataDialogGroup
 const dataDialogTitle = computed(() => ({ group: '全剧数据', episode: '分集数据', shot: '分镜数据' })[dataDialogView.value])
 const activeGroupSummary = computed(() => state.episodeGroups.find((group) => group.id === activeGroupSummaryId.value) ?? null)
 const groupProductionOptions = computed(() => activeGroupSummary.value ?? state.globalConfig.prompt)
+const referenceModeOptions = [
+  { label: '基础', value: 'basic' },
+  { label: '简称', value: 'short' },
+  { label: '完整', value: 'full' },
+  { label: '详细', value: 'detailed' },
+]
 const groupResultTiers = [
   { playCount: 2000, commission: 500, label: '500元丨2千万' },
   { playCount: 5000, commission: 1000, label: '1000元丨5千万' },
@@ -2050,22 +2074,19 @@ function mapPromptProfileId(
 ) {
   const sourceProfile = activePromptProfile(sourceConfig, typeof profileId === 'string' ? profileId : undefined)
   const sourceIndex = sourceConfig.prompt.profiles.findIndex((profile) => profile.id === sourceProfile.id)
-  return targetConfig.prompt.profiles.find((profile) => profile.name === sourceProfile.name)?.id
+  return targetConfig.prompt.profiles.find((profile) => profile.id === sourceProfile.id)?.id
+    ?? targetConfig.prompt.profiles.find((profile) => profile.name === sourceProfile.name)?.id
     ?? targetConfig.prompt.profiles[sourceIndex]?.id
     ?? activePromptProfile(targetConfig).id
-}
-
-function remapGroupPromptProfiles(sourceConfig: GlobalConfig, targetConfig: GlobalConfig) {
-  state.episodeGroups.forEach((group) => {
-    group.promptProfileId = mapPromptProfileId(group.promptProfileId, sourceConfig, targetConfig)
-  })
 }
 
 function saveGlobalConfig(config: GlobalConfig) {
   const previousConfig = state.globalConfig
   const nextConfig = cloneGlobalConfig(config)
   renameEpisodeContacts(state.episodes, previousConfig.dataCollection.contactPersonOptions, nextConfig.dataCollection.contactPersonOptions)
-  remapGroupPromptProfiles(previousConfig, nextConfig)
+  state.episodeGroups.forEach((group) => {
+    group.promptProfileId = activePromptProfile(nextConfig, group.promptProfileId).id
+  })
   state.globalConfig = nextConfig
 }
 
@@ -2568,8 +2589,7 @@ function sceneAssetLabel(scene: SceneAsset) {
 }
 
 function formatUnitLabel(unitNumber: number) {
-  const labels = ['一', '二', '三', '四', '五', '六', '七', '八', '九']
-  return `单元${labels[unitNumber - 1] ?? unitNumber}`
+  return `单元${unitNumber}`
 }
 
 function collectWeeklyReportEntries(range: WeeklyReportRange) {
@@ -4714,7 +4734,7 @@ function normalizePromptReview(review: unknown): PromptReview {
     ? Math.max(0, Math.min(5, Math.round(value.rating)))
     : 0
   const drawCount = typeof value.drawCount === 'number' && Number.isFinite(value.drawCount)
-    ? Math.max(1, Math.min(8, Math.round(value.drawCount)))
+    ? Math.max(1, Math.min(8, Math.round(value.drawCount * 2) / 2))
     : 1
 
   return {
@@ -4763,7 +4783,7 @@ function isReviewDefault(review: PromptReview) {
 }
 
 function calculateAutomaticReviewRating(drawCount: number, notePrefix: string) {
-  const normalizedDrawCount = Math.max(1, Math.min(8, Math.round(drawCount)))
+  const normalizedDrawCount = Math.max(1, Math.min(8, drawCount))
   const drawCountPenalty = normalizedDrawCount > 6 ? 3 : normalizedDrawCount > 4 ? 2 : normalizedDrawCount > 2 ? 1 : 0
   const notePrefixCategory = notePrefix.split('→')[0]?.trim() ?? ''
   const notePrefixPenalty = notePrefixCategory === '抽卡失误' ? 1 : 0
@@ -4784,17 +4804,11 @@ function updateAutomaticReviewRating() {
 }
 
 function currentReviewDrawCount() {
-  const shortcutValue = reviewDrawCountMode.value === 'one'
-    ? 1
-    : reviewDrawCountMode.value === 'two'
-      ? 2
-      : reviewDrawCountMode.value === 'three' ? 3 : reviewDrawCountMode.value === 'four' ? 4 : null
-
-  return shortcutValue ?? (isValidReviewDrawCount(reviewCustomDrawCount.value) ? reviewCustomDrawCount.value : null)
+  return reviewDrawCountMode.value || (isValidReviewDrawCount(reviewCustomDrawCount.value) ? reviewCustomDrawCount.value : null)
 }
 
 function isValidReviewDrawCount(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 8
+  return typeof value === 'number' && Number.isInteger(value * 2) && value >= 1 && value <= 8
 }
 
 function selectReviewDrawCountMode(value: string | number | boolean | undefined) {
@@ -4864,11 +4878,7 @@ function openReviewDialog(shot: Shot, fromSummary = false) {
   const isDefaultReview = isReviewDefault(reviewDraft.value)
   reviewDrawCountMode.value = isDefaultReview
     ? ''
-    : reviewDraft.value.drawCount === 1
-    ? 'one'
-    : reviewDraft.value.drawCount === 2
-      ? 'two'
-      : reviewDraft.value.drawCount === 3 ? 'three' : reviewDraft.value.drawCount === 4 ? 'four' : ''
+    : reviewDrawCountOptions.find((count) => count === reviewDraft.value.drawCount) ?? ''
   reviewCustomDrawCount.value = reviewDrawCountMode.value || isDefaultReview ? undefined : reviewDraft.value.drawCount
   reviewNotePrefixPath.value = reviewDraft.value.notePrefix.split('→').filter(Boolean)
   dataDialogView.value = 'shot'
@@ -5123,8 +5133,11 @@ function promptFor(shot: Shot, detailOnly = false) {
   ] as const
   const characters = activeEpisode.value!.characters
   const referenceName = formatShotReference(activeEpisode.value!, shotIndex(shot))
-  const useShortNames = group?.useShortReferenceNames ?? state.globalConfig.prompt.useShortReferenceNames
-  return detailOnly ? composeShotDetail(...args, characters, referenceName, useShortNames) : composePrompt(...args, characters, referenceName, useShortNames)
+  const referenceMode = group?.referenceMode ?? state.globalConfig.prompt.referenceMode
+  const appearanceReferencePrefix = `${parseEpisodeNumber(activeEpisode.value!.title)}-${normalizeShotUnitNumber(shot.unitNumber)}`
+  return detailOnly
+    ? composeShotDetail(...args, characters, referenceName, referenceMode)
+    : composePrompt(...args, characters, referenceName, referenceMode, appearanceReferencePrefix)
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
@@ -5769,7 +5782,7 @@ function normalizeImportedEpisodeGroups(
         return null
       }
 
-      const value = group as Partial<EpisodeGroup>
+      const value = group as Partial<EpisodeGroup> & { useShortReferenceNames?: unknown }
       const sourceId = typeof value.id === 'string' ? value.id : ''
       const title = typeof value.title === 'string' && value.title.trim() ? value.title.trim() : `导入分组 ${index + 1}`
 
@@ -5788,7 +5801,7 @@ function normalizeImportedEpisodeGroups(
           results: normalizeGroupResults(value.results),
           colorGrading: value.colorGrading === true,
           filter: value.filter === true,
-          useShortReferenceNames: value.useShortReferenceNames === true,
+          referenceMode: normalizeReferenceMode(value.referenceMode, value.useShortReferenceNames),
           promptProfileId: mapPromptProfileId(value.promptProfileId, sourceConfig, targetConfig),
         },
       }
@@ -5831,7 +5844,7 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       thirtySecondMode: typeof shot.thirtySecondMode === 'boolean' ? shot.thirtySecondMode : true,
       unitNumber: normalizeShotUnitNumber(shot.unitNumber),
       referenceShotNumber: normalizeReferenceShotNumber(shot.referenceShotNumber, shots.length),
-      usePositionReference: true,
+      usePositionReference: shot.usePositionReference !== false,
       useReverseAngle: false,
       firstFrameMode: Boolean(shot.firstFrameMode),
       pendingDetection: null,

@@ -134,6 +134,7 @@ h3,
 }
 
 .el-dialog__footer,
+.el-drawer__footer,
 .el-message-box__btns,
 .el-popconfirm__action {
   display: flex;
@@ -1102,11 +1103,15 @@ html.dark .episode-panel {
   font-size: 13px;
 }
 
-.material-dialog .el-dialog__body {
+.app-drawer {
+  max-width: 100%;
+}
+
+.material-dialog .el-drawer__body {
   padding-top: 8px;
 }
 
-.character-paste-dialog .el-dialog__body {
+.character-paste-dialog .el-drawer__body {
   padding-top: 8px;
 }
 
@@ -1118,8 +1123,8 @@ html.dark .episode-panel {
 }
 
 .material-form {
-  width: 60%;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
 }
 
 .material-form .el-form-item:last-child {
@@ -1134,7 +1139,7 @@ html.dark .episode-panel {
 .material-form .material-appearance-field .el-form-item__label {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   height: var(--el-component-size-small);
 }
 
@@ -1155,6 +1160,18 @@ html.dark .episode-panel {
 .material-scene-row .el-input,
 .material-scene-segmented {
   min-width: 0;
+}
+
+.material-dialog .material-scene-row {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.material-dialog .material-scene-segmented {
+  justify-self: start;
+}
+
+.material-dialog .material-scene-row > .el-input {
+  grid-column: 1 / -1;
 }
 
 .material-scene-segmented.el-segmented {
@@ -1220,8 +1237,6 @@ html.dark .episode-panel {
 }
 
 @media (max-width: 720px) {
-  .material-dialog.el-dialog,
-  .material-dialog .el-dialog,
   .global-config-dialog.el-dialog,
   .global-config-dialog .el-dialog,
   .point-ledger-dialog.el-dialog {
@@ -1330,15 +1345,6 @@ html.dark .episode-panel {
 
 .shot-number {
   white-space: nowrap;
-}
-
-.shot-reference-dropdown.el-dropdown {
-  color: inherit;
-  font: inherit;
-}
-
-.shot-reference-number {
-  cursor: pointer;
 }
 
 .shot-index-area {
@@ -1849,10 +1855,43 @@ html.dark .episode-panel {
 .scene-line {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(100px, 0.65fr);
+  /* Preserve the existing scene and reference widths; use the remaining space for status. */
+  grid-template-columns: minmax(0, calc((100% - max(72px, 12%) - 8px) * 0.75)) minmax(72px, 12%) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+}
+
+.scene-selection-controls {
+  display: flex;
+  min-width: 0;
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-fill-color-blank);
+  box-shadow: 0 0 0 1px var(--el-border-color) inset;
+}
+
+.scene-selection-controls:focus-within {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+}
+
+.scene-selection-controls .el-select {
+  min-width: 0;
+}
+
+.scene-selection-controls .el-select__wrapper {
+  background: transparent;
+  box-shadow: none !important;
+  border-radius: var(--el-border-radius-base) 0 0 var(--el-border-radius-base);
+}
+
+.scene-selection-controls > .el-button {
+  flex: 0 0 var(--el-component-size);
+  width: var(--el-component-size);
+  min-width: var(--el-component-size);
+  height: var(--el-component-size);
+  margin: 0;
+  padding: 0;
+  border-radius: 0 var(--el-border-radius-base) var(--el-border-radius-base) 0;
 }
 
 .scene-config-meta {
@@ -1864,7 +1903,7 @@ html.dark .episode-panel {
 .character-line {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(100px, 0.65fr) minmax(0, 1fr);
+  grid-template-columns: minmax(100px, 0.6fr) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
 }
@@ -2073,54 +2112,45 @@ html.dark .episode-panel {
   align-items: center;
 }
 
-.review-choice-field {
-  display: flex;
+.review-dialog .review-form {
+  width: 100%;
+  margin: 0;
+}
+
+.review-choice-field.el-radio-group {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   width: 100%;
   min-width: 0;
   align-items: center;
-  gap: 10px;
-}
-
-.review-choice-field .el-radio-group {
-  display: flex;
-  width: min(380px, 100%);
-  min-width: 0;
-  flex: 0 1 380px;
-  flex-wrap: nowrap;
+  gap: 8px;
 }
 
 .review-choice-field .el-radio-button {
   min-width: 0;
-  flex: 1 1 0;
 }
 
-.review-choice-field .el-radio-button__inner {
+.review-choice-field .el-radio-button .el-radio-button__inner {
   width: 100%;
   padding-right: 8px;
   padding-left: 8px;
+  border-left: var(--el-border);
+  border-radius: var(--el-border-radius-base);
 }
 
 .review-choice-field .el-input-number {
-  width: auto;
-  min-width: 80px;
-  flex: 1 1 0;
-}
-
-.review-note-input .el-input-group__prepend {
-  box-sizing: border-box;
-  width: min(220px, 46%);
-  padding: 0;
-  background: var(--el-fill-color-light);
-}
-
-.review-note-input .el-cascader,
-.review-note-input .el-cascader .el-input {
   width: 100%;
+  min-width: 0;
 }
 
-.review-note-input .el-input-group__prepend .el-input__wrapper {
-  background: transparent;
-  box-shadow: none;
+.review-note-field {
+  display: grid;
+  width: 100%;
+  gap: 10px;
+}
+
+.review-note-field .el-cascader {
+  width: 100%;
 }
 
 .review-summary-stats {
@@ -2292,14 +2322,33 @@ html.dark .episode-panel {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.data-dialog .el-dialog__header {
+.data-dialog .el-dialog__header,
+.data-dialog .el-drawer__header {
   display: flex;
   align-items: baseline;
   gap: 16px;
 }
 
-.data-dialog .el-dialog__title {
-  flex-shrink: 0;
+.data-dialog .el-dialog__title,
+.data-dialog .el-drawer__header .el-drawer__title {
+  flex: 0 0 auto;
+}
+
+.review-dialog .el-drawer__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.review-dialog .data-dialog-breadcrumb {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.review-dialog .el-drawer__close-btn {
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .el-breadcrumb.data-dialog-breadcrumb {
@@ -2357,6 +2406,11 @@ html.dark .episode-panel {
 
 .group-summary-flags .el-checkbox {
   margin-right: 0;
+}
+
+.reference-mode-segmented.el-segmented {
+  --el-border-radius-base: 999px;
+  padding: 3px;
 }
 
 .group-summary-subtitle {
@@ -2863,9 +2917,60 @@ html.dark .episode-panel {
   color: var(--el-text-color-primary);
 }
 
-.prompt-profile-slots {
-  display: inline-flex;
-  width: min(280px, 100%);
+.prompt-profile-select.el-select {
+  width: 50%;
+}
+
+.prompt-profile-select-prefix {
+  box-sizing: content-box;
+  width: 6em;
+  flex-shrink: 0;
+  color: var(--el-text-color-regular);
+  white-space: nowrap;
+}
+
+.prompt-profile-select-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: var(--el-font-size-base);
+  cursor: pointer;
+}
+
+.prompt-profile-drawer {
+  max-width: 100%;
+}
+
+.prompt-profile-manager-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.prompt-profile-manager-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.prompt-profile-manager-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prompt-profile-drag-handle.el-button,
+.config-option-drag-handle.el-button {
+  width: 24px;
+  min-width: 24px;
+  padding: 0;
+  cursor: grab;
 }
 
 .dialogue-rule-config {
@@ -2894,7 +2999,7 @@ html.dark .episode-panel {
 
 .dialogue-rule-row {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr) 32px;
+  grid-template-columns: 24px minmax(0, 0.9fr) minmax(0, 1.1fr) 32px;
   align-items: center;
   gap: 8px;
 }
@@ -2905,7 +3010,8 @@ html.dark .episode-panel {
 
 .contact-person-option-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px;
+  width: 50%;
+  grid-template-columns: 24px minmax(0, 1fr) 32px;
   align-items: center;
   gap: 8px;
 }
@@ -2931,7 +3037,7 @@ html.dark .episode-panel {
 
 .detection-compare-row {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 10px;
   padding: 10px;
@@ -3494,10 +3600,6 @@ html.dark .episode-panel {
   line-height: var(--highlight-line-height);
   letter-spacing: var(--highlight-letter-spacing);
   overflow-wrap: break-word;
-}
-
-.character-line {
-  grid-template-columns: minmax(100px, 0.65fr) minmax(0, 1fr);
 }
 
 .character-line .el-select {

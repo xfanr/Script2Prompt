@@ -1,4 +1,4 @@
-import { cloneGlobalConfig, normalizeGlobalConfig } from './config'
+import { activePromptProfile, cloneGlobalConfig, normalizeGlobalConfig } from './config'
 import { APP_VERSION } from './defaults'
 import { normalizeAppState } from './stateNormalization'
 import { normalizePointInvoices } from './pointLedger'
@@ -16,7 +16,7 @@ export interface GroupFile {
   formatVersion: 1
   appVersion: number
   kind: 'group'
-  group: (Omit<EpisodeGroup, 'promptProfileId'> & { promptProfileSlot: number }) | null
+  group: (Omit<EpisodeGroup, 'promptProfileId'> & { promptProfileSlot: number; promptProfileId?: string }) | null
   episodes: Episode[]
 }
 export type DataFile = SettingsFile | GroupFile
@@ -35,6 +35,7 @@ export function buildDataFiles(state: AppState): Map<string, DataFile> {
       formatVersion: FILE_FORMAT_VERSION, appVersion: APP_VERSION, kind: 'group',
       group: group ? {
         ...metadata as Omit<EpisodeGroup, 'promptProfileId'>,
+        promptProfileId: group.promptProfileId,
         promptProfileSlot: Math.max(0, state.globalConfig.prompt.profiles.findIndex((profile) => profile.id === promptProfileId)),
       } : null,
       episodes: state.episodes.filter((episode) => episode.groupId === (group?.id ?? null)),
@@ -65,7 +66,8 @@ export function parseDataFile(text: string, path: string): DataFile {
     } else if (!object(group) || typeof group.id !== 'string' || !group.id
       || groupFilePath(group.id) !== path || typeof group.title !== 'string'
       || typeof group.archived !== 'boolean' || typeof group.starred !== 'boolean'
-      || !Number.isInteger(group.promptProfileSlot) || group.promptProfileSlot < 0 || group.promptProfileSlot > 3) throw new Error()
+      || (group.promptProfileId !== undefined && typeof group.promptProfileId !== 'string')
+      || !Number.isInteger(group.promptProfileSlot) || group.promptProfileSlot < 0) throw new Error()
     const ids = new Set<string>()
     for (const episode of value.episodes) {
       if (!object(episode) || typeof episode.id !== 'string' || !episode.id || ids.has(episode.id)
@@ -109,7 +111,10 @@ export function assembleDataFiles(files: Map<string, DataFile>, ui: Pick<AppStat
     if (file.kind !== 'group') continue
     if (file.group) {
       const { promptProfileSlot, ...group } = file.group
-      groups.push({ ...group, promptProfileId: settings.globalConfig.prompt.profiles[promptProfileSlot].id })
+      const profile = settings.globalConfig.prompt.profiles.find((profile) => profile.id === group.promptProfileId)
+        ?? settings.globalConfig.prompt.profiles[promptProfileSlot]
+        ?? activePromptProfile(settings.globalConfig)
+      groups.push({ ...group, promptProfileId: profile.id })
     }
     for (const episode of file.episodes) {
       if (ids.has(episode.id)) throw new Error(`单集同时出现在多个分组：${episode.title}（${episode.id}）`)

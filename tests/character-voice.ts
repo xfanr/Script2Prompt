@@ -1,4 +1,4 @@
-import { normalizeGlobalConfig } from '../src/config'
+import { activeEnsembleAppearanceTemplate, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfig } from '../src/config'
 import { createCharacterAsset, createCharacterConfig, createInitialState, normalizeCharacterAssets } from '../src/defaults'
 import { assembleDataFiles, buildDataFiles, parseDataFile } from '../src/dataFiles'
 import { composeCharacterSettings, composePrompt } from '../src/prompt'
@@ -46,18 +46,47 @@ export async function runCharacterVoiceTests() {
   await test('Ensemble state and template persist through IndexedDB, JSON and downloaded files', async () => {
     const state = fixture()
     state.episodes[0].characters[0].isEnsemble = true
-    state.globalConfig.prompt.ensembleAppearanceTemplate = '自定义群像模板\n保留换行'
+    state.globalConfig.prompt.ensembleAppearanceTemplates.push({ id: 'custom-template', name: '自定义模板', content: '自定义群像模板\n保留换行' })
+    state.globalConfig.prompt.activeEnsembleAppearanceTemplateId = 'custom-template'
     const repository = new LocalRepository(new MemoryStorage(), testDatabaseName())
     await repository.save(state)
     const loaded = await repository.load(config)
-    assert(loaded.episodes[0].characters[0].isEnsemble && loaded.globalConfig.prompt.ensembleAppearanceTemplate === state.globalConfig.prompt.ensembleAppearanceTemplate, 'IndexedDB dropped ensemble settings')
+    assert(loaded.episodes[0].characters[0].isEnsemble && activeEnsembleAppearanceTemplate(loaded.globalConfig).content === '自定义群像模板\n保留换行', 'IndexedDB dropped ensemble settings')
+    assert(JSON.stringify(loaded.globalConfig.prompt.ensembleAppearanceTemplates) === JSON.stringify(state.globalConfig.prompt.ensembleAppearanceTemplates), 'IndexedDB dropped template schemes')
     const files = new Map([...buildDataFiles(state)].map(([path, file]) => [path, parseDataFile(JSON.stringify(file), path)]))
     const imported = assembleDataFiles(files, state)
-    assert(imported.episodes[0].characters[0].isEnsemble && imported.globalConfig.prompt.ensembleAppearanceTemplate === state.globalConfig.prompt.ensembleAppearanceTemplate, 'JSON or WebDAV dropped ensemble settings')
-    const legacyConfig = JSON.parse(JSON.stringify(config))
-    delete legacyConfig.prompt.ensembleAppearanceTemplate
-    assert(normalizeGlobalConfig(legacyConfig)!.prompt.ensembleAppearanceTemplate.length > 0, 'legacy config has no usable template')
+    assert(imported.episodes[0].characters[0].isEnsemble && activeEnsembleAppearanceTemplate(imported.globalConfig).content === '自定义群像模板\n保留换行', 'JSON or WebDAV dropped ensemble settings')
     repository.close()
+  })
+  await test('Old single templates migrate without changing content, including an intentionally empty template', () => {
+    const legacyConfig = JSON.parse(JSON.stringify(config))
+    delete legacyConfig.prompt.ensembleAppearanceTemplates
+    delete legacyConfig.prompt.activeEnsembleAppearanceTemplateId
+    for (const content of ['旧模板\n保留内容', '']) {
+      legacyConfig.prompt.ensembleAppearanceTemplate = content
+      const migrated = normalizeGlobalConfig(legacyConfig)!
+      assert(activeEnsembleAppearanceTemplate(migrated).content === content, 'legacy content changed')
+      assert(activeEnsembleAppearanceTemplate(migrated).name === '默认模板', 'legacy default scheme missing')
+    }
+    delete legacyConfig.prompt.ensembleAppearanceTemplate
+    assert(activeEnsembleAppearanceTemplate(normalizeGlobalConfig(legacyConfig)!).content.length > 0, 'missing legacy template has no default')
+  })
+  await test('Template schemes validate at loading and merge without replacing local selection or content', () => {
+    const local = cloneGlobalConfig(config)
+    const remote = cloneGlobalConfig(config)
+    local.prompt.ensembleAppearanceTemplates[0].content = '本地模板'
+    remote.prompt.ensembleAppearanceTemplates[0].content = '远端同名模板'
+    remote.prompt.ensembleAppearanceTemplates.push({ id: 'remote-template', name: '远端模板', content: '另一个模板' })
+    remote.prompt.activeEnsembleAppearanceTemplateId = 'remote-template'
+    const merged = mergeGlobalConfigs(local, remote)
+    assert(activeEnsembleAppearanceTemplate(merged).content === '本地模板', 'merge changed local selection or content')
+    assert(merged.prompt.ensembleAppearanceTemplates.length === 2, 'merge omitted new template')
+    remote.prompt.activeEnsembleAppearanceTemplateId = 'missing'
+    assert(normalizeGlobalConfig(remote)!.prompt.activeEnsembleAppearanceTemplateId === remote.prompt.ensembleAppearanceTemplates[0].id, 'missing active ID did not select first template')
+    remote.prompt.ensembleAppearanceTemplates[1].name = remote.prompt.ensembleAppearanceTemplates[0].name
+    assert(normalizeGlobalConfig(remote) === null, 'duplicate names accepted')
+    remote.prompt.ensembleAppearanceTemplates = []
+    assert(normalizeGlobalConfig(remote) === null, 'empty template list accepted')
   })
   await test('New characters default to an empty optional voice description', async () => {
     assert(createCharacterAsset('程鹏').voiceDescription === '', 'new voice field must be empty')

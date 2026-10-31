@@ -51,7 +51,7 @@ export async function uploadDataFiles(client: WebDavClient, files: Map<string, D
     reason: plan.remote ? '云端已有不同内容或已被其他设备更新' : '云端文件已删除，本次将重新创建',
   }))
   const overwrite = !conflicts.length || await options.confirmOverwrite(conflicts)
-  // Settings last; profile bindings in group files use stable slots, not settings IDs.
+  // Settings last so the referenced profiles are published after the group files.
   plans.sort((a, b) => Number(a.path === 'settings.json') - Number(b.path === 'settings.json'))
   for (const plan of plans) {
     const { path, title } = plan

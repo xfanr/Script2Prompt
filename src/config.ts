@@ -1,11 +1,10 @@
 import { normalizeDialogueReplacementRules } from './dialogue'
 import { createId, createReviewNotePrefixOption, DEFAULT_ENSEMBLE_APPEARANCE_TEMPLATE, normalizeReviewNotePrefixOptions } from './defaults'
 import { mergeContactPersonOptions } from './episodeContacts'
-import type { ContactPersonOption, DialogueReplacementRule, GlobalConfig, PromptProfile, ReviewNotePrefixOption } from './types'
+import type { ContactPersonOption, DialogueReplacementRule, EnsembleAppearanceTemplate, GlobalConfig, PromptProfile, ReferenceMode, ReviewNotePrefixOption } from './types'
 
 const RUNTIME_CONFIG_SCHEMA_VERSION = 1
 const RUNTIME_CONFIG_CACHE_KEY = 'script2prompt.runtimeDefaultConfig.v1'
-const PROMPT_PROFILE_SLOT_COUNT = 4
 
 type UnknownRecord = Record<string, unknown>
 
@@ -23,10 +22,20 @@ export function cloneGlobalConfig(config: GlobalConfig): GlobalConfig {
   return JSON.parse(JSON.stringify(config)) as GlobalConfig
 }
 
+export function normalizeReferenceMode(value: unknown, legacyShortNames?: unknown): ReferenceMode {
+  return value === 'basic' || value === 'short' || value === 'full' || value === 'detailed'
+    ? value
+    : legacyShortNames === true ? 'short' : 'full'
+}
+
 export function activePromptProfile(config: GlobalConfig, profileId = config.prompt.activeProfileId): PromptProfile {
   return config.prompt.profiles.find((profile) => profile.id === profileId)
     ?? config.prompt.profiles.find((profile) => profile.id === config.prompt.activeProfileId)
     ?? config.prompt.profiles[0]
+}
+
+export function activeEnsembleAppearanceTemplate(config: GlobalConfig): EnsembleAppearanceTemplate {
+  return config.prompt.ensembleAppearanceTemplates.find((template) => template.id === config.prompt.activeEnsembleAppearanceTemplateId)!
 }
 
 export async function loadInitialGlobalConfig(): Promise<GlobalConfig> {
@@ -50,7 +59,28 @@ export function normalizeGlobalConfig(value: unknown): GlobalConfig | null {
     return null
   }
 
-  const prompt = normalizePromptProfileSlots(profiles, activeProfileId)
+  const templates: EnsembleAppearanceTemplate[] = []
+  if (value.prompt.ensembleAppearanceTemplates === undefined) {
+    templates.push({
+      id: 'ensemble-template-default',
+      name: '默认模板',
+      content: typeof value.prompt.ensembleAppearanceTemplate === 'string' ? value.prompt.ensembleAppearanceTemplate : DEFAULT_ENSEMBLE_APPEARANCE_TEMPLATE,
+    })
+  } else {
+    if (!Array.isArray(value.prompt.ensembleAppearanceTemplates) || !value.prompt.ensembleAppearanceTemplates.length) return null
+    for (const item of value.prompt.ensembleAppearanceTemplates) {
+      if (!isRecord(item)) return null
+      const id = normalizedRequiredString(item.id)
+      const name = normalizedRequiredString(item.name)
+      if (!id || !name || typeof item.content !== 'string') return null
+      templates.push({ id, name, content: item.content })
+    }
+    if (new Set(templates.map((template) => template.id)).size !== templates.length
+      || new Set(templates.map((template) => template.name)).size !== templates.length) return null
+  }
+  const requestedTemplateId = value.prompt.activeEnsembleAppearanceTemplateId
+  const activeTemplateId = templates.find((template) => template.id === requestedTemplateId)?.id ?? templates[0].id
+
   const durationRange = normalizeDurationRange(value.dataCollection.recommendedDurationRange)
   const defaultPointCost = value.dataCollection.defaultPointCost
   const reviewNotePrefixOptions = normalizeReviewOptions(value.dataCollection.reviewNotePrefixOptions)
@@ -71,9 +101,11 @@ export function normalizeGlobalConfig(value: unknown): GlobalConfig | null {
 
   return {
     prompt: {
-      ...prompt,
-      ensembleAppearanceTemplate: typeof value.prompt.ensembleAppearanceTemplate === 'string' ? value.prompt.ensembleAppearanceTemplate : DEFAULT_ENSEMBLE_APPEARANCE_TEMPLATE,
-      useShortReferenceNames: value.prompt.useShortReferenceNames === true,
+      activeProfileId,
+      profiles,
+      ensembleAppearanceTemplates: templates,
+      activeEnsembleAppearanceTemplateId: activeTemplateId,
+      referenceMode: normalizeReferenceMode(value.prompt.referenceMode, value.prompt.useShortReferenceNames),
       colorGrading: value.prompt.colorGrading === true,
       filter: value.prompt.filter === true,
     },
@@ -185,9 +217,11 @@ export function migrateLegacyGlobalConfig(
 
   return {
     prompt: {
-      ...normalizePromptProfileSlots([legacyProfile], profileId),
-      ensembleAppearanceTemplate: fallback.prompt.ensembleAppearanceTemplate,
-      useShortReferenceNames: false,
+      activeProfileId: profileId,
+      profiles: [legacyProfile],
+      ensembleAppearanceTemplates: cloneGlobalConfig(fallback).prompt.ensembleAppearanceTemplates,
+      activeEnsembleAppearanceTemplateId: fallback.prompt.activeEnsembleAppearanceTemplateId,
+      referenceMode: 'full',
       colorGrading: false,
       filter: false,
     },
@@ -208,6 +242,17 @@ export function migrateLegacyGlobalConfig(
 
 export function mergeGlobalConfigs(current: GlobalConfig, imported: GlobalConfig): GlobalConfig {
   const result = cloneGlobalConfig(current)
+
+  imported.prompt.profiles.forEach((profile) => {
+    if (!result.prompt.profiles.some((existing) => existing.id === profile.id || existing.name === profile.name)) {
+      result.prompt.profiles.push({ ...profile })
+    }
+  })
+  imported.prompt.ensembleAppearanceTemplates.forEach((template) => {
+    if (!result.prompt.ensembleAppearanceTemplates.some((existing) => existing.id === template.id || existing.name === template.name)) {
+      result.prompt.ensembleAppearanceTemplates.push({ ...template })
+    }
+  })
 
   result.dataCollection.contactPersonOptions = mergeContactPersonOptions(
     result.dataCollection.contactPersonOptions,
@@ -281,57 +326,6 @@ function normalizePromptProfiles(value: unknown): PromptProfile[] | null {
   const ids = new Set(profiles.map((profile) => profile.id))
   const names = new Set(profiles.map((profile) => profile.name))
   return ids.size === profiles.length && names.size === profiles.length ? profiles : null
-}
-
-function normalizePromptProfileSlots(profiles: PromptProfile[], activeProfileId: string) {
-  const activeProfile = profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0]
-  const slots = profiles.slice(0, PROMPT_PROFILE_SLOT_COUNT)
-
-  if (!slots.some((profile) => profile.id === activeProfile.id)) {
-    slots[PROMPT_PROFILE_SLOT_COUNT - 1] = activeProfile
-  }
-
-  while (slots.length < PROMPT_PROFILE_SLOT_COUNT) {
-    const slotNumber = slots.length + 1
-    slots.push({
-      ...activeProfile,
-      id: uniquePromptSlotId(activeProfile.id, slotNumber, slots),
-      name: uniquePromptSlotName(activeProfile.name, slotNumber, slots),
-    })
-  }
-
-  return {
-    activeProfileId: activeProfile.id,
-    profiles: slots,
-  }
-}
-
-function uniquePromptSlotId(sourceId: string, slotNumber: number, profiles: PromptProfile[]) {
-  const usedIds = new Set(profiles.map((profile) => profile.id))
-  const baseId = `${sourceId}-slot-${slotNumber}`
-  let id = baseId
-  let suffix = 2
-
-  while (usedIds.has(id)) {
-    id = `${baseId}-${suffix}`
-    suffix += 1
-  }
-
-  return id
-}
-
-function uniquePromptSlotName(sourceName: string, slotNumber: number, profiles: PromptProfile[]) {
-  const usedNames = new Set(profiles.map((profile) => profile.name))
-  const baseName = `${sourceName} ${slotNumber}`
-  let name = baseName
-  let suffix = 2
-
-  while (usedNames.has(name)) {
-    name = `${baseName}-${suffix}`
-    suffix += 1
-  }
-
-  return name
 }
 
 function normalizeDurationRange(value: unknown) {

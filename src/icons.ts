@@ -1,9 +1,9 @@
 import { defineComponent, h, type Component } from 'vue'
 import {
-  AddFour, Attention, BeachUmbrella, Box, CardTwo, CarouselVideo, CheckOne, CheckSmall, CircleRightUp,
+  AddFour, Attention, BeachUmbrella, Box, CardTwo, CarouselVideo, CategoryManagement, CheckOne, CheckSmall, CircleRightUp,
   CloseSmall, Copy, Crown, DataArrival, Delete as ParkDelete, Down, DownloadTwo,
   Edit, ExpandDown, Flag as ParkFlag, Local, MessageEmoji, Moon as ParkMoon, More, Order,
-  People, Peoples, PicOne, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, Search as ParkSearch, SettingTwo,
+  People, Peoples, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, Search as ParkSearch, SettingTwo,
   Slide, SlideTwo, SortTwo, Star as ParkStar, SunOne, Switch as ParkSwitch, Sync,
   UploadTwo, VipOne, Voice, VoiceOff, Wallet,
 } from '@icon-park/vue-next'
@@ -21,6 +21,7 @@ export const AddIcon = icon(ParkPlus)
 export const ArrowDown = icon(Down)
 export const ArrowRight = icon(Right)
 export const Calendar = icon(Order)
+export const CategoryManagementIcon = icon(CategoryManagement)
 export const Check = icon(CheckSmall)
 export const CircleCheckFilled = icon(CheckOne, 'filled')
 export const Close = icon(CloseSmall)
@@ -42,6 +43,7 @@ export const Files = icon(Box)
 export const Flag = icon(ParkFlag, 'filled')
 export const Grape = icon(Peoples)
 export const Location = icon(Local)
+export const PositionReference = icon(Local)
 export const MaterialTabIcon = icon(CarouselVideo)
 export const Microphone = icon(Voice)
 export const Moon = icon(ParkMoon)
@@ -64,7 +66,6 @@ export const Tickets = icon(DataArrival)
 export const Upload = icon(UploadTwo)
 export const User = icon(People)
 export const UserFilled = icon(People, 'filled')
-export const VideoPlay = icon(PicOne)
 export const View = icon(PreviewOpen)
 export const VipFilled = icon(VipOne, 'filled')
 export const WarningFilled = icon(Attention, 'filled')

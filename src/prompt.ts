@@ -6,6 +6,7 @@ import type {
   CharacterAsset,
   DetectedCharacter,
   GlobalConfig,
+  ReferenceMode,
   Shot,
 } from './types'
 
@@ -139,7 +140,7 @@ export function composeShotDetail(
   estimatedSeconds?: number,
   characterAssets: CharacterAsset[] = [],
   referenceName?: string,
-  useShortNames = globalConfig.prompt.useShortReferenceNames,
+  referenceMode: ReferenceMode = globalConfig.prompt.referenceMode,
 ) {
   const profile = activePromptProfile(globalConfig, promptProfileId)
   const expandedText = shot.text.replace(/\[([^\[\]\r\n]+)\]/g, (match, content: string, offset: number) => {
@@ -149,13 +150,15 @@ export function composeShotDetail(
     const reference = voiceContext && !/\.[a-z\d]+$/i.test(name) && !name.endsWith('.') ? `${name}.` : name
     return `${name}[${reference}]`
   })
-  const text = formatShotDetailText(expandedText, [...shot.characters.map((character) => character.name), ...characterAssets.map((character) => character.name)])
+  const text = formatShotDetailText(expandedText, referenceMode === 'basic'
+    ? []
+    : [...shot.characters.map((character) => character.name), ...characterAssets.map((character) => character.name)])
   const firstFrame = shot.firstFrameMode ? parseFirstFrameText(text) : null
   return formatPromptReferences(joinPromptBlocks([
-    firstFrame ? firstFrameShotPrompt(firstFrame.content === '@' && referenceName ? `[${referenceName}]` : firstFrame.content, estimatedSeconds) : '',
+    firstFrame ? firstFrameShotPrompt(firstFrame.content === '@' && referenceName && referenceMode !== 'basic' ? `[${referenceName}]` : firstFrame.content, estimatedSeconds) : '',
     profile.shotPrefix,
     firstFrame ? firstFrame.detailText : text,
-  ]), useShortNames)
+  ]), referenceMode === 'short')
 }
 
 export function composePrompt(
@@ -165,7 +168,8 @@ export function composePrompt(
   estimatedSeconds?: number,
   characterAssets: CharacterAsset[] = [],
   referenceName?: string,
-  useShortNames = globalConfig.prompt.useShortReferenceNames,
+  referenceMode: ReferenceMode = globalConfig.prompt.referenceMode,
+  appearanceReferencePrefix = '',
 ) {
   const profile = activePromptProfile(globalConfig, promptProfileId)
   const characterCount = shot.characters.filter((character) => character.name.trim()).length
@@ -176,25 +180,25 @@ export function composePrompt(
     ])],
     ['二、场景与角色设定', joinPromptBlocks([
       profile.sceneRolePrefix,
-      composeSceneRoleSection(shot, characterAssets, referenceName),
+      composeSceneRoleSection(shot, characterAssets, referenceName, referenceMode, appearanceReferencePrefix),
       profile.sceneRoleSuffix,
     ])],
   ]
 
   return [
-    ...sections.map(([title, content]) => `${title}\n${formatPromptReferences(content, useShortNames)}`),
-    `三、分镜详情\n${composeShotDetail(globalConfig, shot, promptProfileId, estimatedSeconds, characterAssets, referenceName, useShortNames)}`,
+    ...sections.map(([title, content]) => `${title}\n${formatPromptReferences(content, referenceMode === 'short')}`),
+    `三、分镜详情\n${composeShotDetail(globalConfig, shot, promptProfileId, estimatedSeconds, characterAssets, referenceName, referenceMode)}`,
   ].join('\n\n')
 }
 
-function composeSceneRoleSection(shot: Shot, characterAssets: CharacterAsset[], referenceName?: string) {
+function composeSceneRoleSection(shot: Shot, characterAssets: CharacterAsset[], referenceName: string | undefined, referenceMode: ReferenceMode, appearanceReferencePrefix: string) {
   return joinPromptBlocks([
-    composeSceneSettings(shot, referenceName),
-    composeCharacterSettings(shot, characterAssets, true),
+    composeSceneSettings(shot, referenceMode === 'basic' ? undefined : referenceName, referenceMode),
+    composeCharacterSettings(shot, characterAssets, referenceMode !== 'basic', referenceMode === 'detailed' ? appearanceReferencePrefix : ''),
   ])
 }
 
-export function composeSceneSettings(shot: Shot, referenceName?: string) {
+export function composeSceneSettings(shot: Shot, referenceName?: string, referenceMode: ReferenceMode = 'full') {
   const lines: string[] = []
 
   shot.scenes
@@ -212,15 +216,18 @@ export function composeSceneSettings(shot: Shot, referenceName?: string) {
         parts.push(scene.statusText.trim())
       }
 
-      lines.push(`分镜场景设定在${parts.join('，')}。`)
+      const sceneReference = shot.usePositionReference ? '' : referenceMode === 'basic' ? '@' : ` [${scene.name.trim()}] `
+      lines.push(`分镜场景设定在${parts.join('，')}${sceneReference}。`)
     })
 
-  lines.push(`多角色位置参考${referenceName ? ` [${referenceName}] ` : '@'}（仅参考图中角色在空间中的位置，角色动作、姿态、情绪均以分镜详情为准）。`)
+  if (shot.usePositionReference) {
+    lines.push(`多角色位置参考${referenceName ? ` [${referenceName}] ` : '@'}（仅参考图中角色在空间中的位置，角色动作、姿态、情绪均以分镜详情为准）。`)
+  }
 
   return lines.join('\n')
 }
 
-export function composeCharacterSettings(shot: Shot, characterAssets: CharacterAsset[] = [], resolveReferences = false) {
+export function composeCharacterSettings(shot: Shot, characterAssets: CharacterAsset[] = [], resolveReferences = false, appearanceReferencePrefix = '') {
   const lines: string[] = []
 
   shot.characters
@@ -228,7 +235,7 @@ export function composeCharacterSettings(shot: Shot, characterAssets: CharacterA
     .forEach((character) => {
       const name = character.name.trim()
       const asset = characterAssets.find((asset) => asset.name === character.name.trim())
-      const parts = [asset?.isEnsemble ? name : `${name}的妆造是${resolveReferences ? ` [${name}] ` : '@'}`]
+      const parts = [asset?.isEnsemble ? name : `${name}的妆造是${resolveReferences ? ` [${appearanceReferencePrefix}${name}] ` : '@'}`]
       const appearanceDescription = asset?.appearanceDescription.trim()
 
       if (appearanceDescription) {
