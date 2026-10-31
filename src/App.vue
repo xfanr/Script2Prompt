@@ -89,9 +89,9 @@
             <template #content>
               <div class="stage-page-actions">
                 <el-button-group class="stage-action-group">
-                  <el-button text @click="openEpisodeScriptDialog('materials')">⒈素材</el-button>
-                  <el-button text @click="openEpisodeScriptDialog('shots')">⒉分镜</el-button>
-                  <el-button text @click="openEpisodeScriptDialog('dialogue')">⒊台词</el-button>
+                  <el-button :icon="MaterialTabIcon" text @click="openEpisodeScriptDialog('materials')">素材</el-button>
+                  <el-button :icon="ShotTabIcon" text @click="openEpisodeScriptDialog('shots')">分镜</el-button>
+                  <el-button :icon="DialogueTabIcon" text @click="openEpisodeScriptDialog('dialogue')">台词</el-button>
                 </el-button-group>
                 <el-segmented
                   :model-value="activeShotViewSelection"
@@ -124,7 +124,7 @@
                     <div class="episode-group-row root-group-row" role="button" tabindex="0" @contextmenu.prevent.stop @click="toggleGroup(myEpisodesTreeId)" @keyup.enter="toggleGroup(myEpisodesTreeId)">
                       <span class="root-group-title">我的剧集</span>
                       <el-icon class="root-group-caret" :class="{ expanded: isGroupExpanded(myEpisodesTreeId) }"><ArrowRight /></el-icon>
-                      <el-button class="root-group-add sidebar-row-action-button" :icon="Plus" text size="small" aria-label="新建剧集" @click.stop="addEpisodeGroup" />
+                      <el-button class="root-group-add sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="新建剧集" @click.stop="addEpisodeGroup" />
                     </div>
                     <div v-if="isGroupExpanded(myEpisodesTreeId)" class="episode-children root-group-children">
                       <div v-for="episode in episodeTreeUngroupedEpisodes" :key="episode.id" class="episode-tree-entry">
@@ -162,20 +162,20 @@
                             <span class="group-title-text" :title="sidebarGroupTitle(group)">{{ sidebarGroupTitle(group) }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
                             <div class="group-row-actions" @click.stop @keydown.stop>
                               <GroupPlayMedal class="episode-star" :play-count="group.results.playCount" />
-                              <el-popover trigger="click" placement="right-start" :width="240" :title="group.fullName.trim() || group.title" popper-class="group-preview-popover">
-                                <template #reference>
-                                  <el-button class="sidebar-row-action-button" :icon="View" text size="small" aria-label="查看剧集信息" />
-                                </template>
-                                <EpisodeGroupPreview :episodes="episodesForGroup(group.id)" />
-                              </el-popover>
                               <el-dropdown trigger="click" @command="(count) => addEpisodeToGroup(group.id, count)">
-                                <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="新建单集" />
+                                <el-button class="sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="新建单集" />
                                 <template #dropdown>
                                   <el-dropdown-menu>
                                     <el-dropdown-item v-for="count in 5" :key="count" :command="count">添加 {{ count }} 集</el-dropdown-item>
                                   </el-dropdown-menu>
                                 </template>
                               </el-dropdown>
+                              <el-popover trigger="click" placement="right-start" :width="240" :title="group.fullName.trim() || group.title" popper-class="group-preview-popover">
+                                <template #reference>
+                                  <el-button class="sidebar-row-action-button" :icon="View" text size="small" aria-label="查看剧集信息" />
+                                </template>
+                                <EpisodeGroupPreview :episodes="episodesForGroup(group.id)" />
+                              </el-popover>
                               <el-dropdown trigger="click" @command="(command) => handleGroupCommand(command, group.id)">
                                 <el-button class="group-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多剧集操作" />
                                 <template #dropdown>
@@ -295,7 +295,7 @@
                         <div class="material-management-heading-row">
                           <h4 class="material-management-heading">场景配置</h4>
                           <div class="material-management-heading-actions">
-                            <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="添加场景素材" @click="openMaterialAddDialog('scenes')" />
+                            <el-button class="sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="添加场景素材" @click="openMaterialAddDialog('scenes')" />
                           </div>
                         </div>
                         <div class="material-management-list">
@@ -323,7 +323,7 @@
                                 @click="recognizeCharacterDescriptionsFromClipboard"
                               />
                             </el-tooltip>
-                            <el-button class="sidebar-row-action-button" :icon="Plus" text size="small" aria-label="添加角色" @click="openMaterialAddDialog('characters')" />
+                            <el-button class="sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="添加角色" @click="openMaterialAddDialog('characters')" />
                           </div>
                         </div>
                         <div class="material-management-list">
@@ -419,19 +419,6 @@
                 </div>
                 <div class="shot-tools">
                   <el-button
-                    class="shot-thirty-second-button"
-                    :icon="VideoCamera"
-                    circle
-                    type="primary"
-                    :plain="!shot.thirtySecondMode"
-                    size="small"
-                    :title="`${shot.thirtySecondMode ? '关闭 30S 模式' : '开启 30S 模式'}；右键应用到本集全部分镜`"
-                    :aria-label="shot.thirtySecondMode ? '关闭 30S 模式' : '开启 30S 模式'"
-                    :aria-pressed="shot.thirtySecondMode"
-                    @click.stop="shot.thirtySecondMode = !shot.thirtySecondMode"
-                    @contextmenu.prevent.stop="toggleEpisodeThirtySecondModeFromShot(shot)"
-                  />
-                  <el-button
                     class="shot-review-button"
                     :icon="isShotReviewed(shot) ? StarFilled : Star"
                     circle
@@ -491,9 +478,27 @@
                             <span>同步动作 {{ shotTimingAnalysis(shot).synchronousActionCount }} 段 · 0 秒</span>
                           </div>
                         </template>
-                        <el-tag :type="shotDurationState(shot).warn ? 'danger' : 'info'" effect="light" round>
-                          {{ shotTimingTitleStats(shot) }}
-                        </el-tag>
+                        <el-dropdown trigger="click" @command="shot.thirtySecondMode = $event === 'SD2.5'" @dblclick.stop>
+                          <el-tag
+                            class="shot-mode-trigger"
+                            :type="shotDurationState(shot).warn ? 'danger' : 'info'"
+                            effect="light"
+                            round
+                            role="button"
+                            tabindex="0"
+                            :aria-label="`切换分镜模式，当前 ${shot.thirtySecondMode ? 'SD2.5' : 'SD2.0'}`"
+                            title="点击切换模式；右键应用到本集全部分镜"
+                            @contextmenu.prevent.stop="toggleEpisodeThirtySecondModeFromShot(shot)"
+                          >
+                            {{ shotTimingTitleStats(shot) }}
+                          </el-tag>
+                          <template #dropdown>
+                            <el-dropdown-menu>
+                              <el-dropdown-item command="SD2.0" :disabled="!shot.thirtySecondMode">SD2.0</el-dropdown-item>
+                              <el-dropdown-item command="SD2.5" :disabled="shot.thirtySecondMode">SD2.5</el-dropdown-item>
+                            </el-dropdown-menu>
+                          </template>
+                        </el-dropdown>
                       </el-tooltip>
                     </div>
                   </div>
@@ -559,7 +564,7 @@
                           @click="copyCharacterSettings(shot)"
                         />
                         <el-dropdown trigger="click" @command="cloneShotCharacters(shot, $event)">
-                          <el-button class="title-copy-button" :icon="Files" text type="primary" title="克隆角色配置" aria-label="克隆角色配置" />
+                          <el-button class="title-copy-button" :icon="CloneCharacters" text type="primary" title="克隆角色配置" aria-label="克隆角色配置" />
                           <template #dropdown>
                             <el-dropdown-menu>
                               <el-dropdown-item v-for="item in characterCloneSources(shot)" :key="item.shot.id" class="character-clone-source" :command="item.shot.id" :disabled="item.shot.id === shot.id || !item.shot.characters.length">
@@ -572,7 +577,7 @@
                       </div>
                       <div class="character-heading-actions">
                         <el-dropdown trigger="click" @command="addCharacterToShot(shot, $event)">
-                          <el-button class="title-copy-button" :icon="Plus" text type="primary" title="添加角色" aria-label="添加角色" />
+                          <el-button class="title-copy-button" :icon="AddIcon" text type="primary" title="添加角色" aria-label="添加角色" />
                           <template #dropdown>
                             <el-dropdown-menu>
                               <el-dropdown-item v-for="item in availableCharacterAssets(shot)" :key="item.name" :command="item.name">
@@ -1102,7 +1107,7 @@
                   type="textarea"
                   :rows="16"
                   resize="none"
-                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，“---”划分普通分镜，“+++”划分 30S 分镜"
+                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，“---”划分 SD2.0 分镜，“+++”划分 SD2.5 分镜"
                   @input="syncMaterialSceneDraftCount"
                 />
               </div>
@@ -1217,7 +1222,7 @@
                   type="textarea"
                   :rows="16"
                   resize="none"
-                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，“---”划分普通分镜，“+++”划分 30S 分镜"
+                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，“---”划分 SD2.0 分镜，“+++”划分 SD2.5 分镜"
                   @input="syncSplitScriptDraft"
                 />
               </div>
@@ -1243,14 +1248,14 @@
                     <div class="batch-shot-preview-head">
                       <div class="batch-shot-heading">
                         <span class="batch-shot-index">{{ batchShotNumber(segment, index) }}</span>
-                        <span v-if="segment.thirtySecondMode" class="batch-shot-remark">30S</span>
+                        <span v-if="segment.thirtySecondMode" class="batch-shot-remark">SD2.5</span>
                         <span v-if="segment.remark" class="batch-shot-remark" :title="segment.remark">{{ segment.remark }}</span>
                       </div>
                       <span class="batch-shot-stat">{{ batchShotMatchedCharacterCount(segment.text) }} 人 · {{ batchTimingAnalysis(segment.text).dialogueCharacters }} / {{ batchTimingAnalysis(segment.text).totalCharacters }} 字 · {{ formatTimingSeconds(batchTimingAnalysis(segment.text).totalSeconds) }}</span>
                     </div>
                     <p>{{ segment.text }}</p>
                   </div>
-                  <div v-if="!batchShotSegments.length" class="episode-script-empty empty-note">使用“===”划分单元、“---”划分普通分镜、“+++”划分 30S 分镜后，将在此显示识别结果。</div>
+                  <div v-if="!batchShotSegments.length" class="episode-script-empty empty-note">使用“===”划分单元、“---”划分 SD2.0 分镜、“+++”划分 SD2.5 分镜后，将在此显示识别结果。</div>
                 </div>
               </div>
             </div>
@@ -1309,7 +1314,7 @@
                 <el-button size="small" type="primary" @click="confirm($event)">更新</el-button>
               </template>
               <template #reference>
-                <el-button type="primary" :loading="episodeScriptSaving">确认更新</el-button>
+                <el-button type="primary" :loading="episodeScriptSaving">更新</el-button>
               </template>
             </el-popconfirm>
             <el-button v-else type="primary" :loading="episodeScriptSaving" @click="applyEpisodeScriptShots">确认添加</el-button>
@@ -1321,7 +1326,7 @@
             >
               {{ dialogueView === 'replaced' ? '原文' : '替换' }}
             </el-button>
-            <el-button type="primary" :disabled="!dialogueOutputDraft.trim()" :loading="episodeScriptSaving" @click="copyExtractedDialogue">复制台词</el-button>
+            <el-button type="primary" :disabled="!dialogueOutputDraft.trim()" :loading="episodeScriptSaving" @click="copyExtractedDialogue">复制</el-button>
           </template>
         </template>
       </el-dialog>
@@ -1450,7 +1455,7 @@ import EpisodeGroupPreview from './components/EpisodeGroupPreview.vue'
 import EpisodeSplitNumberCell from './components/EpisodeSplitNumberCell.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot } from './config'
 import { ElMessageBox, type DropdownInstance } from 'element-plus'
-import { ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CopyDocument, DataAnalysis, DataLine, Delete, Document, Download, EditPen, Expand, Files, Grape, Location, Microphone, Moon, MoreFilled, Mute, Notebook, Plus, Position, Refresh, Search, Setting, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, VideoCamera, VideoPlay, View, WarningFilled } from '@element-plus/icons-vue'
+import { AddIcon, ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, Files, Grape, Location, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, Position, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, VideoPlay, View, WarningFilled } from './icons'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { normalizeSplitScriptText } from './episodeScript'
 import { clearInteriorEpisodeContacts, contactEditableEpisodeIds, renameEpisodeContacts } from './episodeContacts'
@@ -4457,7 +4462,7 @@ function toggleEpisodeThirtySecondModeFromShot(shot: Shot) {
   activeEpisode.value?.shots.forEach((item) => {
     item.thirtySecondMode = enabled
   })
-  notify.success(`已${enabled ? '开启' : '关闭'}本集全部 30S 模式`)
+  notify.success(`已将本集全部分镜切换为 ${enabled ? 'SD2.5' : 'SD2.0'}`)
 }
 
 function shotIndex(shot: Shot) {

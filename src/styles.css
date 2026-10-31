@@ -1341,11 +1341,6 @@ html.dark .episode-panel {
   cursor: pointer;
 }
 
-.shot-thirty-second-button.el-button {
-  flex: 0 0 auto;
-  margin-left: 0;
-}
-
 .shot-index-area {
   display: inline-flex;
   align-items: center;
@@ -1446,6 +1441,10 @@ html.dark .episode-panel {
   width: auto;
   justify-content: center;
   font-weight: 400;
+}
+
+.shot-mode-trigger {
+  cursor: pointer;
 }
 
 .script-editor-layout {
@@ -1962,6 +1961,7 @@ html.dark .episode-panel {
 
 .character-name-input .el-input-group__append .el-button,
 .material-character-input .el-input-group__append .el-button {
+  display: inline-flex;
   width: var(--el-component-size);
   min-width: var(--el-component-size);
   height: var(--el-component-size);

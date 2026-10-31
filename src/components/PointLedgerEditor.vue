@@ -87,7 +87,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { ElMessageBox, type CascaderInstance } from 'element-plus'
-import { Delete, DocumentCopy, Plus, Share, Tickets } from '@element-plus/icons-vue'
+import { Delete, DocumentCopy, Plus, Share, Tickets } from '../icons'
 import { canSelectPointEpisode, createPointInvoice, createPointUsage, formatPointInvoiceExport, invoicePointPrice, invoiceUsedPoints, resolvePointEpisode } from '../pointLedger'
 import { copyText } from '../clipboard'
 import { notify } from '../notification'

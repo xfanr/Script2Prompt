@@ -140,8 +140,8 @@
 
     <template #footer>
       <template v-if="activeTab === 'webdav'">
-        <el-button :loading="webDavAction === 'test'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('test')">测试连接</el-button>
-        <el-button type="primary" native-type="submit" form="webdav-settings-form" :disabled="Boolean(webDavAction)">保存连接设置</el-button>
+        <el-button :loading="webDavAction === 'test'" :disabled="Boolean(webDavAction)" @click="runWebDavAction('test')">测试</el-button>
+        <el-button type="primary" native-type="submit" form="webdav-settings-form" :disabled="Boolean(webDavAction)">保存</el-button>
       </template>
       <template v-else>
         <el-button :loading="isResetting" @click="resetFromServer">恢复初始配置</el-button>
@@ -154,7 +154,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
-import { Delete, Plus } from '@element-plus/icons-vue'
+import { Delete, Plus } from '../icons'
 import { cloneGlobalConfig, loadRuntimeDefaultConfig, normalizeGlobalConfig } from '../config'
 import { createContactPersonOption, createDialogueReplacementRule, createReviewNotePrefixOption } from '../defaults'
 import type { GlobalConfig } from '../types'
