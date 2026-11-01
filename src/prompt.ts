@@ -146,8 +146,7 @@ export function composeShotDetail(
   const expandedText = shot.text.replace(/\[([^\[\]\r\n]+)\]/g, (match, content: string, offset: number) => {
     const name = content.trim()
     if (!name) return match
-    const voiceContext = /(?:音色是|音色参考)[ \t]*$/u.test(shot.text.slice(0, offset))
-    const reference = voiceContext && !/\.[a-z\d]+$/i.test(name) && !name.endsWith('.') ? `${name}.` : name
+    const reference = prepareManualReferenceName(name, shot.text.slice(0, offset))
     return `${name}[${reference}]`
   })
   const text = formatShotDetailText(expandedText, referenceMode === 'basic'
@@ -263,17 +262,25 @@ function joinPromptBlocks(blocks: string[]) {
   return blocks.map((block) => block.trim()).filter(Boolean).join('\n')
 }
 
+export function prepareManualReferenceName(name: string, precedingText: string) {
+  const voiceContext = /(?:音色是|音色参考)[ \t]*$/u.test(precedingText)
+  return voiceContext && !/\.[a-z\d]+$/i.test(name) && !name.endsWith('.') ? `${name}.` : name
+}
+
+export function formatPromptReferenceName(name: string, useShortNames: boolean, voiceContext = false) {
+  const extension = name.match(/\.[a-z\d]+$/i)?.[0]
+  const isVoice = name.endsWith('.') || extension?.toLowerCase() === '.mp3' || voiceContext
+  const stem = extension ? name.slice(0, -extension.length) : name.replace(/\.+$/u, '')
+  return useShortNames
+    ? `${stem}${isVoice ? '.' : ''}`
+    : extension ? name : `${stem}${isVoice ? '.mp3' : '.png'}`
+}
+
 function formatPromptReferences(text: string, useShortNames: boolean) {
   const references = text.replace(/\[([^\[\]\r\n]*)\]/g, (match, content: string, offset: number) => {
     const name = content.trim()
     if (!name) return match
-    const extension = name.match(/\.[a-z\d]+$/i)?.[0]
-    const isVoice = name.endsWith('.') || extension?.toLowerCase() === '.mp3'
-      || /(?:音色是|音色参考)[ \t]*$/u.test(text.slice(0, offset))
-    const stem = extension ? name.slice(0, -extension.length) : name.replace(/\.+$/u, '')
-    const renderedName = useShortNames
-      ? `${stem}${isVoice ? '.' : ''}`
-      : extension ? name : `${stem}${isVoice ? '.mp3' : '.png'}`
+    const renderedName = formatPromptReferenceName(name, useShortNames, /(?:音色是|音色参考)[ \t]*$/u.test(text.slice(0, offset)))
     return `[${renderedName}]`
   })
   return references.replace(/(?<![ \t])(?=\[[^\[\]\r\n]*\])/g, ' ')

@@ -2,7 +2,7 @@ import { defineComponent, h, type Component } from 'vue'
 import {
   AddFour, Attention, BeachUmbrella, Box, CardTwo, CarouselVideo, CategoryManagement, CheckOne, CheckSmall, CircleRightUp,
   CloseSmall, Copy, Crown, DataArrival, Delete as ParkDelete, Down, DownloadTwo,
-  Edit, ExpandDown, Flag as ParkFlag, Local, MessageEmoji, Moon as ParkMoon, More, Order,
+  Edit, ExpandDown, FileMusic as ParkFileMusic, Flag as ParkFlag, ImageFiles as ParkImageFiles, Local, MessageEmoji, Moon as ParkMoon, More, Order,
   People, Peoples, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, Search as ParkSearch, SettingTwo,
   Slide, SlideTwo, SortTwo, Star as ParkStar, SunOne, Switch as ParkSwitch, Sync,
   UploadTwo, VipOne, Voice, VoiceOff, Wallet,
@@ -40,6 +40,8 @@ export const Download = icon(DownloadTwo)
 export const EditPen = icon(Edit)
 export const Expand = icon(ExpandDown)
 export const Files = icon(Box)
+export const FileMusic = icon(ParkFileMusic)
+export const ImageFiles = icon(ParkImageFiles)
 export const Flag = icon(ParkFlag, 'filled')
 export const Grape = icon(Peoples)
 export const Location = icon(Local)

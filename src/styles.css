@@ -991,14 +991,54 @@ html.dark .episode-panel {
 
 .material-management-scrollbar {
   min-width: 0;
+  min-height: 0;
   flex: 1 1 auto;
+}
+
+.material-file-dropzone {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  aspect-ratio: 21 / 9;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed var(--el-border-color-darker);
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-fill-color-blank);
+  color: var(--el-text-color-secondary);
+  font: inherit;
+  font-size: var(--el-font-size-small);
+  cursor: pointer;
+}
+
+.material-file-dropzone:hover,
+.material-file-dropzone:focus-visible,
+.material-file-dropzone.is-dragging {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+}
+
+.material-file-dropzone > * {
+  pointer-events: none;
+}
+
+.material-file-dropzone > .el-icon {
+  font-size: 24px;
+}
+
+.material-file-dropzone small {
+  font-size: 12px;
 }
 
 .material-management {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 14px;
   padding-right: 4px;
 }
 
@@ -1019,7 +1059,6 @@ html.dark .episode-panel {
   align-items: center;
   gap: 4px;
   min-height: 32px;
-  margin-bottom: 4px;
   padding: 4px 8px;
 }
 
@@ -1045,6 +1084,53 @@ html.dark .episode-panel {
   min-width: 0;
   flex-direction: column;
   gap: 3px;
+}
+
+.material-management-entry {
+  min-width: 0;
+}
+
+.material-unit-list {
+  margin: 0;
+  padding: 0 8px 4px 28px;
+  color: var(--el-text-color-secondary);
+  font-size: var(--el-font-size-small);
+  line-height: 24px;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+.material-unit-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.material-unit-list .el-icon {
+  flex-shrink: 0;
+  margin-top: calc((24px - 1em) / 2);
+}
+
+.material-unit-list li > span {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.material-unit-list li.is-missing {
+  border-radius: var(--el-border-radius-small);
+  background: var(--el-color-warning-light-9);
+}
+
+.material-reference-status.el-icon {
+  font-size: 14px;
+}
+
+.material-reference-status.is-available {
+  color: var(--el-color-success);
+}
+
+.material-reference-status.is-missing {
+  color: var(--el-color-warning);
 }
 
 .material-management-item {
