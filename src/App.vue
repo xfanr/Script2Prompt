@@ -336,8 +336,8 @@
                           </div>
                         </div>
                         <div class="material-management-list">
-                          <div v-for="item in sidebarMaterials.characters" :key="`character-${item.name}`" class="material-management-entry">
-                            <div class="material-management-item">
+                          <div v-for="item in sidebarMaterials.characters" :key="`character-${item.name}`" class="material-management-entry" :class="{ 'has-reference-list': item.references.length }">
+                            <div v-if="!item.references.length" class="material-management-item">
                               <span class="material-management-name" :class="{ 'is-used': item.used }" :title="item.name">{{ item.name }}</span>
                               <div class="material-management-actions">
                                 <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改角色" @click="openMaterialEditDialog('characters', item.name)" />
@@ -351,6 +351,10 @@
                                 <el-icon v-if="reference.available !== null" class="material-reference-status" :class="reference.available ? 'is-available' : 'is-missing'" role="img" :aria-label="reference.available ? '已有' : '缺失'" :title="reference.available ? '已有' : '缺失'"><component :is="reference.available ? CircleCheckFilled : WarningFilled" /></el-icon>
                               </li>
                             </ul>
+                            <div v-if="item.references.length" class="material-management-actions">
+                              <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" :aria-label="`修改角色${item.name}`" @click="openMaterialEditDialog('characters', item.name)" />
+                              <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" :aria-label="`删除角色${item.name}`" @click="confirmRemoveMaterial('characters', item.name)" />
+                            </div>
                           </div>
                           <div v-if="!activeEpisode.characters.length" class="material-management-empty">暂无角色</div>
                         </div>
@@ -361,7 +365,7 @@
                         </div>
                         <div class="material-management-list">
                           <div v-for="item in sidebarMaterials.custom" :key="item.name" class="material-management-entry">
-                            <div class="material-management-item">
+                            <div v-if="!item.references.length" class="material-management-item">
                               <span class="material-management-name is-used" :title="item.name">{{ item.name }}</span>
                             </div>
                             <ul class="material-unit-list" :aria-label="`${item.name}引用名称`">
@@ -611,8 +615,8 @@
                           <el-button class="title-copy-button" :icon="CloneCharacters" text type="primary" title="克隆角色配置" aria-label="克隆角色配置" />
                           <template #dropdown>
                             <el-dropdown-menu>
-                              <el-dropdown-item v-for="item in characterCloneSources(shot)" :key="item.shot.id" class="character-clone-source" :command="item.shot.id" :disabled="item.shot.id === shot.id || !item.shot.characters.length">
-                                {{ formatShotNumber(activeEpisode, item.index) }} · {{ item.shot.characters.length }} 人{{ item.adjacentLabel ? ` · ${item.adjacentLabel}` : '' }}
+                              <el-dropdown-item v-for="item in characterCloneSources(shot)" :key="item.shot.id" class="character-clone-source" :command="item.shot.id" :divided="item.divided" :disabled="item.shot.id === shot.id || !item.shot.characters.length">
+                                {{ formatShotNumber(item.episode, item.index) }} · {{ item.shot.characters.length }} 人{{ item.adjacentLabel ? ` · ${item.adjacentLabel}` : '' }}
                               </el-dropdown-item>
                               <el-dropdown-item v-if="!characterCloneSources(shot).some((item) => item.shot.id !== shot.id && item.shot.characters.length)" disabled>暂无可克隆的角色配置</el-dropdown-item>
                             </el-dropdown-menu>
@@ -650,7 +654,11 @@
                         <el-button :icon="PositionReference" :type="shot.usePositionReference ? 'primary' : undefined" :aria-pressed="shot.usePositionReference" aria-label="多角色位置参考" :title="shot.usePositionReference ? '关闭多角色位置参考' : '开启多角色位置参考'" @click="shot.usePositionReference = !shot.usePositionReference" />
                       </div>
                       <el-select :model-value="shot.referenceShotNumber ?? index + 1" :aria-label="`分镜${index + 1}引用序号`" @update:model-value="shot.referenceShotNumber = $event">
-                        <el-option v-for="number in activeEpisode.shots.length" :key="number" :label="String(number)" :value="number" />
+                        <el-option v-for="number in activeEpisode.shots.length" :key="number" :label="String(number)" :value="number">
+                          {{ number }}
+                          <template v-if="index > 0 && number === (activeEpisode.shots[index - 1].referenceShotNumber ?? index)"> 相同</template>
+                          <template v-else-if="index > 0 && number === (activeEpisode.shots[index - 1].referenceShotNumber ?? index) + 1"> 更新</template>
+                        </el-option>
                       </el-select>
                       <el-input v-model="scene.statusText" class="scene-status-input" placeholder="场景状态" aria-label="场景状态" />
                       <el-button
@@ -1848,6 +1856,25 @@ const sidebarMaterials = computed(() => {
     names.add(reference)
     usage.references.set(unit, names)
   }
+  const collectBracketReferences = (text: string, unit?: number) => {
+    for (const match of text.matchAll(/\[([^\[\]\r\n]+)\]/g)) {
+      const rawName = match[1].trim()
+      const name = rawName.replace(/\.[a-z\d]+$/i, '').replace(/\.+$/u, '').trim()
+      if (!name) continue
+      const reference = formatPromptReferenceName(prepareManualReferenceName(rawName, text.slice(0, match.index)), short)
+      const sceneUsage = scenes.get(name)
+      const characterUsage = characters.get(name)
+      if (unit !== undefined) {
+        if (sceneUsage) addReference(sceneUsage, unit, reference)
+        if (characterUsage) addReference(characterUsage, unit, reference)
+      }
+      if (!sceneUsage && !characterUsage) {
+        const usage = custom.get(name) ?? { used: false, references: new Map<number, Set<string>>() }
+        addReference(usage, unit ?? 0, reference)
+        custom.set(name, usage)
+      }
+    }
+  }
   episode.shots.forEach((shot, index) => {
     const unit = shot.unitNumber
     shot.scenes.forEach((scene) => {
@@ -1872,21 +1899,10 @@ const sidebarMaterials = computed(() => {
       addReference(usage, unit, mode === 'basic' ? `${name}@` : formatPromptReferenceName(appearance, short))
       if (character.includeVoice) addReference(usage, unit, mode === 'basic' ? `${name}@` : formatPromptReferenceName(`${name}.`, short))
     })
-    for (const match of shot.text.matchAll(/\[([^\[\]\r\n]+)\]/g)) {
-      const rawName = match[1].trim()
-      const name = rawName.replace(/\.[a-z\d]+$/i, '').replace(/\.+$/u, '').trim()
-      if (!name) continue
-      const reference = formatPromptReferenceName(prepareManualReferenceName(rawName, shot.text.slice(0, match.index)), short)
-      const sceneUsage = scenes.get(name)
-      const characterUsage = characters.get(name)
-      if (sceneUsage) addReference(sceneUsage, unit, reference)
-      if (characterUsage) addReference(characterUsage, unit, reference)
-      if (!sceneUsage && !characterUsage) {
-        const usage = custom.get(name) ?? { used: false, references: new Map<number, Set<string>>() }
-        addReference(usage, unit, reference)
-        custom.set(name, usage)
-      }
-    }
+    collectBracketReferences(shot.text, unit)
+  })
+  episode.characters.forEach((character) => {
+    collectBracketReferences(character.appearanceDescription)
   })
   const referenceNames = (usage: Usage) => ({
     used: usage.used,
@@ -4326,15 +4342,36 @@ function removeCharacterFromShot(shot: Shot, id: string) {
 }
 
 function characterCloneSources(target: Shot) {
+  const currentEpisode = activeEpisode.value
+  if (!currentEpisode) return []
+  const episodeNumber = parseEpisodeNumber(currentEpisode.title)
   const targetIndex = shotIndex(target)
-  return activeEpisode.value?.shots.map((shot, index) => ({
-    shot, index, adjacentLabel: index === targetIndex - 1 ? '前' : index === targetIndex + 1 ? '后' : '',
-  })) ?? []
+  return state.episodes
+    .filter((episode) => episode.shots.length && (episode.id === currentEpisode.id
+      || (episode.groupId === currentEpisode.groupId && episodeNumber > 0
+        && parseEpisodeNumber(episode.title) > 0 && Math.abs(parseEpisodeNumber(episode.title) - episodeNumber) === 1)))
+    .sort((a, b) => parseEpisodeNumber(a.title) - parseEpisodeNumber(b.title))
+    .flatMap((episode, episodeIndex) => episode.shots.map((shot, index) => ({
+      episode, shot, index, divided: episodeIndex > 0 && index === 0,
+      adjacentLabel: episode.id === currentEpisode.id
+        ? index === targetIndex - 1 ? '前' : index === targetIndex + 1 ? '后' : ''
+        : '',
+    })))
 }
 
 function cloneShotCharacters(target: Shot, sourceId: string) {
-  const source = characterCloneSources(target).find((item) => item.shot.id === sourceId)?.shot
-  if (sourceId === target.id || !source?.characters.length) return
+  const selected = characterCloneSources(target).find((item) => item.shot.id === sourceId)
+  if (sourceId === target.id || !selected?.shot.characters.length) return
+  const source = selected.shot
+  const episode = activeEpisode.value!
+  if (selected.episode.id !== episode.id) {
+    source.characters.forEach((character) => {
+      const asset = selected.episode.characters.find((asset) => asset.name === character.name)
+      if (asset && !episode.characters.some((item) => item.name === asset.name)) {
+        episode.characters.push(createCharacterAsset(asset.name, asset.appearanceDescription, asset.voiceDescription, asset.isEnsemble))
+      }
+    })
+  }
 
   const voices = new Set(detectCharacters(effectiveShotText(target), source.characters.map((character) => character.name))
     .filter((character) => character.includeVoice && !isEnsembleCharacter(character.name))

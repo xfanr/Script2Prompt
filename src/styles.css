@@ -1004,7 +1004,7 @@ html.dark .episode-panel {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  aspect-ratio: 21 / 9;
+  aspect-ratio: 3 / 1;
   margin-top: 12px;
   padding: 12px;
   border: 1px dashed var(--el-border-color-darker);
@@ -1088,6 +1088,18 @@ html.dark .episode-panel {
 
 .material-management-entry {
   min-width: 0;
+}
+
+.material-management-entry.has-reference-list {
+  position: relative;
+}
+
+.material-management-entry.has-reference-list > .material-management-actions {
+  position: absolute;
+  top: 0;
+  right: 8px;
+  border-radius: var(--el-border-radius-small);
+  background: var(--el-bg-color);
 }
 
 .material-unit-list {
@@ -1176,7 +1188,9 @@ html.dark .episode-panel {
 }
 
 .material-management-item:hover .material-management-actions,
-.material-management-item:focus-within .material-management-actions {
+.material-management-item:focus-within .material-management-actions,
+.material-management-entry.has-reference-list:hover > .material-management-actions,
+.material-management-entry.has-reference-list:focus-within > .material-management-actions {
   visibility: visible;
   opacity: 1;
   pointer-events: auto;
@@ -1184,7 +1198,7 @@ html.dark .episode-panel {
 
 
 .material-management-empty {
-  padding: 8px 0;
+  padding: 4px 8px;
   color: var(--el-text-color-placeholder);
   font-size: 13px;
 }
