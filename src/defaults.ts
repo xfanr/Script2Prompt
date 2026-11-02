@@ -23,6 +23,8 @@ export function createSceneAsset(name = '', time: SceneTime = '白天', space: S
 
 export function createCharacterAsset(name = '', appearanceDescription = '', voiceDescription = '', isEnsemble = /(?:们|群像|若干)$/.test(name.trim())): CharacterAsset {
   return {
+    id: createId('asset'),
+    outfits: [],
     name,
     isEnsemble,
     appearanceDescription,
@@ -48,9 +50,21 @@ export function normalizeCharacterAssets(value: unknown): CharacterAsset[] {
     const asset = item as Partial<CharacterAsset>
     const name = typeof asset.name === 'string' ? asset.name.trim() : ''
 
-    return name
-      ? createCharacterAsset(name, typeof asset.appearanceDescription === 'string' ? asset.appearanceDescription : '', typeof asset.voiceDescription === 'string' ? asset.voiceDescription : '', asset.isEnsemble === true)
-      : null
+    if (!name) return null
+    const normalized = createCharacterAsset(name, typeof asset.appearanceDescription === 'string' ? asset.appearanceDescription : '', typeof asset.voiceDescription === 'string' ? asset.voiceDescription : '', asset.isEnsemble === true)
+    if (typeof asset.id === 'string' && asset.id) normalized.id = asset.id
+    normalized.outfits = Array.isArray(asset.outfits) ? asset.outfits.filter(outfit => outfit && typeof outfit === 'object').map((outfit) => ({
+      id: typeof outfit.id === 'string' && outfit.id ? outfit.id : createId('outfit'),
+      note: typeof outfit.note === 'string' ? outfit.note.trim() : '',
+      appearanceDescription: typeof outfit.appearanceDescription === 'string' ? outfit.appearanceDescription : '',
+      units: Array.isArray(outfit.units) ? outfit.units.filter((unit) => unit && typeof unit.episodeId === 'string' && Number.isInteger(unit.unitNumber) && unit.unitNumber > 0) : [],
+    })) : []
+    if (normalized.outfits.length > 1) normalized.appearanceDescription = ''
+    else if (normalized.outfits.length === 1) {
+      normalized.appearanceDescription = normalized.outfits[0].appearanceDescription
+      normalized.outfits = []
+    }
+    return normalized
   }).filter((item): item is CharacterAsset => Boolean(item))
 
   return assets.filter((item, index, list) => list.findIndex((candidate) => candidate.name === item.name) === index)
@@ -125,6 +139,7 @@ export function normalizeReviewNotePrefixOptions(options: unknown): ReviewNotePr
 
 export function createCharacterConfig(name = '', includeVoice = false): CharacterConfig {
   return {
+    characterId: null,
     id: createId('character'),
     name,
     includeVoice,
@@ -180,6 +195,7 @@ export function createShot(unitNumber = 1): Shot {
 
 export function createEpisodeGroup(promptProfileId: string): EpisodeGroup {
   return {
+    characters: [],
     id: createId('group'),
     title: '新剧集',
     fullName: '',
@@ -189,7 +205,7 @@ export function createEpisodeGroup(promptProfileId: string): EpisodeGroup {
     results: { playCount: 0, commission: 0, received: false },
     colorGrading: false,
     filter: false,
-    referenceMode: 'full',
+    referenceMode: 'detailed',
   }
 }
 

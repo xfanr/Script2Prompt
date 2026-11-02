@@ -336,27 +336,21 @@
                           </div>
                         </div>
                         <div class="material-management-list">
-                          <div v-for="item in sidebarMaterials.characters" :key="`character-${item.name}`" class="material-management-entry" :class="{ 'has-reference-list': item.references.length }">
-                            <div v-if="!item.references.length" class="material-management-item">
-                              <span class="material-management-name" :class="{ 'is-used': item.used }" :title="item.name">{{ item.name }}</span>
-                              <div class="material-management-actions">
-                                <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改角色" @click="openMaterialEditDialog('characters', item.name)" />
-                                <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除角色" @click="confirmRemoveMaterial('characters', item.name)" />
-                              </div>
-                            </div>
-                            <ul v-if="item.references.length" class="material-unit-list" :aria-label="`${item.name}引用名称`">
+                          <div v-for="item in sidebarMaterials.characters" :key="`character-${item.name}`" class="material-management-entry has-reference-list">
+                            <ul class="material-unit-list" :class="{ 'is-unrecognized': !item.used }" :aria-label="`${item.name}引用名称`">
                               <li v-for="reference in item.references" :key="reference.name" :title="reference.name" :class="{ 'is-missing': reference.available === false }">
-                                <el-icon v-if="/\.(mp3|png)$/i.test(reference.name)" aria-hidden="true"><component :is="/\.mp3$/i.test(reference.name) ? FileMusic : ImageFiles" /></el-icon>
+                                <el-icon v-if="!item.used" aria-label="未识别"><LinkInterrupt /></el-icon>
+                                <el-icon v-else-if="/\.(mp3|png)$/i.test(reference.name)" aria-hidden="true"><component :is="/\.mp3$/i.test(reference.name) ? FileMusic : ImageFiles" /></el-icon>
                                 <span>{{ reference.name }}</span>
                                 <el-icon v-if="reference.available !== null" class="material-reference-status" :class="reference.available ? 'is-available' : 'is-missing'" role="img" :aria-label="reference.available ? '已有' : '缺失'" :title="reference.available ? '已有' : '缺失'"><component :is="reference.available ? CircleCheckFilled : WarningFilled" /></el-icon>
                               </li>
                             </ul>
-                            <div v-if="item.references.length" class="material-management-actions">
+                            <div class="material-management-actions">
                               <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" :aria-label="`修改角色${item.name}`" @click="openMaterialEditDialog('characters', item.name)" />
                               <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" :aria-label="`删除角色${item.name}`" @click="confirmRemoveMaterial('characters', item.name)" />
                             </div>
                           </div>
-                          <div v-if="!activeEpisode.characters.length" class="material-management-empty">暂无角色</div>
+                          <div v-if="!activeCharacterAssets.length" class="material-management-empty">暂无角色</div>
                         </div>
                       </section>
                       <section class="material-management-section" aria-label="自定义配置">
@@ -608,7 +602,7 @@
                           type="primary"
                           title="复制角色配置"
                           aria-label="复制角色配置"
-                          :disabled="!composeCharacterSettings(shot, activeEpisode.characters)"
+                          :disabled="!composeCharacterSettings(shot, activeCharacterAssets)"
                           @click="copyCharacterSettings(shot)"
                         />
                         <el-dropdown trigger="click" @command="cloneShotCharacters(shot, $event)">
@@ -645,7 +639,7 @@
                         </el-dropdown>
                       </div>
                     </div>
-                    <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line">
+                    <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line" :class="{ 'without-position-reference': !shot.usePositionReference }">
                       <div class="scene-selection-controls">
                         <el-select v-model="scene.name" placeholder="选择场景" aria-label="选择场景" @change="syncSceneFromAsset(scene)">
                           <template #label="{ label }">{{ scene.name ? sceneAssetLabel(scene) : label }}</template>
@@ -653,7 +647,7 @@
                         </el-select>
                         <el-button :icon="PositionReference" :type="shot.usePositionReference ? 'primary' : undefined" :aria-pressed="shot.usePositionReference" aria-label="多角色位置参考" :title="shot.usePositionReference ? '关闭多角色位置参考' : '开启多角色位置参考'" @click="shot.usePositionReference = !shot.usePositionReference" />
                       </div>
-                      <el-select :model-value="shot.referenceShotNumber ?? index + 1" :aria-label="`分镜${index + 1}引用序号`" @update:model-value="shot.referenceShotNumber = $event">
+                      <el-select v-if="shot.usePositionReference" :model-value="shot.referenceShotNumber ?? index + 1" :aria-label="`分镜${index + 1}引用序号`" @update:model-value="shot.referenceShotNumber = $event">
                         <el-option v-for="number in activeEpisode.shots.length" :key="number" :label="String(number)" :value="number">
                           {{ number }}
                           <template v-if="index > 0 && number === (activeEpisode.shots[index - 1].referenceShotNumber ?? index)"> 相同</template>
@@ -695,24 +689,24 @@
                         <el-input :model-value="character.name" class="character-name-input" readonly aria-label="角色名称">
                           <template #prefix>
                             <el-tooltip
-                              :content="characterAppearanceDescription(character.name)"
-                              :disabled="!characterAppearanceDescription(character.name)"
+                              :content="characterAppearanceDescription(character.name, shot)"
+                              :disabled="!characterAppearanceDescription(character.name, shot)"
                               placement="top"
                               popper-class="character-appearance-tooltip"
                             >
                               <el-icon
                                 class="character-appearance-icon"
-                                :class="{ 'has-description': Boolean(characterAppearanceDescription(character.name)) }"
-                                :aria-label="characterAppearanceDescription(character.name) ? '查看形象描述' : '暂无形象描述'"
+                                :class="{ 'has-description': Boolean(characterAppearanceDescription(character.name, shot)) }"
+                                :aria-label="characterAppearanceDescription(character.name, shot) ? '查看形象描述' : '暂无形象描述'"
                               >
-                                <component :is="characterAppearanceDescription(character.name) ? UserFilled : User" />
+                                <component :is="characterAppearanceDescription(character.name, shot) ? UserFilled : User" />
                               </el-icon>
                             </el-tooltip>
                           </template>
                           <template #append>
                             <el-popconfirm
                               v-if="isEnsembleCharacter(character.name)"
-                              title="取消群像将影响本集所有相关分镜，并关闭音色。"
+                              :title="activeEpisode.groupId ? '取消群像将影响本剧所有相关分镜，并关闭音色。' : '取消群像将影响本集所有相关分镜，并关闭音色。'"
                               :width="280"
                               confirm-button-text="取消"
                               cancel-button-text="保留"
@@ -759,7 +753,7 @@
                         size="small"
                         title="修改角色"
                         aria-label="修改角色"
-                        :disabled="!activeEpisode.characters.some((item) => item.name === character.name)"
+                        :disabled="!activeCharacterAssets.some((item) => item.name === character.name)"
                         @click="openMaterialEditDialog('characters', character.name)"
                       />
                       </div>
@@ -882,7 +876,7 @@
         </template>
       </el-dialog>
       <PointLedgerDialog v-model="pointLedgerVisible" :invoices="state.pointInvoices" :episodes="state.episodes" :episode-groups="state.episodeGroups" @save="savePointInvoices" />
-      <el-drawer v-model="detectionDialogVisible" title="角色识别冲突" size="380px" direction="rtl" :modal="false" append-to-body class="app-drawer detection-dialog" @closed="cancelActiveDetection">
+      <el-drawer v-model="detectionDialogVisible" title="角色识别冲突" size="380px" direction="ltr" :modal="false" :show-close="false" modal-class="dismissible-drawer-overlay" append-to-body class="app-drawer detection-dialog" @closed="cancelActiveDetection">
         <div v-if="detectionConflict" class="detection-compare">
           <div class="detection-compare-row">
             <span>当前配置</span>
@@ -925,8 +919,8 @@
         :is="dataDialogView === 'shot' ? ElDrawer : ElDialog"
         v-model="dataDialogVisible"
         :title="dataDialogTitle"
-        v-bind="dataDialogView === 'shot' ? { size: '380px', direction: 'rtl', modal: false, appendToBody: true } : { width: '820px' }"
-        :show-close="dataDialogView === 'shot'"
+        v-bind="dataDialogView === 'shot' ? { size: '380px', direction: 'ltr', modal: false, modalClass: 'dismissible-drawer-overlay', appendToBody: true } : { width: '820px' }"
+        :show-close="false"
         class="data-dialog"
         :class="{ 'app-drawer review-dialog': dataDialogView === 'shot', 'review-summary-dialog': dataDialogView === 'episode', 'group-summary-dialog': dataDialogView === 'group' }"
         @closed="clearDataDialogContext"
@@ -1254,9 +1248,9 @@
                   <div class="episode-script-current-materials-title">当前素材</div>
                   <div class="episode-script-current-materials-scroll">
                     <template v-if="activeEpisode">
-                      <div v-if="activeEpisode.characters.length" class="episode-script-current-material-row">
+                      <div v-if="activeCharacterAssets.length" class="episode-script-current-material-row">
                         <div class="episode-script-current-material-tags">
-                          <el-tag v-for="character in activeEpisode.characters" :key="character.name" size="small" effect="plain">
+                          <el-tag v-for="character in activeCharacterAssets" :key="character.name" size="small" effect="plain">
                             <span class="episode-script-current-material-tag-text">{{ character.name }}</span>
                           </el-tag>
                         </div>
@@ -1268,7 +1262,7 @@
                           </el-tag>
                         </div>
                       </div>
-                      <div v-if="!activeEpisode.characters.length && !activeEpisode.scenes.length" class="episode-script-current-material-empty">
+                      <div v-if="!activeCharacterAssets.length && !activeEpisode.scenes.length" class="episode-script-current-material-empty">
                         暂无素材
                       </div>
                     </template>
@@ -1399,8 +1393,8 @@
           </template>
         </template>
       </el-dialog>
-      <el-drawer v-model="materialDialogVisible" :title="materialDialogTitle" size="380px" direction="rtl" :modal="false" append-to-body class="app-drawer material-dialog" @closed="handleMaterialDialogClosed">
-        <el-form class="material-form" label-position="top" @submit.prevent>
+      <el-drawer v-model="materialDialogVisible" :title="materialDialogTitle" size="380px" direction="ltr" :modal="false" :show-close="false" modal-class="dismissible-drawer-overlay" append-to-body class="app-drawer material-dialog" @closed="handleMaterialDialogClosed">
+        <el-form class="material-form" :class="{ 'material-form-inline': isCharacterMaterialEdit }" :label-position="isCharacterMaterialEdit ? 'left' : 'top'" :label-width="isCharacterMaterialEdit ? '4em' : undefined" @submit.prevent>
           <el-form-item v-if="shouldShowMaterialCharacters" label="角色">
             <el-input
               v-model="materialCharacterDraft"
@@ -1415,7 +1409,18 @@
               </template>
             </el-input>
           </el-form-item>
-          <el-form-item v-if="shouldShowMaterialCharacters" class="material-appearance-field" label="形象描述">
+          <el-form-item v-if="shouldShowMaterialCharacters" label="音色描述">
+            <el-input
+              v-model="materialCharacterVoiceDraft"
+              :disabled="materialCharacterIsEnsembleDraft"
+              type="textarea"
+              :rows="2"
+              resize="vertical"
+              placeholder="输入角色的音色描述（选填）"
+            />
+          </el-form-item>
+          <CharacterOutfitEditor v-if="shouldShowMaterialCharacters" v-model:outfits="materialCharacterOutfitsDraft" v-model:description="materialCharacterAppearanceDraft" :units="materialCharacterUnits" :allow-add="new Set(materialCharacterUnits.map(unit => unit.episodeId)).size > 1" />
+          <el-form-item v-if="shouldShowMaterialCharacters && materialCharacterOutfitsDraft.length < 2" class="material-appearance-field" label="形象描述">
             <template #label>
               <span>形象描述</span>
               <el-dropdown v-if="materialCharacterIsEnsembleDraft" trigger="click" @command="(content) => materialCharacterAppearanceDraft = content">
@@ -1433,16 +1438,6 @@
               :rows="4"
               resize="vertical"
               placeholder="输入角色的外貌、服装或造型描述（选填）"
-            />
-          </el-form-item>
-          <el-form-item v-if="shouldShowMaterialCharacters" label="音色描述">
-            <el-input
-              v-model="materialCharacterVoiceDraft"
-              :disabled="materialCharacterIsEnsembleDraft"
-              type="textarea"
-              :rows="2"
-              resize="vertical"
-              placeholder="输入角色的音色描述（选填）"
             />
           </el-form-item>
           <el-form-item v-if="shouldShowMaterialScenes" label="场景">
@@ -1496,14 +1491,17 @@
         v-model="characterPasteDialogVisible"
         title="智能识别"
         size="380px"
-        direction="rtl"
+        direction="ltr"
         :modal="false"
+        :show-close="false"
+        modal-class="dismissible-drawer-overlay"
         append-to-body
         class="app-drawer character-paste-dialog"
         @opened="focusCharacterPasteInput"
         @closed="resetCharacterPasteDialog"
       >
         <p class="character-paste-hint">浏览器无法自动读取剪切板，请在下方填写CSV或JSON数据。<br />CSV：角色名,形象描述,音色描述；JSON：name、appearanceDescription、voiceDescription、isEnsemble（选填）</p>
+        <p v-if="activeCharacterAssets.some(asset => asset.outfits.length > 1)" class="character-paste-hint">多套服装请使用 JSON，并用 outfitNote 指定服装备注。</p>
         <el-input
           ref="characterPasteInputRef"
           v-model="characterPasteDraft"
@@ -1518,6 +1516,17 @@
           <el-button @click="characterPasteDialogVisible = false">取消</el-button>
           <el-button type="primary" :disabled="!characterPasteDraft.trim()" @click="confirmCharacterPaste">识别</el-button>
         </template>
+      </el-drawer>
+      <el-drawer v-model="outfitAssignmentVisible" title="分配角色服装" direction="ltr" size="380px" :modal="false" :show-close="false" modal-class="dismissible-drawer-overlay" append-to-body class="app-drawer outfit-assignment-drawer" @closed="cancelOutfitAssignment">
+        <p class="empty-note">新增使用单元需要分配服装，保存后应用本次操作。</p>
+        <el-form label-position="top">
+          <section v-for="item in outfitAssignmentDrafts" :key="item.asset.id">
+            <h4>{{ item.asset.name }}</h4>
+            <el-form-item v-if="item.asset.outfits.length < 2" label="形象描述"><el-input v-model="item.asset.appearanceDescription" type="textarea" :rows="3" /></el-form-item>
+            <CharacterOutfitEditor v-model:outfits="item.asset.outfits" v-model:description="item.asset.appearanceDescription" :units="item.units" :allow-add="false" />
+          </section>
+        </el-form>
+        <template #footer><el-button type="primary" @click="saveOutfitAssignment">保存</el-button></template>
       </el-drawer>
   </el-config-provider>
 </template>
@@ -1581,6 +1590,11 @@ import {
   type TimingAnalysis,
 } from './timing'
 import type { AppState, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotTimingSegment } from './types'
+import { characterAssetsFor as assetsFor, initializeSharedCharacters, characterAppearance, characterUnits, validateCharacterOutfits } from './sharedCharacters'
+import { formatPromptReferences } from './prompt'
+import { LinkInterrupt } from './icons'
+import CharacterOutfitEditor from './components/CharacterOutfitEditor.vue'
+import type { CharacterOutfit, CharacterAsset } from './types'
 import { useAppState } from './useAppState'
 import { LocalRepository, readSyncTarget } from './storage'
 import { buildDataFiles, canonicalJson, groupFilePath, mergeDownloadedFiles } from './dataFiles'
@@ -1631,6 +1645,7 @@ type MaterialAddResult = {
 }
 type CharacterDescriptionImport = {
   name: string
+  outfitNote?: string
   isEnsemble?: boolean
   appearanceDescription?: string
   voiceDescription?: string
@@ -1683,7 +1698,61 @@ const props = defineProps<{
 
 const EmptyPageHeaderIcon: Component = () => null
 const { state, activeEpisode, saveError, saveNow, replaceState, isReplacing } = useAppState(props.initialState, props.repository)
+const activeCharacterAssets = computed(() => activeEpisode.value ? assetsFor(state, activeEpisode.value) : [])
 const materialDialogVisible = ref(false)
+const outfitAssignmentVisible = ref(false)
+const outfitAssignmentDrafts = ref<{ asset: CharacterAsset; units: ReturnType<typeof characterUnits> }[]>([])
+let finishOutfitAssignment: ((accepted: boolean) => void) | null = null
+
+async function approveEpisodeCharacters(candidate: Episode, candidateAssets?: CharacterAsset[]): Promise<boolean> {
+  const assets = candidateAssets ?? assetsFor(state, candidate)
+  candidate.shots.forEach(shot => shot.characters.forEach(character => {
+    character.characterId = assets.find(asset => asset.name === character.name)?.id ?? null
+  }))
+  const proposed = { ...state, episodeGroups: state.episodeGroups.map(group => group.id === candidate.groupId ? { ...group, characters: assets } : group), episodes: state.episodes.map(episode => episode.id === candidate.id ? candidate : episode) }
+  return approveCharacterOutfits(proposed, candidate, assets)
+}
+
+async function approveCharacterOutfits(proposed: AppState, candidate: Episode, assets: CharacterAsset[]) {
+  const missing = assets.filter(asset => validateCharacterOutfits(proposed, candidate, asset))
+  if (!missing.length) return true
+  outfitAssignmentDrafts.value = missing.map(asset => ({ asset: JSON.parse(JSON.stringify(asset)), units: characterUnits(proposed, candidate, asset) }))
+  outfitAssignmentVisible.value = true
+  const accepted = await new Promise<boolean>(resolve => { finishOutfitAssignment = resolve })
+  if (accepted) outfitAssignmentDrafts.value.forEach(item => {
+    const asset = assets.find(asset => asset.id === item.asset.id)!
+    Object.assign(asset, item.asset)
+  })
+  return accepted
+}
+
+function cancelOutfitAssignment() {
+  finishOutfitAssignment?.(false)
+  finishOutfitAssignment = null
+}
+
+function saveOutfitAssignment() {
+  for (const { asset, units } of outfitAssignmentDrafts.value) {
+    if (asset.outfits.length < 2) continue
+    const notes = asset.outfits.map(outfit => outfit.note.trim())
+    if (notes.some(note => !note) || new Set(notes).size !== notes.length) { notify.warning('请填写不重复的服装备注'); return }
+    if (units.some(unit => asset.outfits.filter(outfit => outfit.units.some(item => item.episodeId === unit.episodeId && item.unitNumber === unit.unitNumber)).length !== 1)) {
+      notify.warning('请为每个单元分配服装'); return
+    }
+    asset.outfits.forEach(outfit => { outfit.note = outfit.note.trim() })
+  }
+  finishOutfitAssignment?.(true)
+  finishOutfitAssignment = null
+  outfitAssignmentVisible.value = false
+}
+
+async function applyShotCharacters(shot: Shot, characters: CharacterConfig[]) {
+  const episode = activeEpisode.value!
+  const candidate = { ...episode, shots: episode.shots.map(item => item.id === shot.id ? { ...item, characters } : item) }
+  if (!await approveEpisodeCharacters(candidate)) return false
+  shot.characters = characters
+  return true
+}
 const globalDialogVisible = ref(false)
 const pointLedgerVisible = ref(false)
 const weeklyReportPickerRef = ref<{ handleOpen: () => void; handleClose: () => void } | null>(null)
@@ -1704,11 +1773,18 @@ const showFullGroupNames = ref(false)
 const isDarkMode = ref(document.documentElement.classList.contains('dark'))
 const materialDialogMode = ref<MaterialDialogMode>('add')
 const materialDialogKind = ref<MaterialKind>('characters')
+const isCharacterMaterialEdit = computed(() => materialDialogMode.value === 'edit' && materialDialogKind.value === 'characters')
 const editingMaterial = ref<EditingMaterial | null>(null)
 const materialCharacterDraft = ref('')
 const materialCharacterAppearanceDraft = ref('')
 const materialCharacterVoiceDraft = ref('')
 const materialCharacterIsEnsembleDraft = ref(false)
+const materialCharacterOutfitsDraft = ref<CharacterOutfit[]>([])
+const materialCharacterUnits = computed(() => {
+  const episode = activeEpisode.value
+  const asset = activeCharacterAssets.value.find(item => item.name === editingMaterial.value?.value)
+  return episode && asset ? characterUnits(state, episode, asset) : []
+})
 const characterPasteDialogVisible = ref(false)
 const characterPasteDraft = ref('')
 const characterPasteInputRef = ref<{ focus: () => void } | null>(null)
@@ -1839,13 +1915,12 @@ const sidebarMaterials = computed(() => {
   if (!episode) return { scenes: [], characters: [], custom: [] }
   type Usage = { used: boolean; references: Map<number, Set<string>> }
   const scenes = new Map<string, Usage>(episode.scenes.map((asset) => [asset.name.trim(), { used: false, references: new Map() }]))
-  const characters = new Map<string, Usage>(episode.characters.map((asset) => [asset.name.trim(), { used: false, references: new Map() }]))
+  const characters = new Map<string, Usage>(assetsFor(state, episode).map((asset) => [asset.name.trim(), { used: false, references: new Map() }]))
   const custom = new Map<string, Usage>()
   const group = state.episodeGroups.find((group) => group.id === episode.groupId)
   const mode = group?.referenceMode ?? state.globalConfig.prompt.referenceMode
-  const short = mode === 'short'
   const fileNames = activeMaterialFileNames.value
-  const matchingNames = fileNames && (mode === 'basic' || short)
+  const matchingNames = fileNames && mode === 'basic'
     ? new Set([...fileNames].map((name) => name.replace(/\.[^.]+$/u, '').trim()))
     : fileNames
   const episodeNumber = parseEpisodeNumber(episode.title)
@@ -1861,7 +1936,7 @@ const sidebarMaterials = computed(() => {
       const rawName = match[1].trim()
       const name = rawName.replace(/\.[a-z\d]+$/i, '').replace(/\.+$/u, '').trim()
       if (!name) continue
-      const reference = formatPromptReferenceName(prepareManualReferenceName(rawName, text.slice(0, match.index)), short)
+      const reference = formatPromptReferenceName(prepareManualReferenceName(rawName, text.slice(0, match.index)))
       const sceneUsage = scenes.get(name)
       const characterUsage = characters.get(name)
       if (unit !== undefined) {
@@ -1882,42 +1957,52 @@ const sidebarMaterials = computed(() => {
       const usage = scenes.get(name)
       if (!usage) return
       const reference = shot.usePositionReference
-        ? mode === 'basic' ? '@' : formatPromptReferenceName(formatShotReference(episode, index), short)
-        : mode === 'basic' ? `${name}@` : formatPromptReferenceName(name, short)
+        ? mode === 'basic' ? '@' : formatPromptReferenceName(formatShotReference(episode, index))
+        : mode === 'basic' ? `${name}@` : formatPromptReferenceName(name)
       addReference(usage, unit, reference)
     })
     shot.characters.forEach((character) => {
       const name = character.name.trim()
       const usage = characters.get(name)
       if (!usage) return
-      const asset = episode.characters.find((asset) => asset.name === name)
+      const asset = assetsFor(state, episode).find((asset) => asset.name === name)
       if (asset?.isEnsemble) {
         addReference(usage, unit)
         return
       }
-      const appearance = mode === 'detailed' ? `${episodeNumber}-${unit}${name}` : name
-      addReference(usage, unit, mode === 'basic' ? `${name}@` : formatPromptReferenceName(appearance, short))
-      if (character.includeVoice) addReference(usage, unit, mode === 'basic' ? `${name}@` : formatPromptReferenceName(`${name}.`, short))
+      const appearance = asset ? characterAppearance(asset, episode.id, shot).referenceName ?? `${episodeNumber}-${unit}${name}` : `${episodeNumber}-${unit}${name}`
+      addReference(usage, unit, mode === 'basic' ? `${name}@` : formatPromptReferenceName(appearance))
+      if (character.includeVoice) addReference(usage, unit, mode === 'basic' ? `${name}@` : formatPromptReferenceName(`${name}.`))
     })
     collectBracketReferences(shot.text, unit)
   })
-  episode.characters.forEach((character) => {
+  assetsFor(state, episode).forEach((character) => {
     collectBracketReferences(character.appearanceDescription)
+    character.outfits.forEach(outfit => collectBracketReferences(outfit.appearanceDescription))
   })
   const referenceNames = (usage: Usage) => ({
     used: usage.used,
     references: [...new Set([...usage.references].sort(([a], [b]) => a - b).flatMap(([, names]) => [...names]))]
       .sort((a, b) => Number(/\.mp3$/i.test(b)) - Number(/\.mp3$/i.test(a)))
       .map((name) => {
-        const matchName = short ? name.replace(/\.+$/u, '')
-          : mode === 'basic' ? name.endsWith('@') ? name.slice(0, -1) : name.replace(/\.[^.]+$/u, '')
+        const matchName = mode === 'basic' ? name.endsWith('@') ? name.slice(0, -1) : name.replace(/\.[^.]+$/u, '')
           : name.replace(/\.[^.]+$/u, (extension) => extension.toLowerCase())
         return { name, available: name === '@' || !matchingNames ? null : matchingNames.has(matchName.trim()) }
       }),
   })
   return {
     scenes: episode.scenes.map((asset) => ({ ...asset, ...referenceNames(scenes.get(asset.name.trim())!) })),
-    characters: episode.characters.map((asset) => ({ ...asset, ...referenceNames(characters.get(asset.name.trim())!) })),
+    characters: assetsFor(state, episode).map((asset) => {
+      const usage = characters.get(asset.name.trim())!
+      if (asset.outfits.length > 1 && !asset.isEnsemble) {
+        const names = usage.references.get(0) ?? new Set<string>()
+        names.add(mode === 'basic' ? `${asset.name}@` : formatPromptReferenceName(`${asset.name}.`))
+        usage.references.set(0, names)
+      }
+      const item = { ...asset, ...referenceNames(usage) }
+      if (!item.references.length) item.references.push({ name: asset.name, available: null })
+      return item
+    }).sort((a, b) => Number(b.used) - Number(a.used)),
     custom: [...custom].map(([name, usage]) => ({ name, ...referenceNames(usage) })),
   }
 })
@@ -2019,8 +2104,6 @@ const activeGroupSummary = computed(() => state.episodeGroups.find((group) => gr
 const groupProductionOptions = computed(() => activeGroupSummary.value ?? state.globalConfig.prompt)
 const referenceModeOptions = [
   { label: '基础', value: 'basic' },
-  { label: '简称', value: 'short' },
-  { label: '完整', value: 'full' },
   { label: '详细', value: 'detailed' },
 ]
 const groupResultTiers = [
@@ -3168,7 +3251,7 @@ watch(
 watch(
   () => JSON.stringify({
     episodeId: activeEpisode.value?.id,
-    episodeCharacters: activeEpisode.value?.characters,
+    episodeCharacters: activeCharacterAssets.value,
     shots: activeEpisode.value?.shots.map((shot) => ({
       id: shot.id,
       text: shot.text,
@@ -3178,6 +3261,12 @@ watch(
   }),
   () => activeEpisode.value?.shots.forEach(syncShotTimingSegments),
   { flush: 'sync' },
+)
+
+watch(
+  () => activeEpisode.value,
+  (episode) => { if (episode) initializeSharedCharacters(state, episode) },
+  { immediate: true },
 )
 
 watch(
@@ -3280,14 +3369,25 @@ function openRowMoreMenu(event: MouseEvent, buttonSelector: string) {
   event.currentTarget.querySelector<HTMLButtonElement>(buttonSelector)?.click()
 }
 
-function handleEpisodeCommand(command: string | { action: 'move'; groupId: string | null }, episode: Episode) {
+async function handleEpisodeCommand(command: string | { action: 'move'; groupId: string | null }, episode: Episode) {
   if (typeof command !== 'string') {
     if (command.action === 'move') {
       if (isArchivedEpisodeGroupId(command.groupId)) {
         return
       }
 
-      episode.groupId = command.groupId
+      const usedNames = new Set(episode.shots.flatMap(shot => shot.characters.map(character => character.name)))
+      const sourceAssets = assetsFor(state, episode).filter(asset => !episode.groupId || usedNames.has(asset.name))
+      const targetGroup = state.episodeGroups.find(group => group.id === command.groupId)
+      const targetEpisode = state.episodes.find(item => item.groupId === command.groupId)
+      if (targetGroup && targetEpisode) initializeSharedCharacters(state, targetEpisode)
+      const nextAssets: CharacterAsset[] = JSON.parse(JSON.stringify(targetGroup?.characters ?? []))
+      sourceAssets.forEach(asset => { if (!nextAssets.some(item => item.name === asset.name)) nextAssets.push(JSON.parse(JSON.stringify(asset))) })
+      const candidate: Episode = { ...episode, groupId: command.groupId, characters: targetGroup ? [] : nextAssets, shots: JSON.parse(JSON.stringify(episode.shots)) }
+      if (!await approveEpisodeCharacters(candidate, nextAssets)) return
+      if (targetGroup) targetGroup.characters = nextAssets
+      Object.assign(episode, candidate)
+      initializeSharedCharacters(state, episode)
       if (episode.id === state.activeEpisodeId) {
         selectedEpisodeGroupId.value = command.groupId
       }
@@ -3371,6 +3471,7 @@ async function handleGroupCommand(command: string, groupId: string) {
 
   state.episodes.forEach((episode) => {
     if (episode.groupId === groupId) {
+      episode.characters = JSON.parse(JSON.stringify(assetsFor(state, episode)))
       episode.groupId = null
     }
   })
@@ -3394,18 +3495,18 @@ function cloneEpisodeMaterials(sourceEpisodeId: string) {
     return
   }
 
-  const existingCharacterNames = new Set(targetEpisode.characters.map((character) => character.name))
-  const characters = sourceEpisode.characters
+  const existingCharacterNames = new Set(assetsFor(state, targetEpisode).map((character) => character.name))
+  const characters = assetsFor(state, sourceEpisode)
     .filter((character) => !existingCharacterNames.has(character.name))
-    .map((character) => createCharacterAsset(character.name, character.appearanceDescription, character.voiceDescription, character.isEnsemble))
+    .map((character) => ({ ...JSON.parse(JSON.stringify(character)), id: createId('asset') } as CharacterAsset))
   const existingSceneNames = new Set(targetEpisode.scenes.map((scene) => scene.name))
   const scenes = sourceEpisode.scenes
     .filter((scene) => !existingSceneNames.has(scene.name))
     .map((scene) => createSceneAsset(scene.name, scene.time, scene.space))
   const added = characters.length + scenes.length
-  const skipped = sourceEpisode.characters.length + sourceEpisode.scenes.length - added
+  const skipped = assetsFor(state, sourceEpisode).length + sourceEpisode.scenes.length - added
 
-  targetEpisode.characters.push(...characters)
+  assetsFor(state, targetEpisode).push(...characters)
   targetEpisode.scenes.push(...scenes)
 
   if (added && skipped) {
@@ -3470,6 +3571,7 @@ function resetMaterialDrafts(sceneCount = 1) {
   materialCharacterAppearanceDraft.value = ''
   materialCharacterVoiceDraft.value = ''
   materialCharacterIsEnsembleDraft.value = false
+  materialCharacterOutfitsDraft.value = []
   materialSceneDrafts.value = createMaterialSceneDrafts(sceneCount)
 }
 
@@ -3540,7 +3642,7 @@ function openMaterialEditDialog(kind: MaterialKind, value: string) {
   }
 
   if (kind === 'characters') {
-    const character = episode.characters.find((item) => item.name === value)
+    const character = assetsFor(state, episode).find((item) => item.name === value)
 
     if (!character) {
       return
@@ -3553,6 +3655,7 @@ function openMaterialEditDialog(kind: MaterialKind, value: string) {
     materialCharacterAppearanceDraft.value = character.appearanceDescription
     materialCharacterVoiceDraft.value = character.voiceDescription
     materialCharacterIsEnsembleDraft.value = character.isEnsemble
+    materialCharacterOutfitsDraft.value = JSON.parse(JSON.stringify(character.outfits))
   } else {
     const scene = episode.scenes.find((item) => item.name === value)
 
@@ -3587,13 +3690,16 @@ function commitMaterialDialog() {
       return false
     }
 
-    if ((adding || nextName !== editing?.value) && episode.characters.some((character) => character.name === nextName)) {
+    if ((adding || nextName !== editing?.value) && assetsFor(state, episode).some((character) => character.name === nextName)) {
       notify.warning('本集已存在同名角色')
       return false
     }
 
+    const draftAsset = { ...(assetsFor(state, episode).find(item => item.name === editing?.value) ?? createCharacterAsset(nextName)), outfits: materialCharacterOutfitsDraft.value }
+    const outfitError = validateCharacterOutfits(state, episode, draftAsset)
+    if (outfitError) { notify.warning(outfitError); return false }
     if (adding) {
-      episode.characters.push(createCharacterAsset(nextName, materialCharacterAppearanceDraft.value.trim(), materialCharacterVoiceDraft.value.trim(), materialCharacterIsEnsembleDraft.value))
+      assetsFor(state, episode).push(createCharacterAsset(nextName, materialCharacterAppearanceDraft.value.trim(), materialCharacterVoiceDraft.value.trim(), materialCharacterIsEnsembleDraft.value))
       notify.success('已添加角色')
     } else {
       updateCharacterMaterial(editing!.value, nextName, materialCharacterAppearanceDraft.value, materialCharacterVoiceDraft.value, materialCharacterIsEnsembleDraft.value)
@@ -3634,7 +3740,7 @@ function updateCharacterMaterial(oldName: string, nextName: string, appearanceDe
     return
   }
 
-  const characterAsset = episode.characters.find((character) => character.name === oldName)
+  const characterAsset = assetsFor(state, episode).find((character) => character.name === oldName)
 
   if (!characterAsset) {
     return
@@ -3644,9 +3750,13 @@ function updateCharacterMaterial(oldName: string, nextName: string, appearanceDe
   characterAsset.appearanceDescription = appearanceDescription.trim()
   characterAsset.voiceDescription = voiceDescription.trim()
   characterAsset.isEnsemble = isEnsemble
-  episode.shots.forEach((shot) => {
+  characterAsset.outfits = JSON.parse(JSON.stringify(materialCharacterOutfitsDraft.value))
+  characterAsset.outfits.forEach(outfit => { outfit.note = outfit.note.trim() })
+  const scope = state.episodes.filter(item => episode.groupId ? item.groupId === episode.groupId : item.id === episode.id)
+  scope.flatMap(item => item.shots).forEach((shot) => {
     shot.characters.forEach((character) => {
-      if (character.name === oldName) {
+      if (character.characterId === characterAsset.id || character.name === oldName) {
+        character.characterId = characterAsset.id
         character.name = nextName
       }
     })
@@ -3680,7 +3790,7 @@ function parseCharacterDescriptionClipboard(text: string): CharacterDescriptionI
         throw new Error(`JSON 第 ${index + 1} 项格式无效`)
       }
 
-      const item = entry as { name?: unknown; statusText?: unknown; appearanceDescription?: unknown; voiceDescription?: unknown; isEnsemble?: unknown }
+      const item = entry as { name?: unknown; outfitNote?: unknown; statusText?: unknown; appearanceDescription?: unknown; voiceDescription?: unknown; isEnsemble?: unknown }
       const name = typeof item.name === 'string' ? item.name.trim() : ''
       const appearanceDescription = item.appearanceDescription !== undefined ? item.appearanceDescription : item.statusText
       if (!name || (appearanceDescription === undefined && item.voiceDescription === undefined && item.isEnsemble === undefined)) {
@@ -3691,7 +3801,8 @@ function parseCharacterDescriptionClipboard(text: string): CharacterDescriptionI
         throw new Error(`JSON 第 ${index + 1} 项描述必须是文字`)
       }
       if (item.isEnsemble !== undefined && typeof item.isEnsemble !== 'boolean') throw new Error(`JSON 第 ${index + 1} 项 isEnsemble 必须是布尔值`)
-      return { name, appearanceDescription: appearanceDescription?.trim(), voiceDescription: item.voiceDescription?.trim(), isEnsemble: item.isEnsemble }
+      if (item.outfitNote !== undefined && typeof item.outfitNote !== 'string') throw new Error(`JSON 第 ${index + 1} 项 outfitNote 必须是文字`)
+      return { name, outfitNote: item.outfitNote?.trim(), appearanceDescription: appearanceDescription?.trim(), voiceDescription: item.voiceDescription?.trim(), isEnsemble: item.isEnsemble }
     })
   }
 
@@ -3741,10 +3852,10 @@ function formatRecognitionNames(names: string[]) {
   return names.length > 4 ? `${visibleNames} 等 ${names.length} 项` : visibleNames
 }
 
-function applyCharacterDescriptionText(text: string) {
+async function applyCharacterDescriptionText(text: string) {
   const episode = activeEpisode.value
 
-  if (!episode?.characters.length) {
+  if (!episode || !assetsFor(state, episode).length) {
     notify.info('本集暂无角色')
     return false
   }
@@ -3758,20 +3869,27 @@ function applyCharacterDescriptionText(text: string) {
     return false
   }
 
+  const assets: CharacterAsset[] = JSON.parse(JSON.stringify(assetsFor(state, episode)))
   const updatedNames = new Set<string>()
   const unmatchedNames: string[] = []
   const ambiguousNames: string[] = []
 
   imports.forEach((item) => {
-    const exactMatch = episode.characters.find((character) => character.name.trim() === item.name)
+    const exactMatch = assets.find((character) => character.name.trim() === item.name)
     const normalizedName = normalizeCharacterNameForMatch(item.name)
-    const normalizedMatches = exactMatch ? [] : episode.characters.filter(
+    const normalizedMatches = exactMatch ? [] : assets.filter(
       (character) => normalizeCharacterNameForMatch(character.name) === normalizedName,
     )
     const character = exactMatch ?? (normalizedMatches.length === 1 ? normalizedMatches[0] : null)
 
     if (character) {
-      if (item.appearanceDescription !== undefined) character.appearanceDescription = item.appearanceDescription
+      if (item.appearanceDescription !== undefined) {
+        if (character.outfits.length > 1) {
+          const outfit = character.outfits.find(outfit => outfit.note === item.outfitNote)
+          if (!outfit) { ambiguousNames.push(`${item.name}（请指定服装备注 outfitNote）`); return }
+          outfit.appearanceDescription = item.appearanceDescription
+        } else character.appearanceDescription = item.appearanceDescription
+      }
       if (item.voiceDescription !== undefined) character.voiceDescription = item.voiceDescription
       character.isEnsemble = item.isEnsemble ?? /(?:们|群像|若干)$/.test(character.name)
       updatedNames.add(character.name)
@@ -3783,6 +3901,11 @@ function applyCharacterDescriptionText(text: string) {
   })
 
   if (updatedNames.size) {
+    const candidate = { ...episode, characters: episode.groupId ? [] : assets }
+    if (!await approveEpisodeCharacters(candidate, assets)) return false
+    const group = state.episodeGroups.find(group => group.id === episode.groupId)
+    if (group) group.characters = assets
+    else episode.characters = assets
     notify.success(`已识别并更新 ${updatedNames.size} 个角色描述`)
   }
 
@@ -3801,12 +3924,9 @@ function applyCharacterDescriptionText(text: string) {
 }
 
 function openCharacterPasteDialog() {
-  characterPasteDraft.value = JSON.stringify(activeEpisode.value?.characters.map(({ name, appearanceDescription, voiceDescription, isEnsemble }) => ({
-    name,
-    appearanceDescription,
-    voiceDescription,
-    isEnsemble,
-  })) ?? [], null, 2)
+  characterPasteDraft.value = JSON.stringify(activeCharacterAssets.value.flatMap(({ name, appearanceDescription, voiceDescription, isEnsemble, outfits }) => outfits.length > 1
+    ? outfits.map(outfit => ({ name, outfitNote: outfit.note, appearanceDescription: outfit.appearanceDescription, voiceDescription, isEnsemble }))
+    : [{ name, appearanceDescription, voiceDescription, isEnsemble }]), null, 2)
   characterPasteDialogVisible.value = true
 }
 
@@ -3820,7 +3940,7 @@ function resetCharacterPasteDialog() {
   characterPasteDraft.value = ''
 }
 
-function handleCharacterDescriptionPaste(event: ClipboardEvent) {
+async function handleCharacterDescriptionPaste(event: ClipboardEvent) {
   const text = event.clipboardData?.getData('text/plain') ?? ''
 
   if (!text) {
@@ -3830,19 +3950,19 @@ function handleCharacterDescriptionPaste(event: ClipboardEvent) {
   event.preventDefault()
   characterPasteDraft.value = text
 
-  if (applyCharacterDescriptionText(text)) {
+  if (await applyCharacterDescriptionText(text)) {
     characterPasteDialogVisible.value = false
   }
 }
 
-function confirmCharacterPaste() {
-  if (applyCharacterDescriptionText(characterPasteDraft.value)) {
+async function confirmCharacterPaste() {
+  if (await applyCharacterDescriptionText(characterPasteDraft.value)) {
     characterPasteDialogVisible.value = false
   }
 }
 
 async function recognizeCharacterDescriptionsFromClipboard() {
-  if (!activeEpisode.value?.characters.length) {
+  if (!activeCharacterAssets.value.length) {
     notify.info('本集暂无角色')
     return
   }
@@ -3850,7 +3970,7 @@ async function recognizeCharacterDescriptionsFromClipboard() {
   if (window.isSecureContext && navigator.clipboard?.readText) {
     try {
       const clipboardText = await navigator.clipboard.readText()
-      applyCharacterDescriptionText(clipboardText)
+      await applyCharacterDescriptionText(clipboardText)
       return
     } catch {
       // Fall back to a user-initiated paste when automatic clipboard access is unavailable.
@@ -3885,7 +4005,7 @@ function renameSceneMaterial(oldName: string, nextScene: MaterialSceneDraft) {
 async function confirmRemoveMaterial(kind: MaterialKind, value: string) {
   try {
     await ElMessageBox.confirm(
-      kind === 'characters' ? '确认删除此角色？' : '确认删除这条场景素材？',
+      kind === 'characters' ? (activeEpisode.value?.groupId ? '确认删除此角色及本剧分镜中的角色配置？' : '确认删除此角色？') : '确认删除这条场景素材？',
       kind === 'characters' ? '删除角色' : '删除场景素材',
       {
         type: 'warning',
@@ -4088,7 +4208,7 @@ function batchShotNumber(segment: BatchShotSegment, index: number) {
 }
 
 function batchShotMatchedCharacterCount(text: string) {
-  return detectCharacters(text, activeEpisode.value?.characters.map((character) => character.name) ?? []).length
+  return detectCharacters(text, activeCharacterAssets.value.map((character) => character.name) ?? []).length
 }
 
 function applyUnitSceneToEmptyShot(episode: Episode, shot: Shot, unitNumber: number, sceneDrafts: MaterialSceneDraft[]) {
@@ -4107,13 +4227,13 @@ function applyUnitSceneToEmptyShot(episode: Episode, shot: Shot, unitNumber: num
   shot.scenes = [createSceneConfig(sceneAsset.name, sceneAsset.time, sceneAsset.space, preservedStatus)]
 }
 
-function syncEpisodeShots(episode: Episode, segments: BatchShotSegment[], sceneDrafts: MaterialSceneDraft[]) {
+async function syncEpisodeShots(episode: Episode, segments: BatchShotSegment[], sceneDrafts: MaterialSceneDraft[], assets: CharacterAsset[]) {
   if (!segments.length) {
     return 0
   }
 
-  episode.shots = segments.map((segment, index) => {
-    const shot = episode.shots[index] ?? createShot(segment.unitNumber)
+  const nextShots = segments.map((segment, index) => {
+    const shot = episode.shots[index] ? JSON.parse(JSON.stringify(episode.shots[index])) as Shot : createShot(segment.unitNumber)
     shot.text = segment.text
     shot.remark = segment.remark
     if (segment.thirtySecondMode) {
@@ -4123,9 +4243,15 @@ function syncEpisodeShots(episode: Episode, segments: BatchShotSegment[], sceneD
     applyUnitSceneToEmptyShot(episode, shot, segment.unitNumber, sceneDrafts)
     return shot
   })
-  episode.shots.forEach((shot) => detectShotCharacters(shot, { silent: true, showConflict: false }))
+  nextShots.forEach((shot, index) => {
+    const contextText = [takeTrailingPunctuationSegments(nextShots[index - 1]?.text ?? '', shot.connectPreviousCount), shot.text, takeLeadingPunctuationSegments(nextShots[index + 1]?.text ?? '', shot.connectNextCount)].filter(Boolean).join('\n')
+    const detected = detectCharacters(contextText, assets.map(asset => asset.name)).map(character => ({ ...character, includeVoice: character.includeVoice && !assets.find(asset => asset.name === character.name)?.isEnsemble }))
+    shot.characters = mergeDetectedCharacters(shot.characters, detected, true)
+  })
+  compactShotUnitNumbers(nextShots)
+  if (!await approveEpisodeCharacters({ ...episode, shots: nextShots }, assets)) return 0
+  episode.shots = nextShots
   episode.shots.forEach(syncShotTimingSegments)
-  compactShotUnitNumbers(episode.shots)
   normalizeEpisodeShotConnections(episode)
   return segments.length
 }
@@ -4207,7 +4333,11 @@ function deleteShot(id: string) {
   }
 
   activeEpisode.value.shots = activeEpisode.value.shots.filter((shot) => shot.id !== id)
-  compactShotUnitNumbers(activeEpisode.value.shots)
+  const unitMap = compactShotUnitNumbers(activeEpisode.value.shots)
+  for (const asset of activeCharacterAssets.value) for (const outfit of asset.outfits) {
+    outfit.units = outfit.units.filter(unit => unit.episodeId !== activeEpisode.value!.id || unitMap.has(unit.unitNumber))
+      .map(unit => unit.episodeId === activeEpisode.value!.id ? { ...unit, unitNumber: unitMap.get(unit.unitNumber)! } : unit)
+  }
   normalizeEpisodeShotConnections(activeEpisode.value)
 }
 
@@ -4243,10 +4373,10 @@ function addCharacterMaterials(episode: Episode, value: string): MaterialAddResu
     return { added: 0, skipped: 0 }
   }
 
-  const existingNames = new Set(episode.characters.map((character) => character.name))
+  const existingNames = new Set(assetsFor(state, episode).map((character) => character.name))
   const added = items.filter((item) => !existingNames.has(item))
 
-  episode.characters.push(...added.map((name) => createCharacterAsset(name)))
+  assetsFor(state, episode).push(...added.map((name) => createCharacterAsset(name)))
 
   return {
     added: added.length,
@@ -4302,7 +4432,8 @@ function removeMaterial(kind: MaterialKind, value: string) {
   }
 
   if (kind === 'characters') {
-    episode.characters = episode.characters.filter((item) => item.name !== value)
+    assetsFor(state, episode).splice(0, assetsFor(state, episode).length, ...assetsFor(state, episode).filter((item) => item.name !== value))
+    state.episodes.filter(item => episode.groupId ? item.groupId === episode.groupId : item.id === episode.id).forEach(item => item.shots.forEach(shot => { shot.characters = shot.characters.filter(character => character.name !== value) }))
     return
   }
 
@@ -4321,12 +4452,12 @@ function syncSceneFromAsset(scene: SceneConfig) {
 }
 
 function availableCharacterAssets(shot: Shot) {
-  return activeEpisode.value?.characters.filter(
+  return activeCharacterAssets.value.filter(
     (asset) => !shot.characters.some((character) => character.name === asset.name),
   ) ?? []
 }
 
-function addCharacterToShot(shot: Shot, name: string) {
+async function addCharacterToShot(shot: Shot, name: string) {
   const asset = availableCharacterAssets(shot).find((character) => character.name === name)
 
   if (!asset) {
@@ -4334,7 +4465,7 @@ function addCharacterToShot(shot: Shot, name: string) {
     return
   }
 
-  shot.characters.push(createCharacterConfig(asset.name))
+  await applyShotCharacters(shot, [...shot.characters, createCharacterConfig(asset.name)])
 }
 
 function removeCharacterFromShot(shot: Shot, id: string) {
@@ -4359,52 +4490,60 @@ function characterCloneSources(target: Shot) {
     })))
 }
 
-function cloneShotCharacters(target: Shot, sourceId: string) {
+async function cloneShotCharacters(target: Shot, sourceId: string) {
   const selected = characterCloneSources(target).find((item) => item.shot.id === sourceId)
   if (sourceId === target.id || !selected?.shot.characters.length) return
   const source = selected.shot
   const episode = activeEpisode.value!
+  const assets: CharacterAsset[] = JSON.parse(JSON.stringify(assetsFor(state, episode)))
   if (selected.episode.id !== episode.id) {
     source.characters.forEach((character) => {
-      const asset = selected.episode.characters.find((asset) => asset.name === character.name)
-      if (asset && !episode.characters.some((item) => item.name === asset.name)) {
-        episode.characters.push(createCharacterAsset(asset.name, asset.appearanceDescription, asset.voiceDescription, asset.isEnsemble))
+      const asset = assetsFor(state, selected.episode).find((asset) => asset.name === character.name)
+      if (asset && !assets.some((item) => item.name === asset.name)) {
+        assets.push({ ...JSON.parse(JSON.stringify(asset)), id: createId('asset') })
       }
     })
   }
 
   const voices = new Set(detectCharacters(effectiveShotText(target), source.characters.map((character) => character.name))
-    .filter((character) => character.includeVoice && !isEnsembleCharacter(character.name))
+    .filter((character) => character.includeVoice && !assets.find(asset => asset.name === character.name)?.isEnsemble)
     .map((character) => character.name))
-  target.characters = source.characters.map((character) => ({
+  const cloned = source.characters.map((character) => ({
     ...character,
     id: createId('character'),
     includeVoice: voices.has(character.name),
   }))
+  const candidate = { ...episode, characters: episode.groupId ? [] : assets, shots: episode.shots.map(shot => shot.id === target.id ? { ...shot, characters: cloned } : shot) }
+  if (!await approveEpisodeCharacters(candidate, assets)) return
+  const group = state.episodeGroups.find(group => group.id === episode.groupId)
+  if (group) group.characters = assets
+  else episode.characters = assets
+  target.characters = cloned
   target.pendingDetection = null
   target.autoSyncNotice = null
   target.undoCharacters = null
   notify.success('已克隆角色配置')
 }
 
-function characterAppearanceDescription(name: string) {
-  return activeEpisode.value?.characters.find((character) => character.name === name)?.appearanceDescription.trim() ?? ''
+function characterAppearanceDescription(name: string, shot: Shot) {
+  const asset = activeCharacterAssets.value.find(character => character.name === name)
+  return asset ? characterAppearance(asset, activeEpisode.value!.id, shot).description : ''
 }
 
 function characterVoiceDescription(name: string) {
-  return activeEpisode.value?.characters.find((character) => character.name === name)?.voiceDescription?.trim() ?? ''
+  return activeCharacterAssets.value.find((character) => character.name === name)?.voiceDescription?.trim() ?? ''
 }
 
 function isEnsembleCharacter(name: string) {
-  return activeEpisode.value?.characters.find((character) => character.name === name)?.isEnsemble ?? false
+  return activeCharacterAssets.value.find((character) => character.name === name)?.isEnsemble ?? false
 }
 
 function toggleCharacterVoice(character: CharacterConfig) {
   const episode = activeEpisode.value!
-  const asset = episode.characters.find((asset) => asset.name === character.name)
+  const asset = assetsFor(state, episode).find((asset) => asset.name === character.name)
   if (asset?.isEnsemble) {
     asset.isEnsemble = false
-    episode.shots.forEach((shot) => shot.characters.forEach((item) => {
+    state.episodes.filter(item => episode.groupId ? item.groupId === episode.groupId : item.id === episode.id).flatMap(item => item.shots).forEach((shot) => shot.characters.forEach((item) => {
       if (item.name === character.name) item.includeVoice = false
     }))
   } else {
@@ -4422,7 +4561,7 @@ function hasConfiguredScenes(shot: Shot) {
 
 function timingCharacterNames(shot: Shot) {
   return Array.from(new Set([
-    ...(activeEpisode.value?.characters.map((character) => character.name) ?? []),
+    ...(activeCharacterAssets.value.map((character) => character.name) ?? []),
     ...shot.characters.map((character) => character.name),
   ].map((name) => name.trim()).filter(Boolean)))
 }
@@ -4465,7 +4604,7 @@ function shotTimingAnalysis(shot: Shot): TimingAnalysis {
 }
 
 function batchTimingAnalysis(text: string) {
-  return analyzeTimingRange(text, activeEpisode.value?.characters.map((character) => character.name) ?? [], [])
+  return analyzeTimingRange(text, activeCharacterAssets.value.map((character) => character.name) ?? [], [])
 }
 
 function formatTimingSeconds(seconds: number) {
@@ -4770,7 +4909,7 @@ function effectiveShotText(shot: Shot) {
   return lines.join('\n').trim()
 }
 
-function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConflict?: boolean } = {}) {
+async function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConflict?: boolean } = {}) {
   const episode = activeEpisode.value
   const showConflict = options.showConflict ?? true
 
@@ -4778,7 +4917,7 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
     return false
   }
 
-  const detected = detectCharacters(effectiveShotText(shot), episode.characters.map((character) => character.name))
+  const detected = detectCharacters(effectiveShotText(shot), assetsFor(state, episode).map((character) => character.name))
     .map((character) => ({ ...character, includeVoice: character.includeVoice && !isEnsembleCharacter(character.name) }))
   shot.autoSyncNotice = null
 
@@ -4797,7 +4936,7 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
     .map((character) => character.name)
 
   if (!currentNames.length) {
-    shot.characters = buildDetectedCharacters(detected)
+    if (!await applyShotCharacters(shot, buildDetectedCharacters(detected))) return false
     shot.pendingDetection = null
     if (!options.silent) {
       notify.success('已识别并添加角色配置')
@@ -4825,7 +4964,7 @@ function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConfl
   }
 
   if (!showConflict) {
-    shot.characters = mergeDetectedCharacters(shot.characters, detected, true)
+    if (!await applyShotCharacters(shot, mergeDetectedCharacters(shot.characters, detected, true))) return false
     shot.pendingDetection = null
     return true
   }
@@ -4863,7 +5002,7 @@ function detectionReplaceChanged() {
   return characterConfigSignature(shot.characters) !== characterConfigSignature(buildDetectedCharacters(pending.detected))
 }
 
-function mergeActiveDetection() {
+async function mergeActiveDetection() {
   const shot = detectionConflictShot.value
 
   if (!shot?.pendingDetection) {
@@ -4875,14 +5014,14 @@ function mergeActiveDetection() {
     return
   }
 
-  shot.characters = mergeDetectedCharacters(shot.characters, shot.pendingDetection.detected, true)
+  if (!await applyShotCharacters(shot, mergeDetectedCharacters(shot.characters, shot.pendingDetection.detected, true))) return
   notify.success('已合并角色配置')
   shot.pendingDetection = null
   detectionConflictShotId.value = null
   detectionDialogVisible.value = false
 }
 
-function replaceActiveDetection() {
+async function replaceActiveDetection() {
   const shot = detectionConflictShot.value
 
   if (!shot?.pendingDetection) {
@@ -4894,7 +5033,7 @@ function replaceActiveDetection() {
     return
   }
 
-  shot.characters = buildDetectedCharacters(shot.pendingDetection.detected)
+  if (!await applyShotCharacters(shot, buildDetectedCharacters(shot.pendingDetection.detected))) return
   notify.success('已替换角色配置')
   shot.pendingDetection = null
   detectionConflictShotId.value = null
@@ -5298,9 +5437,19 @@ async function applyEpisodeScriptShots() {
   try {
     const isUpdate = hasExistingShotConfiguration(episode)
     const sceneDrafts = materialSceneDrafts.value.map((scene) => ({ ...scene }))
-    episode.splitScriptText = splitScriptDraft.value
-    addMaterialDrafts(false)
-    const syncedCount = syncEpisodeShots(episode, batchShotSegments.value, sceneDrafts)
+    const candidate: Episode = JSON.parse(JSON.stringify(episode))
+    const assets: CharacterAsset[] = JSON.parse(JSON.stringify(assetsFor(state, episode)))
+    candidate.splitScriptText = splitScriptDraft.value
+    for (const name of splitMaterialInput(materialCharacterDraft.value)) {
+      if (!assets.some(asset => asset.name === name)) assets.push(createCharacterAsset(name))
+    }
+    addSceneMaterials(candidate, sceneDrafts)
+    if (!candidate.groupId) candidate.characters = assets
+    const syncedCount = await syncEpisodeShots(candidate, batchShotSegments.value, sceneDrafts, assets)
+    if (!syncedCount) return
+    const group = state.episodeGroups.find(group => group.id === episode.groupId)
+    if (group) group.characters = assets
+    Object.assign(episode, candidate)
     if (!await saveNow()) return
     episodeScriptDialogVisible.value = false
     batchShotSegments.value = []
@@ -5319,13 +5468,13 @@ function promptFor(shot: Shot, detailOnly = false) {
     profileId,
     shotTimingAnalysis(shot).totalSeconds,
   ] as const
-  const characters = activeEpisode.value!.characters
+  const characters = activeCharacterAssets.value
   const referenceName = formatShotReference(activeEpisode.value!, shotIndex(shot))
   const referenceMode = group?.referenceMode ?? state.globalConfig.prompt.referenceMode
   const appearanceReferencePrefix = `${parseEpisodeNumber(activeEpisode.value!.title)}-${normalizeShotUnitNumber(shot.unitNumber)}`
   return detailOnly
     ? composeShotDetail(...args, characters, referenceName, referenceMode)
-    : composePrompt(...args, characters, referenceName, referenceMode, appearanceReferencePrefix)
+    : composePrompt(...args, characters, referenceName, referenceMode, appearanceReferencePrefix, activeEpisode.value!.id)
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
@@ -5342,7 +5491,7 @@ function isEditableShortcutTarget(target: EventTarget | null) {
 }
 
 function isShortcutBlocked() {
-  return materialDialogVisible.value
+  return outfitAssignmentVisible.value || materialDialogVisible.value
     || characterPasteDialogVisible.value
     || globalDialogVisible.value
     || webDavAuthVisible.value
@@ -5483,7 +5632,10 @@ async function copyShotDetail(shot: Shot) {
 }
 
 async function copyCharacterSettings(shot: Shot) {
-  const copied = await copyText(composeCharacterSettings(shot, activeEpisode.value?.characters ?? []))
+  const episode = activeEpisode.value!
+  const group = state.episodeGroups.find(group => group.id === episode.groupId)
+  const detailed = (group?.referenceMode ?? state.globalConfig.prompt.referenceMode) === 'detailed'
+  const copied = await copyText(formatPromptReferences(composeCharacterSettings(shot, activeCharacterAssets.value, detailed, `${parseEpisodeNumber(episode.title)}-${shot.unitNumber}`, episode.id)))
 
   if (copied) {
     notify.success('已复制角色配置')
@@ -5497,6 +5649,16 @@ function preventBrowserContextMenu(event: MouseEvent) {
   event.preventDefault()
 }
 
+function handleDrawerOutsideClick(event: MouseEvent) {
+  const target = event.target
+  if (!(target instanceof HTMLElement) || !target.classList.contains('dismissible-drawer-overlay')) return
+  if (target.querySelector('.material-dialog')) materialDialogVisible.value = false
+  if (target.querySelector('.character-paste-dialog')) characterPasteDialogVisible.value = false
+  if (target.querySelector('.detection-dialog')) detectionDialogVisible.value = false
+  if (target.querySelector('.review-dialog')) dataDialogVisible.value = false
+  if (target.querySelector('.outfit-assignment-drawer')) outfitAssignmentVisible.value = false
+}
+
 onMounted(() => {
   refreshHistoryDate()
   window.addEventListener('focus', refreshHistoryDate)
@@ -5504,6 +5666,7 @@ onMounted(() => {
   window.addEventListener('keydown', handleContactDropdownEscape, true)
   window.addEventListener('keydown', handleShotNumberShortcut)
   document.addEventListener('contextmenu', preventBrowserContextMenu)
+  document.addEventListener('click', handleDrawerOutsideClick)
   document.addEventListener('pointerdown', handleTimingPopoverPointerDown)
   window.addEventListener('keydown', handleTimingPopoverKeydown)
   window.addEventListener('blur', closeTimingPopover)
@@ -5517,6 +5680,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleContactDropdownEscape, true)
   window.removeEventListener('keydown', handleShotNumberShortcut)
   document.removeEventListener('contextmenu', preventBrowserContextMenu)
+  document.removeEventListener('click', handleDrawerOutsideClick)
   document.removeEventListener('pointerdown', handleTimingPopoverPointerDown)
   window.removeEventListener('keydown', handleTimingPopoverKeydown)
   window.removeEventListener('blur', closeTimingPopover)
@@ -5567,6 +5731,7 @@ function exportPayload(): ExportPayload {
     episodes: state.episodes.map((episode) => ({
       ...JSON.parse(JSON.stringify(episode)),
       starred: isEpisodeAutoStarred(episode),
+      characters: JSON.parse(JSON.stringify(assetsFor(state, episode))),
     })) as Episode[],
     globalConfigSnapshot: JSON.parse(JSON.stringify(state.globalConfig)),
     pointInvoices: JSON.parse(JSON.stringify(state.pointInvoices)),
@@ -5654,7 +5819,17 @@ async function importEpisode(event: Event) {
   }
 
   const previousInvoices = JSON.stringify(state.pointInvoices)
-  const importedCount = applyImportBatches(batches, importMode)
+  const candidate: AppState = JSON.parse(JSON.stringify(state))
+  const importedCount = applyImportBatches(batches, importMode, candidate)
+  const scopes = new Set<string>()
+  for (const episode of candidate.episodes) {
+    const scope = episode.groupId ?? episode.id
+    if (scopes.has(scope)) continue
+    scopes.add(scope)
+    initializeSharedCharacters(candidate, episode)
+    if (!await approveCharacterOutfits(candidate, episode, assetsFor(candidate, episode))) return
+  }
+  Object.assign(state, candidate)
 
   if (importedCount) {
     notify.success(`已导入 ${importedCount} 个单集`)
@@ -5687,8 +5862,8 @@ function parseImportPayload(value: unknown): ImportBatch {
   }
 }
 
-function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
-  applyImportedGlobalConfigs(batches, importMode)
+function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, state: AppState) {
+  applyImportedGlobalConfigs(batches, importMode, state)
 
   if (importMode === 'replace') {
     state.episodeGroups = []
@@ -5707,6 +5882,13 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
     )
     const groupIdMap = new Map(importedGroups.map((group) => [group.sourceId, group.group.id]))
     const importedEpisodes = batch.episodes.map((episode) => normalizeImportedEpisode(episode, groupIdMap))
+    const episodeIds = new Map(batch.episodes.map((episode, index) => [episode.id, importedEpisodes[index].id]))
+    const unitMaps = new Map(batch.episodes.map((episode, index) => [episode.id, new Map(episode.shots.map((shot, shotIndex) => [normalizeShotUnitNumber(shot.unitNumber), importedEpisodes[index].shots[shotIndex].unitNumber]))]))
+    for (const asset of [...importedGroups.flatMap(item => item.group.characters ?? []), ...importedEpisodes.flatMap(item => item.characters)]) {
+      for (const outfit of asset.outfits) {
+        outfit.units = outfit.units.filter(unit => unitMaps.get(unit.episodeId)?.has(unit.unitNumber)).map(unit => ({ episodeId: episodeIds.get(unit.episodeId)!, unitNumber: unitMaps.get(unit.episodeId)!.get(unit.unitNumber)! }))
+      }
+    }
     return { batch, importedGroups, importedEpisodes }
   })
   // Compare contacts using the final group membership, before any imported value is cleared.
@@ -5741,6 +5923,10 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
       existingEpisodeSignatures.set(signature, episode.id)
       return true
     })
+    for (const asset of [...importedGroups.flatMap(item => item.group.characters ?? []), ...importedEpisodes.flatMap(item => item.characters)]) {
+      const resolvedIds = new Map(importedEpisodes.map((episode, index) => [episode.id, episodeIdMap.get(batch.episodes[index].id)!]))
+      asset.outfits.forEach(outfit => { outfit.units = outfit.units.map(unit => ({ ...unit, episodeId: resolvedIds.get(unit.episodeId)! })) })
+    }
     const usedGroupIds = new Set(episodesToImport.map((episode) => episode.groupId).filter((id): id is string => Boolean(id)))
 
     importedGroups
@@ -5749,6 +5935,19 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
         const sameTitleGroup = importMode === 'merge' ? state.episodeGroups.find((item) => item.title === group.title && item.archived === group.archived) : null
 
         if (sameTitleGroup) {
+          if (sameTitleGroup.characters !== null) {
+            for (const asset of group.characters ?? []) {
+              const existing = sameTitleGroup.characters.find(item => item.name === asset.name)
+              if (!existing) sameTitleGroup.characters.push(asset)
+              else if (existing.outfits.length > 1 && asset.outfits.length > 1) {
+                asset.outfits.forEach(outfit => {
+                  const match = existing.outfits.find(item => item.note === outfit.note)
+                  if (match) match.units.push(...outfit.units.filter(unit => !match.units.some(item => item.episodeId === unit.episodeId && item.unitNumber === unit.unitNumber)))
+                  else existing.outfits.push(outfit)
+                })
+              }
+            }
+          }
           episodesToImport.forEach((episode) => {
             if (episode.groupId === group.id) {
               episode.groupId = sameTitleGroup.id
@@ -5766,7 +5965,7 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
 
     episodesToImport.forEach((episode) => {
       state.episodes.push(episode)
-      selectEpisode(episode)
+      state.activeEpisodeId = episode.id
       importedCount += 1
     })
     state.pointInvoices = mergePointInvoices(state.pointInvoices, remapPointInvoices(batch.pointInvoices, episodeIdMap), new Set(state.episodes.map((episode) => episode.id)))
@@ -5780,7 +5979,7 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
   if (!state.episodes.length) {
     const episode = createEpisode(1)
     state.episodes = [episode]
-    selectEpisode(episode)
+    state.activeEpisodeId = episode.id
   }
 
   clearInteriorEpisodeContacts(state.episodes)
@@ -5791,6 +5990,7 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode) {
 function applyImportedGlobalConfigs(
   batches: Array<{ globalConfig: GlobalConfig | null }>,
   importMode: ImportMode,
+  state: AppState,
 ) {
   const importedConfigs = batches.map((batch) => batch.globalConfig).filter((config): config is GlobalConfig => Boolean(config))
 
@@ -5856,10 +6056,13 @@ function normalizeSceneAssets(scenes: unknown): SceneAsset[] {
   return normalized.filter((scene, index, list) => list.findIndex((item) => item.name === scene.name) === index)
 }
 
-function episodeComparableSignature(episode: Episode, contactPerson: string, splitEpisodeNumber: number | null) {
+function episodeComparableSignature(episode: Episode, contactPerson: string, splitEpisodeNumber: number | null, assets: CharacterAsset[]) {
   return JSON.stringify({
     title: episode.title,
-    characters: episode.characters,
+    characters: assets.map(({ name, appearanceDescription, voiceDescription, isEnsemble, outfits }) => ({
+      name, appearanceDescription, voiceDescription, isEnsemble,
+      outfits: outfits.map(outfit => ({ note: outfit.note, appearanceDescription: outfit.appearanceDescription, units: outfit.units.filter(unit => unit.episodeId === episode.id).map(unit => unit.unitNumber).sort((a, b) => a - b) })),
+    })),
     contactPerson,
     splitEpisodeNumber,
     scenes: episode.scenes,
@@ -5915,7 +6118,7 @@ function episodeImportSignature(episode: Episode, groups: EpisodeGroup[], editab
   const group = groups.find((item) => item.id === episode.groupId)
   const contactPerson = editableContactIds.has(episode.id) ? episode.contactPerson : ''
   const splitEpisodeNumber = editableContactIds.has(episode.id) ? episode.splitEpisodeNumber : null
-  return JSON.stringify([group?.title ?? null, group?.archived ?? false, episodeComparableSignature(episode, contactPerson, splitEpisodeNumber)])
+  return JSON.stringify([group?.title ?? null, group?.archived ?? false, episodeComparableSignature(episode, contactPerson, splitEpisodeNumber, group?.characters ?? episode.characters)])
 }
 
 function normalizeImportedShotScene(scene: unknown, assets: SceneAsset[]): SceneConfig | null {
@@ -5970,7 +6173,7 @@ function normalizeImportedEpisodeGroups(
         return null
       }
 
-      const value = group as Partial<EpisodeGroup> & { useShortReferenceNames?: unknown }
+      const value = group as Partial<EpisodeGroup>
       const sourceId = typeof value.id === 'string' ? value.id : ''
       const title = typeof value.title === 'string' && value.title.trim() ? value.title.trim() : `导入分组 ${index + 1}`
 
@@ -5982,6 +6185,7 @@ function normalizeImportedEpisodeGroups(
         sourceId,
         group: {
           id: createId('group'),
+          characters: value.characters === null || value.characters === undefined ? null : normalizeCharacterAssets(value.characters),
           title,
           starred: Boolean(value.starred),
           fullName: typeof value.fullName === 'string' ? value.fullName : '',
@@ -5989,7 +6193,7 @@ function normalizeImportedEpisodeGroups(
           results: normalizeGroupResults(value.results),
           colorGrading: value.colorGrading === true,
           filter: value.filter === true,
-          referenceMode: normalizeReferenceMode(value.referenceMode, value.useShortReferenceNames),
+          referenceMode: normalizeReferenceMode(value.referenceMode),
           promptProfileId: mapPromptProfileId(value.promptProfileId, sourceConfig, targetConfig),
         },
       }

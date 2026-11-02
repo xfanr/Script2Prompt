@@ -22,10 +22,10 @@ export function cloneGlobalConfig(config: GlobalConfig): GlobalConfig {
   return JSON.parse(JSON.stringify(config)) as GlobalConfig
 }
 
-export function normalizeReferenceMode(value: unknown, legacyShortNames?: unknown): ReferenceMode {
-  return value === 'basic' || value === 'short' || value === 'full' || value === 'detailed'
+export function normalizeReferenceMode(value: unknown): ReferenceMode {
+  return value === 'basic' || value === 'detailed'
     ? value
-    : legacyShortNames === true ? 'short' : 'full'
+    : 'detailed'
 }
 
 export function activePromptProfile(config: GlobalConfig, profileId = config.prompt.activeProfileId): PromptProfile {
@@ -105,7 +105,7 @@ export function normalizeGlobalConfig(value: unknown): GlobalConfig | null {
       profiles,
       ensembleAppearanceTemplates: templates,
       activeEnsembleAppearanceTemplateId: activeTemplateId,
-      referenceMode: normalizeReferenceMode(value.prompt.referenceMode, value.prompt.useShortReferenceNames),
+      referenceMode: normalizeReferenceMode(value.prompt.referenceMode),
       colorGrading: value.prompt.colorGrading === true,
       filter: value.prompt.filter === true,
     },
@@ -221,7 +221,7 @@ export function migrateLegacyGlobalConfig(
       profiles: [legacyProfile],
       ensembleAppearanceTemplates: cloneGlobalConfig(fallback).prompt.ensembleAppearanceTemplates,
       activeEnsembleAppearanceTemplateId: fallback.prompt.activeEnsembleAppearanceTemplateId,
-      referenceMode: 'full',
+      referenceMode: 'detailed',
       colorGrading: false,
       filter: false,
     },

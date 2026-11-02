@@ -66,14 +66,14 @@ export async function runSceneRoleTests() {
     current.usePositionReference = false
     current.firstFrameMode = true
     current.text = '（（@））\n正文'
-    for (const mode of ['basic', 'short', 'full', 'detailed'] as const) {
+    for (const mode of ['basic', 'detailed'] as const) {
       const text = composePrompt(config, current, undefined, 8, [], '5-6', mode)
-      const sceneName = mode === 'short' ? '民政局门口' : '民政局门口.png'
+      const sceneName = '民政局门口.png'
       assert(text.includes(`白天，室外，民政局门口${mode === 'basic' ? '@' : ` [${sceneName}] `}`), mode + ': incorrect scene reference')
       if (mode === 'basic') assert(!text.includes('[民政局门口'), 'basic mode added brackets')
       assert(!text.includes('多角色位置参考'), mode + ': position reference remains')
       assert(!text.includes('[白天') && !text.includes('[室外'), 'time or space added to reference name')
-      assert(mode === 'basic' ? text.includes('\n@\n') : text.includes(`\n [${mode === 'short' ? '5-6' : '5-6.png'}] \n`), 'first frame affected by positioning switch')
+      assert(mode === 'basic' ? text.includes('\n@\n') : text.includes(`\n [5-6.png] \n`), 'first frame affected by positioning switch')
     }
     current.usePositionReference = true
     const text = composePrompt(config, current, undefined, 8, [], '5-6')

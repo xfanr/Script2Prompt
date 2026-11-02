@@ -1,3 +1,4 @@
+import { characterAppearance } from './sharedCharacters'
 import { createCharacterConfig } from './defaults'
 import { activePromptProfile } from './config'
 import { parseFirstFrameText } from './firstFrame'
@@ -157,7 +158,7 @@ export function composeShotDetail(
     firstFrame ? firstFrameShotPrompt(firstFrame.content === '@' && referenceName && referenceMode !== 'basic' ? `[${referenceName}]` : firstFrame.content, estimatedSeconds) : '',
     profile.shotPrefix,
     firstFrame ? firstFrame.detailText : text,
-  ]), referenceMode === 'short')
+  ]))
 }
 
 export function composePrompt(
@@ -169,6 +170,7 @@ export function composePrompt(
   referenceName?: string,
   referenceMode: ReferenceMode = globalConfig.prompt.referenceMode,
   appearanceReferencePrefix = '',
+  episodeId = '',
 ) {
   const profile = activePromptProfile(globalConfig, promptProfileId)
   const characterCount = shot.characters.filter((character) => character.name.trim()).length
@@ -179,25 +181,25 @@ export function composePrompt(
     ])],
     ['二、场景与角色设定', joinPromptBlocks([
       profile.sceneRolePrefix,
-      composeSceneRoleSection(shot, characterAssets, referenceName, referenceMode, appearanceReferencePrefix),
+      composeSceneRoleSection(shot, characterAssets, referenceName, referenceMode, appearanceReferencePrefix, episodeId),
       profile.sceneRoleSuffix,
     ])],
   ]
 
   return [
-    ...sections.map(([title, content]) => `${title}\n${formatPromptReferences(content, referenceMode === 'short')}`),
+    ...sections.map(([title, content]) => `${title}\n${formatPromptReferences(content)}`),
     `三、分镜详情\n${composeShotDetail(globalConfig, shot, promptProfileId, estimatedSeconds, characterAssets, referenceName, referenceMode)}`,
   ].join('\n\n')
 }
 
-function composeSceneRoleSection(shot: Shot, characterAssets: CharacterAsset[], referenceName: string | undefined, referenceMode: ReferenceMode, appearanceReferencePrefix: string) {
+function composeSceneRoleSection(shot: Shot, characterAssets: CharacterAsset[], referenceName: string | undefined, referenceMode: ReferenceMode, appearanceReferencePrefix: string, episodeId: string) {
   return joinPromptBlocks([
     composeSceneSettings(shot, referenceMode === 'basic' ? undefined : referenceName, referenceMode),
-    composeCharacterSettings(shot, characterAssets, referenceMode !== 'basic', referenceMode === 'detailed' ? appearanceReferencePrefix : ''),
+    composeCharacterSettings(shot, characterAssets, referenceMode !== 'basic', referenceMode === 'detailed' ? appearanceReferencePrefix : '', episodeId),
   ])
 }
 
-export function composeSceneSettings(shot: Shot, referenceName?: string, referenceMode: ReferenceMode = 'full') {
+export function composeSceneSettings(shot: Shot, referenceName?: string, referenceMode: ReferenceMode = 'detailed') {
   const lines: string[] = []
 
   shot.scenes
@@ -226,16 +228,17 @@ export function composeSceneSettings(shot: Shot, referenceName?: string, referen
   return lines.join('\n')
 }
 
-export function composeCharacterSettings(shot: Shot, characterAssets: CharacterAsset[] = [], resolveReferences = false, appearanceReferencePrefix = '') {
+export function composeCharacterSettings(shot: Shot, characterAssets: CharacterAsset[] = [], resolveReferences = false, appearanceReferencePrefix = '', episodeId = '') {
   const lines: string[] = []
 
   shot.characters
     .filter((character) => character.name.trim())
     .forEach((character) => {
       const name = character.name.trim()
-      const asset = characterAssets.find((asset) => asset.name === character.name.trim())
-      const parts = [asset?.isEnsemble ? name : `${name}的妆造是${resolveReferences ? ` [${appearanceReferencePrefix}${name}] ` : '@'}`]
-      const appearanceDescription = asset?.appearanceDescription.trim()
+      const asset = characterAssets.find((asset) => asset.id === character.characterId) ?? characterAssets.find((asset) => asset.name === character.name.trim())
+      const appearance = asset ? characterAppearance(asset, episodeId, shot) : null
+      const parts = [asset?.isEnsemble ? name : `${name}的妆造是${resolveReferences ? ` [${appearance?.referenceName ?? `${appearanceReferencePrefix}${name}`}] ` : '@'}`]
+      const appearanceDescription = appearance?.description.trim()
 
       if (appearanceDescription) {
         parts.push(appearanceDescription)
@@ -267,20 +270,18 @@ export function prepareManualReferenceName(name: string, precedingText: string) 
   return voiceContext && !/\.[a-z\d]+$/i.test(name) && !name.endsWith('.') ? `${name}.` : name
 }
 
-export function formatPromptReferenceName(name: string, useShortNames: boolean, voiceContext = false) {
+export function formatPromptReferenceName(name: string, voiceContext = false) {
   const extension = name.match(/\.[a-z\d]+$/i)?.[0]
   const isVoice = name.endsWith('.') || extension?.toLowerCase() === '.mp3' || voiceContext
   const stem = extension ? name.slice(0, -extension.length) : name.replace(/\.+$/u, '')
-  return useShortNames
-    ? `${stem}${isVoice ? '.' : ''}`
-    : extension ? name : `${stem}${isVoice ? '.mp3' : '.png'}`
+  return extension ? name : `${stem}${isVoice ? '.mp3' : '.png'}`
 }
 
-function formatPromptReferences(text: string, useShortNames: boolean) {
+export function formatPromptReferences(text: string) {
   const references = text.replace(/\[([^\[\]\r\n]*)\]/g, (match, content: string, offset: number) => {
     const name = content.trim()
     if (!name) return match
-    const renderedName = formatPromptReferenceName(name, useShortNames, /(?:音色是|音色参考)[ \t]*$/u.test(text.slice(0, offset)))
+    const renderedName = formatPromptReferenceName(name, /(?:音色是|音色参考)[ \t]*$/u.test(text.slice(0, offset)))
     return `[${renderedName}]`
   })
   return references.replace(/(?<![ \t])(?=\[[^\[\]\r\n]*\])/g, ' ')

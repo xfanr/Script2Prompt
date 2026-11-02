@@ -28,6 +28,7 @@ export function compactShotUnitNumbers(shots: Array<{ unitNumber?: unknown }>) {
 
     shot.unitNumber = compactedUnitNumber
   })
+  return unitMap
 }
 
 export function formatShotNumber(episode: Episode, shotIndex: number) {

@@ -4,7 +4,7 @@ export type SceneTime = '白天' | '深夜'
 export type SceneSpace = '室内' | '室外' | '无'
 export type DialogueSpeechRate = 'slow' | 'medium' | 'fast'
 export type ActionTimingMode = 'sync' | 'async'
-export type ReferenceMode = 'basic' | 'short' | 'full' | 'detailed'
+export type ReferenceMode = 'basic' | 'detailed'
 
 export interface DurationRange {
   min: number
@@ -87,13 +87,23 @@ export interface SceneAsset {
 }
 
 export interface CharacterAsset {
+  id: string
+  outfits: CharacterOutfit[]
   name: string
   isEnsemble: boolean
   appearanceDescription: string
   voiceDescription: string
 }
 
+export interface CharacterOutfit {
+  id: string
+  note: string
+  appearanceDescription: string
+  units: { episodeId: string; unitNumber: number }[]
+}
+
 export interface CharacterConfig {
+  characterId: string | null
   id: string
   name: string
   includeVoice: boolean
@@ -209,6 +219,7 @@ export interface GroupResults {
 }
 
 export interface EpisodeGroup {
+  characters: CharacterAsset[] | null
   id: string
   title: string
   fullName: string

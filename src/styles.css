@@ -1099,7 +1099,6 @@ html.dark .episode-panel {
   top: 0;
   right: 8px;
   border-radius: var(--el-border-radius-small);
-  background: var(--el-bg-color);
 }
 
 .material-unit-list {
@@ -1131,6 +1130,10 @@ html.dark .episode-panel {
 .material-unit-list li.is-missing {
   border-radius: var(--el-border-radius-small);
   background: var(--el-color-warning-light-9);
+}
+
+.material-unit-list.is-unrecognized {
+  color: var(--el-color-warning);
 }
 
 .material-reference-status.el-icon {
@@ -1241,6 +1244,22 @@ html.dark .episode-panel {
   align-items: center;
   gap: 8px;
   height: var(--el-component-size-small);
+}
+
+.material-form-inline .el-form-item__label {
+  padding-right: 0;
+  margin-right: 12px;
+}
+
+.material-form-inline .material-appearance-field .el-form-item__label {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  height: auto;
+}
+
+.material-form-inline .character-outfit-actions {
+  padding-left: calc(4em + 12px);
 }
 
 .material-scene-list {
@@ -1962,6 +1981,10 @@ html.dark .episode-panel {
   margin-bottom: 8px;
 }
 
+.scene-line.without-position-reference .scene-status-input {
+  grid-column: 2 / -1;
+}
+
 .scene-selection-controls {
   display: flex;
   min-width: 0;
@@ -2436,7 +2459,7 @@ html.dark .episode-panel {
 
 .review-dialog .el-drawer__header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: 12px 16px;
 }
@@ -2444,11 +2467,6 @@ html.dark .episode-panel {
 .review-dialog .data-dialog-breadcrumb {
   grid-column: 1 / -1;
   grid-row: 2;
-}
-
-.review-dialog .el-drawer__close-btn {
-  grid-column: 2;
-  grid-row: 1;
 }
 
 .el-breadcrumb.data-dialog-breadcrumb {
@@ -3756,4 +3774,32 @@ html.dark .episode-panel {
 
 .el-overlay {
   backdrop-filter: blur(30px);
+}
+
+.character-outfit-card {
+  margin-bottom: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+.character-outfit-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.outfit-assignment-drawer h4 {
+  color: var(--el-text-color-primary);
+}
+.outfit-unit-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  width: 100%;
+}
+.outfit-unit-grid .el-check-tag {
+  padding: 8px 2px;
+  border-radius: 0;
+  text-align: center;
+  font-size: var(--el-font-size-small);
+  box-shadow: 0 0 0 1px var(--el-border-color-lighter) inset;
 }

@@ -8,7 +8,7 @@ import type { GlobalConfig } from '../src/types'
 const config = {
   prompt: {
     activeProfileId: 'test',
-    referenceMode: 'full',
+    referenceMode: 'detailed',
     profiles: [{ id: 'test', basePrefix: '', baseSuffix: '', sceneRolePrefix: '', sceneRoleSuffix: '', shotPrefix: '' }],
   },
 } as GlobalConfig

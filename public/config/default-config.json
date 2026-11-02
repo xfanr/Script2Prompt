@@ -10,7 +10,7 @@
     ],
     "activeEnsembleAppearanceTemplateId": "ensemble-template-default",
     "activeProfileId": "prompt-slot-1",
-    "referenceMode": "full",
+    "referenceMode": "detailed",
     "colorGrading": false,
     "filter": false,
     "profiles": [

@@ -132,15 +132,14 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     parsed.pointInvoices = normalizePointInvoices(parsed.pointInvoices)
     parsed.episodeGroups ??= []
     parsed.episodeGroups.forEach((group) => {
+      group.characters = group.characters == null ? null : normalizeCharacterAssets(group.characters)
       group.starred ??= false
       group.archived ??= false
       group.fullName = typeof group.fullName === 'string' ? group.fullName : ''
       group.results = normalizeGroupResults(group.results)
       group.colorGrading = group.colorGrading === true
       group.filter = group.filter === true
-      const legacy = group as typeof group & { useShortReferenceNames?: unknown }
-      group.referenceMode = normalizeReferenceMode(group.referenceMode, legacy.useShortReferenceNames)
-      delete legacy.useShortReferenceNames
+      group.referenceMode = normalizeReferenceMode(group.referenceMode)
       group.promptProfileId = activePromptProfile(parsed.globalConfig, group.promptProfileId).id
     })
 
@@ -179,6 +178,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
         shot.firstFrameMode = hadStoredFirstFrameMode ? shot.firstFrameMode : false
         shot.characters ??= []
         shot.characters.forEach((character) => {
+          character.characterId = typeof character.characterId === 'string' ? character.characterId : null
           character.statusText ??= ''
         })
         const storedTimingSegments = JSON.stringify(shot.timingSegments)
@@ -190,7 +190,12 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
         )
         shot.review = normalizePromptReview(shot.review)
       })
-      compactShotUnitNumbers(episode.shots ?? [])
+      const unitMap = compactShotUnitNumbers(episode.shots ?? [])
+      const assets = parsed.episodeGroups.find(group => group.id === episode.groupId)?.characters ?? episode.characters
+      for (const asset of assets) for (const outfit of asset.outfits) {
+        outfit.units = outfit.units.filter(unit => unit.episodeId !== episode.id || unitMap.has(unit.unitNumber))
+          .map(unit => unit.episodeId === episode.id ? { ...unit, unitNumber: unitMap.get(unit.unitNumber)! } : unit)
+      }
       episode.splitScriptText = normalizeSplitScriptText(episode.splitScriptText, episode.shots ?? [])
     })
 
