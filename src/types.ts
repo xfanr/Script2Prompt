@@ -219,6 +219,7 @@ export interface GroupResults {
 }
 
 export interface EpisodeGroup {
+  confirmedMaterialReferences: string[]
   characters: CharacterAsset[] | null
   id: string
   title: string
@@ -233,6 +234,7 @@ export interface EpisodeGroup {
 }
 
 export interface Episode {
+  confirmedMaterialReferences: string[]
   id: string
   title: string
   groupId: string | null

@@ -540,11 +540,6 @@ html.dark .episode-panel {
   white-space: nowrap;
 }
 
-.group-episode-count {
-  display: inline;
-  font-weight: 700;
-}
-
 .group-row-actions {
   display: inline-flex;
   flex: 0 0 auto;
@@ -591,6 +586,19 @@ html.dark .episode-panel {
 
 .group-preview-popover {
   overflow-wrap: anywhere;
+}
+.group-preview-counts {
+  display: flex;
+  justify-content: space-between;
+  padding-right: 12px;
+  margin-bottom: 4px;
+  line-height: 24px;
+}
+.group-preview-counts strong {
+  font-weight: 700;
+}
+.group-preview-scroll-content {
+  padding-right: 12px;
 }
 
 .group-preview-episode {
@@ -663,6 +671,11 @@ html.dark .episode-panel {
   align-items: center;
   justify-content: center;
   margin-left: auto;
+}
+.sidebar .episode-star.group-leading-medal {
+  width: 14px;
+  flex-basis: 14px;
+  margin-left: 0;
 }
 
 .el-notification__content {
@@ -899,6 +912,13 @@ html.dark .episode-panel {
   color: var(--el-text-color-secondary);
   font-size: 12px;
 }
+.stage-episode-nav:disabled {
+  color: var(--el-text-color-placeholder);
+  cursor: default;
+}
+.stage-episode-nav .el-icon {
+  color: inherit;
+}
 
 .stage-title-switch-dropdown .el-dropdown-menu {
   max-height: min(420px, 60vh);
@@ -995,46 +1015,6 @@ html.dark .episode-panel {
   flex: 1 1 auto;
 }
 
-.material-file-dropzone {
-  display: flex;
-  width: 100%;
-  min-height: 0;
-  flex: 0 0 auto;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  aspect-ratio: 3 / 1;
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px dashed var(--el-border-color-darker);
-  border-radius: var(--el-border-radius-base);
-  background: var(--el-fill-color-blank);
-  color: var(--el-text-color-secondary);
-  font: inherit;
-  font-size: var(--el-font-size-small);
-  cursor: pointer;
-}
-
-.material-file-dropzone:hover,
-.material-file-dropzone:focus-visible,
-.material-file-dropzone.is-dragging {
-  border-color: var(--el-color-primary);
-  background: var(--el-color-primary-light-9);
-}
-
-.material-file-dropzone > * {
-  pointer-events: none;
-}
-
-.material-file-dropzone > .el-icon {
-  font-size: 24px;
-}
-
-.material-file-dropzone small {
-  font-size: 12px;
-}
-
 .material-management {
   display: flex;
   min-width: 0;
@@ -1079,6 +1059,36 @@ html.dark .episode-panel {
 }
 
 
+.character-add-menu {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(220px, calc(100vw - 32px));
+}
+.character-add-menu.has-three-columns {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(330px, calc(100vw - 32px));
+}
+.character-add-menu .el-dropdown-menu__item {
+  min-width: 0;
+  height: 32px;
+}
+.character-add-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.character-add-menu .character-add-empty {
+  grid-column: 1 / -1;
+  justify-content: center;
+}
+@media (max-width: 420px) {
+  .character-add-menu.has-three-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(220px, calc(100vw - 32px));
+  }
+}
+
 .material-management-list {
   display: flex;
   min-width: 0;
@@ -1105,13 +1115,14 @@ html.dark .episode-panel {
   margin: 0;
   padding: 0 8px 4px 28px;
   color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
+  font-size: var(--el-font-size-base);
   line-height: 24px;
   list-style: none;
   overflow-wrap: anywhere;
 }
 
 .material-unit-list li {
+  user-select: none;
   display: flex;
   align-items: flex-start;
   gap: 6px;
@@ -1127,25 +1138,29 @@ html.dark .episode-panel {
   flex: 1 1 auto;
 }
 
-.material-unit-list li.is-missing {
-  border-radius: var(--el-border-radius-small);
-  background: var(--el-color-warning-light-9);
-}
-
 .material-unit-list.is-unrecognized {
   color: var(--el-color-warning);
 }
 
-.material-reference-status.el-icon {
-  font-size: 14px;
+.material-confirm-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1em;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
 }
-
-.material-reference-status.is-available {
+.material-confirm-button .el-icon {
+  margin-top: 0;
+}
+.material-confirm-button.is-confirmed {
   color: var(--el-color-success);
-}
-
-.material-reference-status.is-missing {
-  color: var(--el-color-warning);
 }
 
 .material-management-item {
@@ -1281,16 +1296,24 @@ html.dark .episode-panel {
   min-width: 0;
 }
 
-.material-dialog .material-scene-row {
+.material-dialog .material-scene-row,
+.scene-material-popover .material-scene-row {
   grid-template-columns: auto minmax(0, 1fr);
 }
 
-.material-dialog .material-scene-segmented {
+.material-dialog .material-scene-segmented,
+.scene-material-popover .material-scene-segmented {
   justify-self: start;
 }
 
-.material-dialog .material-scene-row > .el-input {
+.material-dialog .material-scene-row > .el-input,
+.scene-material-popover .material-scene-row > .el-input {
   grid-column: 1 / -1;
+}
+.scene-material-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 
 .material-scene-segmented.el-segmented {
@@ -3776,6 +3799,13 @@ html.dark .episode-panel {
   backdrop-filter: blur(30px);
 }
 
+.character-outfit-editor.has-multiple {
+  display: flex;
+  flex-direction: column;
+}
+.character-outfit-editor.has-multiple > .character-outfit-actions {
+  order: -1;
+}
 .character-outfit-card {
   margin-bottom: 16px;
   padding-top: 12px;
@@ -3786,6 +3816,9 @@ html.dark .episode-panel {
   align-items: center;
   gap: 16px;
   margin-bottom: 16px;
+}
+.character-outfit-delete {
+  margin-left: auto;
 }
 .outfit-assignment-drawer h4 {
   color: var(--el-text-color-primary);

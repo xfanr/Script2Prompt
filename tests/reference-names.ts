@@ -17,7 +17,7 @@ export async function runReferenceNameTests() {
       shot.characters = [createCharacterConfig('宋绪', true)]
       shot.text = '道具[徽章]，宋绪OS：你好。'
       const output = composePrompt(config, shot, undefined, 8, [], '10-6', mode, '10-1')
-      assert(output.includes(mode === 'basic' ? '宋绪的妆造是@' : '[10-1宋绪.png]'), 'appearance')
+      assert(output.includes(mode === 'basic' ? '宋绪的妆造是@' : '[宋绪.png]'), 'appearance')
       assert(output.includes(mode === 'basic' ? '音色是@' : '[宋绪.mp3]'), 'voice')
       assert(output.includes(mode === 'basic' ? '多角色位置参考@' : '[10-6.png]'), 'position')
       assert(output.includes('[徽章.png]'), 'manual reference')

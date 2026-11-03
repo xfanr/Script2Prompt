@@ -4,6 +4,10 @@ export const STORAGE_KEY = 'script2prompt.appState.v1'
 export const APP_VERSION = 12
 export const DEFAULT_ENSEMBLE_APPEARANCE_TEMPLATE = '一组外貌、发型和服装各不相同的角色，保持个体差异，避免重复面孔。'
 
+export function normalizeMaterialConfirmations(value: unknown): string[] {
+  return Array.isArray(value) ? [...new Set(value.filter((name): name is string => typeof name === 'string' && Boolean(name.trim())).map(name => name.trim()))] : []
+}
+
 export function createId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
@@ -195,6 +199,7 @@ export function createShot(unitNumber = 1): Shot {
 
 export function createEpisodeGroup(promptProfileId: string): EpisodeGroup {
   return {
+    confirmedMaterialReferences: [],
     characters: [],
     id: createId('group'),
     title: '新剧集',
@@ -216,6 +221,7 @@ export function formatEpisodeTitle(index: number) {
 
 export function createEpisode(index = 1, pointCost = 0): Episode {
   return {
+    confirmedMaterialReferences: [],
     id: createId('episode'),
     title: formatEpisodeTitle(index),
     characters: [],

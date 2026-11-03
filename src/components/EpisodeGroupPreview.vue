@@ -1,5 +1,9 @@
 <template>
-  <el-scrollbar max-height="320px">
+  <div class="group-preview-counts">
+    <strong aria-label="原集数">{{ episodes.length }}</strong>
+    <strong aria-label="拆分集数">{{ splitCount }}</strong>
+  </div>
+  <el-scrollbar max-height="320px" view-class="group-preview-scroll-content">
     <div v-for="range in ranges" :key="range.originals[0].id" class="group-preview-range">
       <div class="group-preview-originals">
         <div v-for="episode in range.originals" :key="episode.id" class="group-preview-episode" :title="originalLabel(episode)">{{ originalLabel(episode) }}</div>
@@ -21,6 +25,7 @@ import type { Episode } from '../types'
 
 const props = defineProps<{ episodes: Episode[] }>()
 const ranges = computed(() => episodePreviewRanges(props.episodes))
+const splitCount = computed(() => new Set(ranges.value.flatMap(range => range.splitNumbers)).size)
 
 function originalLabel(episode: Episode) {
   const number = episodeNumber(episode.title)

@@ -228,7 +228,7 @@ export function composeSceneSettings(shot: Shot, referenceName?: string, referen
   return lines.join('\n')
 }
 
-export function composeCharacterSettings(shot: Shot, characterAssets: CharacterAsset[] = [], resolveReferences = false, appearanceReferencePrefix = '', episodeId = '') {
+export function composeCharacterSettings(shot: Shot, characterAssets: CharacterAsset[] = [], resolveReferences = false, _appearanceReferencePrefix = '', episodeId = '') {
   const lines: string[] = []
 
   shot.characters
@@ -237,7 +237,7 @@ export function composeCharacterSettings(shot: Shot, characterAssets: CharacterA
       const name = character.name.trim()
       const asset = characterAssets.find((asset) => asset.id === character.characterId) ?? characterAssets.find((asset) => asset.name === character.name.trim())
       const appearance = asset ? characterAppearance(asset, episodeId, shot) : null
-      const parts = [asset?.isEnsemble ? name : `${name}的妆造是${resolveReferences ? ` [${appearance?.referenceName ?? `${appearanceReferencePrefix}${name}`}] ` : '@'}`]
+      const parts = [asset?.isEnsemble ? name : `${name}的妆造是${resolveReferences ? ` [${appearance?.referenceName ?? name}] ` : '@'}`]
       const appearanceDescription = appearance?.description.trim()
 
       if (appearanceDescription) {

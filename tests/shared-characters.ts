@@ -27,6 +27,11 @@ export async function runSharedCharacterTests() {
   state.activeEpisodeId = second.id
   initializeSharedCharacters(state, second)
   const asset = characterAssetsFor(state, second)[0]
+  test('single outfit uses character name without episode or unit prefix', () => {
+    const detailed = composePrompt(config, first.shots[0], undefined, 8, [asset], '11-1', 'detailed', '11-1', first.id)
+    assert(detailed.includes('[林晚.png]') && !detailed.includes('[11-1林晚.png]'), 'single outfit retained numbering')
+    assert(characterAppearance(asset, first.id, first.shots[0]).referenceName === '林晚', 'sidebar appearance name differs')
+  })
   test('current episode wins shared migration', () => {
     assert(asset.appearanceDescription === '当前描述', 'wrong merge winner')
     assert(first.characters.length === 0 && second.characters.length === 0, 'duplicate storage')
@@ -63,6 +68,8 @@ export async function runSharedCharacterTests() {
     assert(characterAppearance(asset, second.id, second.shots[0]).description === '白色衣服', 'other unit outfit wrong')
   })
   test('JSON and WebDAV preserve shared identity and outfits', () => {
+    group.confirmedMaterialReferences = ['林晚.mp3', '林晚（红色礼服）.png']
+    separate.confirmedMaterialReferences = ['独立.png']
     const json = normalizeAppState(JSON.parse(JSON.stringify(state)), config)
     const files = new Map([...buildDataFiles(json)].map(([path, file]) => [path, parseDataFile(JSON.stringify(file), path)]))
     const loaded = assembleDataFiles(files, json)
@@ -71,6 +78,15 @@ export async function runSharedCharacterTests() {
     const restored = characterAssetsFor(loaded, restoredEpisode)[0]
     assert(restored.id === asset.id && restored.outfits[0].units[0].episodeId === first.id, 'roundtrip lost identifiers')
     assert(restoredEpisode.characters.length === 0 && restored.outfits[0].note === '红色礼服', 'duplicated or lost outfits')
+    assert(loaded.episodeGroups[0].confirmedMaterialReferences.join(',') === '林晚.mp3,林晚（红色礼服）.png', 'shared confirmations lost')
+    assert(loaded.episodes.find(episode => episode.id === separate.id)!.confirmedMaterialReferences.join(',') === '独立.png', 'ungrouped confirmations lost')
+  })
+  test('legacy material confirmations default to empty', () => {
+    const snapshot = JSON.parse(JSON.stringify(state))
+    delete snapshot.episodeGroups[0].confirmedMaterialReferences
+    delete snapshot.episodes[0].confirmedMaterialReferences
+    const loaded = normalizeAppState(snapshot, config)
+    assert(loaded.episodeGroups[0].confirmedMaterialReferences.length === 0 && loaded.episodes[0].confirmedMaterialReferences.length === 0, 'legacy confirmation defaults wrong')
   })
   test('new usage requires assignment', () => {
     const shot = createShot(2)

@@ -1,6 +1,7 @@
 import { activePromptProfile, cloneGlobalConfig, migrateLegacyGlobalConfig, normalizeGlobalConfig, normalizeReferenceMode } from './config'
 import { APP_VERSION, createEpisode, createEpisodeProductionData, createPromptReview, createSceneAsset, createSceneConfig, normalizeCharacterAssets, normalizeShotSceneSelection } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
+import { normalizeMaterialConfirmations } from './defaults'
 import { compactShotUnitNumbers, normalizeReferenceShotNumber, normalizeShotUnitNumber } from './shotNumber'
 import { reconcileTimingSegments } from './timing'
 import { normalizePointInvoices } from './pointLedger'
@@ -132,6 +133,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     parsed.pointInvoices = normalizePointInvoices(parsed.pointInvoices)
     parsed.episodeGroups ??= []
     parsed.episodeGroups.forEach((group) => {
+      group.confirmedMaterialReferences = normalizeMaterialConfirmations(group.confirmedMaterialReferences)
       group.characters = group.characters == null ? null : normalizeCharacterAssets(group.characters)
       group.starred ??= false
       group.archived ??= false
@@ -146,6 +148,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     const groupIds = new Set(parsed.episodeGroups.map((group) => group.id))
 
     parsed.episodes.forEach((episode) => {
+      episode.confirmedMaterialReferences = normalizeMaterialConfirmations(episode.confirmedMaterialReferences)
       episode.groupId = groupIds.has(episode.groupId ?? '') ? episode.groupId : null
       episode.starred ??= false
       episode.contactPerson = typeof episode.contactPerson === 'string' ? episode.contactPerson.trim() : ''

@@ -61,10 +61,10 @@
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
+                <button class="stage-title-switch-trigger stage-episode-nav" type="button" title="上一集" aria-label="上一集" :disabled="activeGroupEpisodeIndex <= 0" @click="switchRelativeEpisode(-1)"><el-icon><GoStart /></el-icon></button>
                 <el-dropdown trigger="click" popper-class="stage-title-switch-dropdown" @command="switchActiveEpisode">
                   <button class="stage-title-switch-trigger" type="button" title="切换集数" aria-label="切换集数">
                     <span>{{ activeEpisode.title }}</span>
-                    <el-icon><ArrowDown /></el-icon>
                   </button>
                   <template #dropdown>
                     <el-dropdown-menu>
@@ -80,6 +80,7 @@
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
+                <button class="stage-title-switch-trigger stage-episode-nav" type="button" title="下一集" aria-label="下一集" :disabled="activeGroupEpisodeIndex < 0 || activeGroupEpisodeIndex >= activeGroupEpisodes.length - 1" @click="switchRelativeEpisode(1)"><el-icon><GoEnd /></el-icon></button>
                 <el-button-group class="stage-title-data-actions">
                   <el-button :icon="Notebook" text @click="openGroupSummary(activeEpisode.groupId ?? 'ungrouped')">全剧</el-button>
                   <el-button :icon="Document" text @click="openReviewSummary(activeEpisode)">分集</el-button>
@@ -151,7 +152,8 @@
 
                       <section v-for="group in episodeTreeGroups" :key="group.id" class="episode-group-block">
                         <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @contextmenu.prevent.stop="openRowMoreMenu($event, '.group-more-button')" @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
-                          <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
+                          <GroupPlayMedal v-if="group.results.playCount >= 2000" class="episode-star group-leading-medal" :play-count="group.results.playCount" />
+                          <span v-else-if="isGroupEmpty(group.id)" class="group-dot">•</span>
                           <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
                           <div v-if="editingGroupId === group.id" class="rename-inline" data-rename-kind="group" :data-rename-id="group.id" @click.stop @keydown.stop>
                             <el-input v-model="group.title" class="episode-title-input" placeholder="输入分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
@@ -159,14 +161,13 @@
                             <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelGroupRename(group)" />
                           </div>
                           <template v-else>
-                            <span class="group-title-text" :title="sidebarGroupTitle(group)">{{ sidebarGroupTitle(group) }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
+                            <span class="group-title-text" :title="sidebarGroupTitle(group)">{{ sidebarGroupTitle(group) }}</span>
                             <div class="group-row-actions" @click.stop @keydown.stop>
-                              <GroupPlayMedal class="episode-star" :play-count="group.results.playCount" />
                               <el-dropdown trigger="click" @command="(count) => addEpisodeToGroup(group.id, count)">
                                 <el-button class="sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="新建单集" />
                                 <template #dropdown>
                                   <el-dropdown-menu>
-                                    <el-dropdown-item v-for="count in 5" :key="count" :command="count">添加 {{ count }} 集</el-dropdown-item>
+                                    <el-dropdown-item v-for="count in [5, 4, 3, 2, 1]" :key="count" :command="count">添加 {{ count }} 集</el-dropdown-item>
                                   </el-dropdown-menu>
                                 </template>
                               </el-dropdown>
@@ -226,7 +227,8 @@
                     <div v-if="!isGroupEmpty(section.id) && isGroupExpanded(section.id)" class="episode-children archived-group-children">
                       <section v-for="group in section.groups" :key="group.id" class="episode-group-block archived-nested-group">
                         <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @contextmenu.prevent.stop="openRowMoreMenu($event, '.group-more-button')" @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
-                          <span v-if="isGroupEmpty(group.id)" class="group-dot">•</span>
+                          <GroupPlayMedal v-if="group.results.playCount >= 2000" class="episode-star group-leading-medal" :play-count="group.results.playCount" />
+                          <span v-else-if="isGroupEmpty(group.id)" class="group-dot">•</span>
                           <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
                           <div v-if="editingGroupId === group.id" class="rename-inline" data-rename-kind="group" :data-rename-id="group.id" @click.stop @keydown.stop>
                             <el-input v-model="group.title" class="episode-title-input" placeholder="输入分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
@@ -234,9 +236,8 @@
                             <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelGroupRename(group)" />
                           </div>
                           <template v-else>
-                            <span class="group-title-text" :title="sidebarGroupTitle(group)">{{ sidebarGroupTitle(group) }} <span class="group-episode-count">{{ episodesForGroup(group.id).length }}</span></span>
+                            <span class="group-title-text" :title="sidebarGroupTitle(group)">{{ sidebarGroupTitle(group) }}</span>
                             <div class="group-row-actions" @click.stop @keydown.stop>
-                              <GroupPlayMedal class="episode-star" :play-count="group.results.playCount" />
                               <el-popover trigger="click" placement="right-start" :width="240" :title="group.fullName.trim() || group.title" popper-class="group-preview-popover">
                                 <template #reference>
                                   <el-button class="sidebar-row-action-button" :icon="View" text size="small" aria-label="查看剧集信息" />
@@ -295,7 +296,7 @@
                         <div class="material-management-heading-row">
                           <h4 class="material-management-heading">场景配置</h4>
                           <div class="material-management-heading-actions">
-                            <el-button class="sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="添加场景素材" @click="openMaterialAddDialog('scenes')" />
+                            <el-button class="sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="添加场景素材" @click="openMaterialAddDialog('scenes', $event)" />
                           </div>
                         </div>
                         <div class="material-management-list">
@@ -303,15 +304,15 @@
                             <div class="material-management-item">
                               <span class="material-management-name" :class="{ 'is-used': item.used }" :title="sceneAssetLabel(item)">{{ sceneAssetLabel(item) }}</span>
                               <div class="material-management-actions">
-                                <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改场景素材" @click="openMaterialEditDialog('scenes', item.name)" />
+                                <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改场景素材" @click="openMaterialEditDialog('scenes', item.name, $event)" />
                                 <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除场景素材" @click="confirmRemoveMaterial('scenes', item.name)" />
                               </div>
                             </div>
                             <ul v-if="item.references.length" class="material-unit-list" :aria-label="`${item.name}引用名称`">
-                              <li v-for="reference in item.references" :key="reference.name" :title="reference.name" :class="{ 'is-missing': reference.available === false }">
-                                <el-icon v-if="/\.(mp3|png)$/i.test(reference.name)" aria-hidden="true"><component :is="/\.mp3$/i.test(reference.name) ? FileMusic : ImageFiles" /></el-icon>
+                              <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name, item.used)" @dblclick="copyMaterialReferenceName(reference.name)">
+                                <MaterialReferenceIcon v-if="item.used && /\.(mp3|png)$/i.test(reference.name)" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
+                                <el-icon v-else-if="/\.(mp3|png)$/i.test(reference.name)" aria-hidden="true"><component :is="/\.mp3$/i.test(reference.name) ? FileMusic : ImageFiles" /></el-icon>
                                 <span>{{ reference.name }}</span>
-                                <el-icon v-if="reference.available !== null" class="material-reference-status" :class="reference.available ? 'is-available' : 'is-missing'" role="img" :aria-label="reference.available ? '已有' : '缺失'" :title="reference.available ? '已有' : '缺失'"><component :is="reference.available ? CircleCheckFilled : WarningFilled" /></el-icon>
                               </li>
                             </ul>
                           </div>
@@ -338,11 +339,10 @@
                         <div class="material-management-list">
                           <div v-for="item in sidebarMaterials.characters" :key="`character-${item.name}`" class="material-management-entry has-reference-list">
                             <ul class="material-unit-list" :class="{ 'is-unrecognized': !item.used }" :aria-label="`${item.name}引用名称`">
-                              <li v-for="reference in item.references" :key="reference.name" :title="reference.name" :class="{ 'is-missing': reference.available === false }">
+                              <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name, item.used)" @dblclick="copyMaterialReferenceName(reference.name)">
                                 <el-icon v-if="!item.used" aria-label="未识别"><LinkInterrupt /></el-icon>
-                                <el-icon v-else-if="/\.(mp3|png)$/i.test(reference.name)" aria-hidden="true"><component :is="/\.mp3$/i.test(reference.name) ? FileMusic : ImageFiles" /></el-icon>
+                                <MaterialReferenceIcon v-else-if="/\.(mp3|png)$/i.test(reference.name)" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
                                 <span>{{ reference.name }}</span>
-                                <el-icon v-if="reference.available !== null" class="material-reference-status" :class="reference.available ? 'is-available' : 'is-missing'" role="img" :aria-label="reference.available ? '已有' : '缺失'" :title="reference.available ? '已有' : '缺失'"><component :is="reference.available ? CircleCheckFilled : WarningFilled" /></el-icon>
                               </li>
                             </ul>
                             <div class="material-management-actions">
@@ -363,10 +363,10 @@
                               <span class="material-management-name is-used" :title="item.name">{{ item.name }}</span>
                             </div>
                             <ul class="material-unit-list" :aria-label="`${item.name}引用名称`">
-                              <li v-for="reference in item.references" :key="reference.name" :title="reference.name" :class="{ 'is-missing': reference.available === false }">
-                                <el-icon v-if="/\.(mp3|png)$/i.test(reference.name)" aria-hidden="true"><component :is="/\.mp3$/i.test(reference.name) ? FileMusic : ImageFiles" /></el-icon>
+                              <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name, item.used)" @dblclick="copyMaterialReferenceName(reference.name)">
+                                <MaterialReferenceIcon v-if="item.used && /\.(mp3|png)$/i.test(reference.name)" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
+                                <el-icon v-else-if="/\.(mp3|png)$/i.test(reference.name)" aria-hidden="true"><component :is="/\.mp3$/i.test(reference.name) ? FileMusic : ImageFiles" /></el-icon>
                                 <span>{{ reference.name }}</span>
-                                <el-icon v-if="reference.available !== null" class="material-reference-status" :class="reference.available ? 'is-available' : 'is-missing'" role="img" :aria-label="reference.available ? '已有' : '缺失'" :title="reference.available ? '已有' : '缺失'"><component :is="reference.available ? CircleCheckFilled : WarningFilled" /></el-icon>
                               </li>
                             </ul>
                           </div>
@@ -375,21 +375,6 @@
                       </section>
                     </div>
                   </el-scrollbar>
-                  <input ref="materialFileInputRef" class="file-input" type="file" accept="image/*,audio/*" multiple aria-label="选择素材文件" @change="handleMaterialFileSelection" />
-                  <button
-                    type="button"
-                    class="material-file-dropzone"
-                    :class="{ 'is-dragging': materialFilesDragging }"
-                    aria-label="拖拽或选择素材文件"
-                    @click="materialFileInputRef?.click()"
-                    @dragover.prevent="materialFilesDragging = $event.dataTransfer?.types.includes('Files') ?? false"
-                    @dragleave="materialFilesDragging = false"
-                    @drop.prevent.stop="handleMaterialFileDrop"
-                  >
-                    <el-icon><Upload /></el-icon>
-                    <span>拖拽文件 或 点击上传</span>
-                    <small>核对素材完整性</small>
-                  </button>
                 </el-tab-pane>
               </el-tabs>
             </section>
@@ -618,14 +603,14 @@
                         </el-dropdown>
                       </div>
                       <div class="character-heading-actions">
-                        <el-dropdown trigger="click" @command="addCharacterToShot(shot, $event)">
+                        <el-dropdown trigger="click" popper-class="character-add-dropdown" max-height="min(320px, calc(100vh - 32px))" @command="addCharacterToShot(shot, $event)">
                           <el-button class="title-copy-button" :icon="AddIcon" text type="primary" title="添加角色" aria-label="添加角色" />
                           <template #dropdown>
-                            <el-dropdown-menu>
+                            <el-dropdown-menu class="character-add-menu" :class="{ 'has-three-columns': availableCharacterAssets(shot).length > 8 }">
                               <el-dropdown-item v-for="item in availableCharacterAssets(shot)" :key="item.name" :command="item.name">
-                                {{ item.name }}
+                                <span class="character-add-name" :title="item.name">{{ item.name }}</span>
                               </el-dropdown-item>
-                              <el-dropdown-item v-if="!availableCharacterAssets(shot).length" disabled>暂无可添加的角色</el-dropdown-item>
+                              <el-dropdown-item v-if="!availableCharacterAssets(shot).length" class="character-add-empty" disabled>暂无可添加的角色</el-dropdown-item>
                             </el-dropdown-menu>
                           </template>
                         </el-dropdown>
@@ -664,7 +649,7 @@
                         title="修改场景素材"
                         aria-label="修改场景素材"
                         :disabled="!activeEpisode.scenes.some((item) => item.name === scene.name)"
-                        @click="openMaterialEditDialog('scenes', scene.name)"
+                        @click="openMaterialEditDialog('scenes', scene.name, $event)"
                       />
                     </div>
                     <VueDraggable
@@ -1104,12 +1089,6 @@
         </div>
         <el-table :ref="setGroupSummaryTableRef" class="group-summary-table" :data="groupSummaryTableRows" max-height="430" empty-text="暂无单集" :row-class-name="groupSummaryRowClass">
           <el-table-column prop="title" label="单集" :min-width="1" show-overflow-tooltip />
-          <el-table-column label="拆分集号" :min-width="1">
-            <template #default="{ row }">
-              <EpisodeSplitNumberCell v-if="!row.isSummary && contactEditableIds.has(row.episode.id)" v-model="row.episode.splitEpisodeNumber" :label="`${row.title}拆分集号`" />
-              <span v-else>-</span>
-            </template>
-          </el-table-column>
           <el-table-column label="对接人" :min-width="1">
             <template #default="{ row }">
               <el-dropdown
@@ -1133,6 +1112,12 @@
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="拆分集号" :min-width="1">
+            <template #default="{ row }">
+              <EpisodeSplitNumberCell v-if="!row.isSummary && contactEditableIds.has(row.episode.id)" v-model="row.episode.splitEpisodeNumber" :label="`${row.title}拆分集号`" />
               <span v-else>-</span>
             </template>
           </el-table-column>
@@ -1393,8 +1378,8 @@
           </template>
         </template>
       </el-dialog>
-      <el-drawer v-model="materialDialogVisible" :title="materialDialogTitle" size="380px" direction="ltr" :modal="false" :show-close="false" modal-class="dismissible-drawer-overlay" append-to-body class="app-drawer material-dialog" @closed="handleMaterialDialogClosed">
-        <el-form class="material-form" :class="{ 'material-form-inline': isCharacterMaterialEdit }" :label-position="isCharacterMaterialEdit ? 'left' : 'top'" :label-width="isCharacterMaterialEdit ? '4em' : undefined" @submit.prevent>
+      <component :is="shouldShowMaterialScenes ? ElPopover : ElDrawer" v-bind="materialDialogProps" :title="materialDialogTitle" :class="shouldShowMaterialScenes ? undefined : 'app-drawer material-dialog'" @update:model-value="materialDialogVisible = $event" @closed="handleMaterialDialogClosed" @after-leave="handleMaterialDialogClosed">
+        <el-form class="material-form" :class="{ 'material-form-inline': isCharacterMaterialEdit }" :label-position="isCharacterMaterialEdit ? 'left' : 'top'" :label-width="isCharacterMaterialEdit ? '4em' : undefined" @submit.prevent @keydown.esc.stop="materialDialogVisible = false">
           <el-form-item v-if="shouldShowMaterialCharacters" label="角色">
             <el-input
               v-model="materialCharacterDraft"
@@ -1419,7 +1404,6 @@
               placeholder="输入角色的音色描述（选填）"
             />
           </el-form-item>
-          <CharacterOutfitEditor v-if="shouldShowMaterialCharacters" v-model:outfits="materialCharacterOutfitsDraft" v-model:description="materialCharacterAppearanceDraft" :units="materialCharacterUnits" :allow-add="new Set(materialCharacterUnits.map(unit => unit.episodeId)).size > 1" />
           <el-form-item v-if="shouldShowMaterialCharacters && materialCharacterOutfitsDraft.length < 2" class="material-appearance-field" label="形象描述">
             <template #label>
               <span>形象描述</span>
@@ -1440,7 +1424,8 @@
               placeholder="输入角色的外貌、服装或造型描述（选填）"
             />
           </el-form-item>
-          <el-form-item v-if="shouldShowMaterialScenes" label="场景">
+          <CharacterOutfitEditor v-if="shouldShowMaterialCharacters && materialDialogVisible" ref="materialOutfitEditorRef" v-model:outfits="materialCharacterOutfitsDraft" v-model:description="materialCharacterAppearanceDraft" :units="materialCharacterUnits" :allow-add="materialCharacterUnits.length > 1" />
+          <el-form-item v-if="shouldShowMaterialScenes">
             <div class="material-scene-list">
               <div v-for="(scene, index) in materialSceneDrafts" :key="index" class="material-scene-row">
                 <el-segmented
@@ -1482,11 +1467,14 @@
               </div>
             </div>
           </el-form-item>
+          <div v-if="shouldShowMaterialScenes" class="scene-material-footer">
+            <el-button type="primary" @click="confirmMaterialDialog">{{ materialDialogConfirmText }}</el-button>
+          </div>
         </el-form>
-        <template #footer>
+        <template v-if="shouldShowMaterialCharacters" #footer>
           <el-button type="primary" @click="confirmMaterialDialog">{{ materialDialogConfirmText }}</el-button>
         </template>
-      </el-drawer>
+      </component>
       <el-drawer
         v-model="characterPasteDialogVisible"
         title="智能识别"
@@ -1523,7 +1511,7 @@
           <section v-for="item in outfitAssignmentDrafts" :key="item.asset.id">
             <h4>{{ item.asset.name }}</h4>
             <el-form-item v-if="item.asset.outfits.length < 2" label="形象描述"><el-input v-model="item.asset.appearanceDescription" type="textarea" :rows="3" /></el-form-item>
-            <CharacterOutfitEditor v-model:outfits="item.asset.outfits" v-model:description="item.asset.appearanceDescription" :units="item.units" :allow-add="false" />
+            <CharacterOutfitEditor ref="assignmentOutfitEditorRefs" v-model:outfits="item.asset.outfits" v-model:description="item.asset.appearanceDescription" :units="item.units" :allow-add="false" />
           </section>
         </el-form>
         <template #footer><el-button type="primary" @click="saveOutfitAssignment">保存</el-button></template>
@@ -1541,7 +1529,7 @@ import GroupPlayMedal from './components/GroupPlayMedal.vue'
 import EpisodeGroupPreview from './components/EpisodeGroupPreview.vue'
 import EpisodeSplitNumberCell from './components/EpisodeSplitNumberCell.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot, normalizeReferenceMode } from './config'
-import { ElDialog, ElDrawer, ElMessageBox, type DropdownInstance } from 'element-plus'
+import { ElDialog, ElDrawer, ElPopover, ElMessageBox, type DropdownInstance } from 'element-plus'
 import { AddIcon, ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, Files, FileMusic, Grape, ImageFiles, Location, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, Position, PositionReference, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, View, WarningFilled } from './icons'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { normalizeSplitScriptText } from './episodeScript'
@@ -1593,6 +1581,9 @@ import type { AppState, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGro
 import { characterAssetsFor as assetsFor, initializeSharedCharacters, characterAppearance, characterUnits, validateCharacterOutfits } from './sharedCharacters'
 import { formatPromptReferences } from './prompt'
 import { LinkInterrupt } from './icons'
+import { GoStart, GoEnd } from './icons'
+import MaterialReferenceIcon from './components/MaterialReferenceIcon.vue'
+import { normalizeMaterialConfirmations } from './defaults'
 import CharacterOutfitEditor from './components/CharacterOutfitEditor.vue'
 import type { CharacterOutfit, CharacterAsset } from './types'
 import { useAppState } from './useAppState'
@@ -1701,6 +1692,7 @@ const { state, activeEpisode, saveError, saveNow, replaceState, isReplacing } = 
 const activeCharacterAssets = computed(() => activeEpisode.value ? assetsFor(state, activeEpisode.value) : [])
 const materialDialogVisible = ref(false)
 const outfitAssignmentVisible = ref(false)
+const assignmentOutfitEditorRefs = ref<InstanceType<typeof CharacterOutfitEditor>[]>([])
 const outfitAssignmentDrafts = ref<{ asset: CharacterAsset; units: ReturnType<typeof characterUnits> }[]>([])
 let finishOutfitAssignment: ((accepted: boolean) => void) | null = null
 
@@ -1732,6 +1724,10 @@ function cancelOutfitAssignment() {
 }
 
 function saveOutfitAssignment() {
+  if (assignmentOutfitEditorRefs.value.some(editor => editor.hasIncompleteSingle)) {
+    outfitAssignmentVisible.value = false
+    return
+  }
   for (const { asset, units } of outfitAssignmentDrafts.value) {
     if (asset.outfits.length < 2) continue
     const notes = asset.outfits.map(outfit => outfit.note.trim())
@@ -1773,6 +1769,10 @@ const showFullGroupNames = ref(false)
 const isDarkMode = ref(document.documentElement.classList.contains('dark'))
 const materialDialogMode = ref<MaterialDialogMode>('add')
 const materialDialogKind = ref<MaterialKind>('characters')
+const scenePopoverReference = ref<HTMLElement | null>(null)
+const materialDialogProps = computed(() => materialDialogKind.value === 'scenes'
+  ? { visible: materialDialogVisible.value, virtualRef: scenePopoverReference.value, virtualTriggering: true, width: 300, placement: 'right-start' as const, popperClass: 'scene-material-popover' }
+  : { modelValue: materialDialogVisible.value, size: '380px', direction: 'ltr' as const, modal: false, showClose: false, modalClass: 'dismissible-drawer-overlay', appendToBody: true })
 const isCharacterMaterialEdit = computed(() => materialDialogMode.value === 'edit' && materialDialogKind.value === 'characters')
 const editingMaterial = ref<EditingMaterial | null>(null)
 const materialCharacterDraft = ref('')
@@ -1780,6 +1780,7 @@ const materialCharacterAppearanceDraft = ref('')
 const materialCharacterVoiceDraft = ref('')
 const materialCharacterIsEnsembleDraft = ref(false)
 const materialCharacterOutfitsDraft = ref<CharacterOutfit[]>([])
+const materialOutfitEditorRef = ref<InstanceType<typeof CharacterOutfitEditor> | null>(null)
 const materialCharacterUnits = computed(() => {
   const episode = activeEpisode.value
   const asset = activeCharacterAssets.value.find(item => item.name === editingMaterial.value?.value)
@@ -1852,9 +1853,6 @@ let dialogueInputRef: HighlightInputBinding | null = null
 let dialogueHighlightRef: HTMLElement | null = null
 let materialSceneTransitionFrame: number | null = null
 const fileInputRef = ref<HTMLInputElement | null>(null)
-const materialFileInputRef = ref<HTMLInputElement | null>(null)
-const materialFilesDragging = ref(false)
-const materialFileNames = ref(new Map<string, Set<string>>())
 const shotListRef = ref<HTMLElement | null>(null)
 const dataDialogVisible = ref(false)
 const dataDialogView = ref<'group' | 'episode' | 'shot'>('group')
@@ -1909,7 +1907,65 @@ const shotConnectionMarks = {
   8: '',
 }
 
-const activeMaterialFileNames = computed(() => materialFileNames.value.get(activeEpisode.value?.id ?? ''))
+const confirmedMaterialReferences = computed(() => {
+  const episode = activeEpisode.value
+  return episode ? state.episodeGroups.find(group => group.id === episode.groupId)?.confirmedMaterialReferences ?? episode.confirmedMaterialReferences : []
+})
+const materialReferenceUnits = computed(() => {
+  const current = activeEpisode.value
+  const references = new Map<string, Set<string>>()
+  if (!current) return references
+  const group = state.episodeGroups.find(group => group.id === current.groupId)
+  const mode = group?.referenceMode ?? state.globalConfig.prompt.referenceMode
+  const episodes = state.episodes.filter(episode => current.groupId ? episode.groupId === current.groupId : episode.id === current.id)
+    .sort((a, b) => parseEpisodeNumber(a.title) - parseEpisodeNumber(b.title))
+  for (const episode of episodes) {
+    const assets = assetsFor(state, episode)
+    const add = (name: string, unitNumber: number) => {
+      if (/\.mp3$/i.test(name)) return
+      const units = references.get(name) ?? new Set<string>()
+      units.add(`${parseEpisodeNumber(episode.title)}-${unitNumber}`)
+      references.set(name, units)
+    }
+    const collectManual = (text: string, unitNumber: number) => {
+      for (const match of text.matchAll(/\[([^\[\]\r\n]+)\]/g)) {
+        const name = match[1].trim()
+        if (name) add(formatPromptReferenceName(prepareManualReferenceName(name, text.slice(0, match.index))), unitNumber)
+      }
+    }
+    episode.shots.map((shot, index) => ({ shot, index })).sort((a, b) => a.shot.unitNumber - b.shot.unitNumber).forEach(({ shot, index }) => {
+      shot.scenes.filter(scene => scene.name.trim()).forEach(scene => {
+        const name = scene.name.trim()
+        add(shot.usePositionReference ? mode === 'basic' ? '@' : formatPromptReferenceName(formatShotReference(episode, index))
+          : mode === 'basic' ? `${name}@` : formatPromptReferenceName(name), shot.unitNumber)
+      })
+      shot.characters.forEach(character => {
+        const asset = assets.find(asset => asset.name === character.name)
+        const appearance = asset ? characterAppearance(asset, episode.id, shot) : null
+        if (!asset?.isEnsemble) add(mode === 'basic' ? `${character.name}@` : formatPromptReferenceName(appearance?.referenceName ?? character.name), shot.unitNumber)
+        if (appearance) collectManual(appearance.description, shot.unitNumber)
+      })
+      collectManual(shot.text, shot.unitNumber)
+    })
+  }
+  return references
+})
+function materialReferenceTitle(name: string, used: boolean) {
+  const units = used && !/\.mp3$/i.test(name) ? materialReferenceUnits.value.get(name) : undefined
+  return units?.size ? `${name}\n${[...units].join('丨')}` : name
+}
+async function copyMaterialReferenceName(name: string) {
+  const materialName = name.replace(/\.[a-z\d]+$/i, '').replace(/[@.]$/u, '').trim()
+  if (await copyText(materialName)) notify.success('已复制素材名')
+  else notify.error('复制失败')
+}
+function toggleMaterialConfirmation(name: string) {
+  const episode = activeEpisode.value!
+  const owner = state.episodeGroups.find(group => group.id === episode.groupId) ?? episode
+  const index = owner.confirmedMaterialReferences.indexOf(name)
+  if (index < 0) owner.confirmedMaterialReferences.push(name)
+  else owner.confirmedMaterialReferences.splice(index, 1)
+}
 const sidebarMaterials = computed(() => {
   const episode = activeEpisode.value
   if (!episode) return { scenes: [], characters: [], custom: [] }
@@ -1919,11 +1975,6 @@ const sidebarMaterials = computed(() => {
   const custom = new Map<string, Usage>()
   const group = state.episodeGroups.find((group) => group.id === episode.groupId)
   const mode = group?.referenceMode ?? state.globalConfig.prompt.referenceMode
-  const fileNames = activeMaterialFileNames.value
-  const matchingNames = fileNames && mode === 'basic'
-    ? new Set([...fileNames].map((name) => name.replace(/\.[^.]+$/u, '').trim()))
-    : fileNames
-  const episodeNumber = parseEpisodeNumber(episode.title)
   const addReference = (usage: Usage, unit: number, reference?: string) => {
     usage.used = true
     if (reference === undefined) return
@@ -1970,7 +2021,7 @@ const sidebarMaterials = computed(() => {
         addReference(usage, unit)
         return
       }
-      const appearance = asset ? characterAppearance(asset, episode.id, shot).referenceName ?? `${episodeNumber}-${unit}${name}` : `${episodeNumber}-${unit}${name}`
+      const appearance = asset ? characterAppearance(asset, episode.id, shot).referenceName ?? name : name
       addReference(usage, unit, mode === 'basic' ? `${name}@` : formatPromptReferenceName(appearance))
       if (character.includeVoice) addReference(usage, unit, mode === 'basic' ? `${name}@` : formatPromptReferenceName(`${name}.`))
     })
@@ -1984,11 +2035,7 @@ const sidebarMaterials = computed(() => {
     used: usage.used,
     references: [...new Set([...usage.references].sort(([a], [b]) => a - b).flatMap(([, names]) => [...names]))]
       .sort((a, b) => Number(/\.mp3$/i.test(b)) - Number(/\.mp3$/i.test(a)))
-      .map((name) => {
-        const matchName = mode === 'basic' ? name.endsWith('@') ? name.slice(0, -1) : name.replace(/\.[^.]+$/u, '')
-          : name.replace(/\.[^.]+$/u, (extension) => extension.toLowerCase())
-        return { name, available: name === '@' || !matchingNames ? null : matchingNames.has(matchName.trim()) }
-      }),
+      .map(name => ({ name })),
   })
   return {
     scenes: episode.scenes.map((asset) => ({ ...asset, ...referenceNames(scenes.get(asset.name.trim())!) })),
@@ -2000,7 +2047,7 @@ const sidebarMaterials = computed(() => {
         usage.references.set(0, names)
       }
       const item = { ...asset, ...referenceNames(usage) }
-      if (!item.references.length) item.references.push({ name: asset.name, available: null })
+      if (!item.references.length) item.references.push({ name: asset.name })
       return item
     }).sort((a, b) => Number(b.used) - Number(a.used)),
     custom: [...custom].map(([name, usage]) => ({ name, ...referenceNames(usage) })),
@@ -2027,6 +2074,7 @@ const sortedUngroupedEpisodes = computed(() => sortEpisodesForDisplay(state.epis
 const activeGroupEpisodes = computed(() => activeEpisode.value
   ? sortEpisodesForDisplay(state.episodes.filter((episode) => episode.groupId === activeEpisode.value?.groupId))
   : [])
+const activeGroupEpisodeIndex = computed(() => activeGroupEpisodes.value.findIndex(episode => episode.id === activeEpisode.value?.id))
 const episodeTreeUngroupedEpisodes = computed(() => {
   const episodes = [...sortedUngroupedEpisodes.value]
 
@@ -2613,6 +2661,10 @@ function switchActiveEpisode(episodeId: string) {
   const episode = activeGroupEpisodes.value.find((item) => item.id === episodeId)
   if (episode) selectEpisode(episode)
 }
+function switchRelativeEpisode(offset: -1 | 1) {
+  const episode = activeGroupEpisodes.value[activeGroupEpisodeIndex.value + offset]
+  if (episode) selectEpisode(episode)
+}
 
 function hasEpisodesInGroup(groupId: string) {
   return state.episodes.some((episode) => episode.groupId === groupId)
@@ -2801,27 +2853,6 @@ function getWeeklyReportRanges(value: Date | string | null) {
 function hasProductionOnPickerCell(cell: WeeklyReportPickerCell | undefined) {
   const date = cell?.dayjs?.format('YYYY-MM-DD')
   return typeof date === 'string' && productionDateSet.value.has(date)
-}
-
-function loadMaterialFileNames(files: FileList | File[]) {
-  const episode = activeEpisode.value
-  if (!episode) return
-  const names = Array.from(files)
-    .filter((file) => /^(image|audio)\//i.test(file.type) || /\.(png|jpe?g|gif|bmp|webp|svg|avif|ico|tiff?|heic|heif|mp3|wav|m4a|aac|ogg|flac|opus|wma|aiff?|amr)$/i.test(file.name))
-    .map((file) => file.name.trim().replace(/\.[^.]+$/u, (extension) => extension.toLowerCase()))
-    .filter(Boolean)
-  if (names.length) materialFileNames.value.set(episode.id, new Set(names))
-}
-
-function handleMaterialFileSelection(event: Event) {
-  const input = event.target as HTMLInputElement
-  loadMaterialFileNames(input.files ?? [])
-  input.value = ''
-}
-
-function handleMaterialFileDrop(event: DragEvent) {
-  materialFilesDragging.value = false
-  loadMaterialFileNames(event.dataTransfer?.files ?? [])
 }
 
 function parseEpisodeNumber(title: string) {
@@ -3436,10 +3467,11 @@ async function handleGroupCommand(command: string, groupId: string) {
     }
 
     group.archived = !group.archived
+    expandedGroupIds.value = expandedGroupIds.value.filter(id => id !== group.id)
     expandedGroupIds.value = Array.from(new Set([
       ...expandedGroupIds.value,
       groupTreeRootId(group),
-      group.id,
+      ...(!group.archived ? [group.id] : []),
     ]))
 
     if (group.archived && selectedEpisodeGroupId.value === groupId) {
@@ -3519,6 +3551,10 @@ function cloneEpisodeMaterials(sourceEpisodeId: string) {
 }
 
 function confirmMaterialDialog() {
+  if (materialDialogKind.value === 'characters' && materialOutfitEditorRef.value?.hasIncompleteSingle) {
+    materialDialogVisible.value = false
+    return
+  }
   if (commitMaterialDialog()) {
     materialDialogVisible.value = false
   }
@@ -3549,6 +3585,7 @@ async function saveEpisodeScriptMaterials() {
 }
 
 function handleMaterialDialogClosed() {
+  if (materialDialogVisible.value) return
   materialDialogMode.value = 'add'
   editingMaterial.value = null
   resetMaterialDrafts()
@@ -3625,8 +3662,9 @@ function segmentedOptionNumber(item: unknown) {
   return ''
 }
 
-function openMaterialAddDialog(kind: MaterialKind) {
+function openMaterialAddDialog(kind: MaterialKind, event?: MouseEvent) {
   if (!activeEpisode.value) return
+  if (kind === 'scenes') scenePopoverReference.value = event!.currentTarget as HTMLElement
   materialDialogMode.value = 'add'
   materialDialogKind.value = kind
   editingMaterial.value = null
@@ -3634,7 +3672,7 @@ function openMaterialAddDialog(kind: MaterialKind) {
   materialDialogVisible.value = true
 }
 
-function openMaterialEditDialog(kind: MaterialKind, value: string) {
+function openMaterialEditDialog(kind: MaterialKind, value: string, event?: MouseEvent) {
   const episode = activeEpisode.value
 
   if (!episode) {
@@ -3670,6 +3708,7 @@ function openMaterialEditDialog(kind: MaterialKind, value: string) {
   }
 
   materialDialogKind.value = kind
+  if (kind === 'scenes') scenePopoverReference.value = event!.currentTarget as HTMLElement
   materialDialogVisible.value = true
 }
 
@@ -5651,7 +5690,9 @@ function preventBrowserContextMenu(event: MouseEvent) {
 
 function handleDrawerOutsideClick(event: MouseEvent) {
   const target = event.target
-  if (!(target instanceof HTMLElement) || !target.classList.contains('dismissible-drawer-overlay')) return
+  if (!(target instanceof Element)) return
+  if (materialDialogVisible.value && materialDialogKind.value === 'scenes' && !target.closest('.scene-material-popover') && !scenePopoverReference.value?.contains(target)) materialDialogVisible.value = false
+  if (!target.classList.contains('dismissible-drawer-overlay')) return
   if (target.querySelector('.material-dialog')) materialDialogVisible.value = false
   if (target.querySelector('.character-paste-dialog')) characterPasteDialogVisible.value = false
   if (target.querySelector('.detection-dialog')) detectionDialogVisible.value = false
@@ -5732,6 +5773,7 @@ function exportPayload(): ExportPayload {
       ...JSON.parse(JSON.stringify(episode)),
       starred: isEpisodeAutoStarred(episode),
       characters: JSON.parse(JSON.stringify(assetsFor(state, episode))),
+      confirmedMaterialReferences: [...(state.episodeGroups.find(group => group.id === episode.groupId)?.confirmedMaterialReferences ?? episode.confirmedMaterialReferences)],
     })) as Episode[],
     globalConfigSnapshot: JSON.parse(JSON.stringify(state.globalConfig)),
     pointInvoices: JSON.parse(JSON.stringify(state.pointInvoices)),
@@ -5919,7 +5961,11 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, stat
       const signature = episodeImportSignature(episode, importedGroups.map((item) => item.group), editableContactIds)
       const existingId = importMode === 'merge' ? existingEpisodeSignatures.get(signature) : undefined
       episodeIdMap.set(batch.episodes[index].id, existingId ?? episode.id)
-      if (existingId) return false
+      if (existingId) {
+        const existing = state.episodes.find(item => item.id === existingId)
+        if (existing) existing.confirmedMaterialReferences = [...new Set([...existing.confirmedMaterialReferences, ...episode.confirmedMaterialReferences])]
+        return false
+      }
       existingEpisodeSignatures.set(signature, episode.id)
       return true
     })
@@ -5930,11 +5976,12 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, stat
     const usedGroupIds = new Set(episodesToImport.map((episode) => episode.groupId).filter((id): id is string => Boolean(id)))
 
     importedGroups
-      .filter(({ group }) => usedGroupIds.has(group.id))
+      .filter(({ group }) => usedGroupIds.has(group.id) || (importMode === 'merge' && state.episodeGroups.some(item => item.title === group.title && item.archived === group.archived)))
       .forEach(({ group }) => {
         const sameTitleGroup = importMode === 'merge' ? state.episodeGroups.find((item) => item.title === group.title && item.archived === group.archived) : null
 
         if (sameTitleGroup) {
+          sameTitleGroup.confirmedMaterialReferences = [...new Set([...sameTitleGroup.confirmedMaterialReferences, ...group.confirmedMaterialReferences])]
           if (sameTitleGroup.characters !== null) {
             for (const asset of group.characters ?? []) {
               const existing = sameTitleGroup.characters.find(item => item.name === asset.name)
@@ -6186,6 +6233,7 @@ function normalizeImportedEpisodeGroups(
         group: {
           id: createId('group'),
           characters: value.characters === null || value.characters === undefined ? null : normalizeCharacterAssets(value.characters),
+          confirmedMaterialReferences: normalizeMaterialConfirmations(value.confirmedMaterialReferences),
           title,
           starred: Boolean(value.starred),
           fullName: typeof value.fullName === 'string' ? value.fullName : '',
@@ -6257,6 +6305,7 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
     groupId,
     starred: Boolean(episode.starred),
     characters: normalizeCharacterAssets(episode.characters),
+    confirmedMaterialReferences: normalizeMaterialConfirmations(episode.confirmedMaterialReferences),
     contactPerson: typeof episode.contactPerson === 'string' ? episode.contactPerson.trim() : '',
     splitEpisodeNumber: normalizeSplitEpisodeNumber(episode.splitEpisodeNumber),
     scenes,

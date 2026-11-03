@@ -41,7 +41,7 @@ export function characterAppearance(asset: CharacterAsset, episodeId: string, sh
   const outfit = asset.outfits?.find(outfit => outfit.units.some(unit => unit.episodeId === episodeId && unit.unitNumber === shot.unitNumber))
   return {
     description: asset.outfits?.length > 1 ? outfit?.appearanceDescription ?? '' : asset.appearanceDescription,
-    referenceName: outfit ? `${asset.name}（${outfit.note}）` : null,
+    referenceName: asset.outfits.length < 2 ? asset.name : outfit ? `${asset.name}（${outfit.note}）` : null,
   }
 }
 
