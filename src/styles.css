@@ -962,6 +962,33 @@ html.dark .episode-panel {
   flex: 0 0 auto;
 }
 
+.shot-view-controls {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  gap: 4px;
+}
+.shot-view-controls > .el-button {
+  flex-shrink: 0;
+}
+@media (max-width: 1300px) {
+  .stage-header .el-page-header__left {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-right: 0;
+  }
+  .stage-header .el-page-header__back,
+  .stage-header .el-page-header__content {
+    flex-basis: 100%;
+  }
+  .stage-header .el-page-header__left > .el-divider--vertical {
+    display: none;
+  }
+  .stage-page-actions {
+    flex-wrap: wrap;
+  }
+}
 .shot-view-segmented.el-segmented {
   --shot-view-segment-size: 32px;
   max-width: 100%;
@@ -1476,7 +1503,10 @@ html.dark .episode-panel {
 
 .shot-order {
   display: inline-flex;
+  flex: 0 0 3ch;
+  width: 3ch;
   align-items: center;
+  justify-content: center;
   align-self: center;
   color: var(--el-text-color-primary);
   font-family: "ZSFT-dq", "Microsoft YaHei UI", "Noto Sans SC", "PingFang SC", sans-serif;

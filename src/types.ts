@@ -234,6 +234,8 @@ export interface EpisodeGroup {
 }
 
 export interface Episode {
+  showPreviousEpisodeUnit: boolean
+  showNextEpisodeUnit: boolean
   confirmedMaterialReferences: string[]
   id: string
   title: string

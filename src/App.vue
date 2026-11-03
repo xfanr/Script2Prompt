@@ -94,21 +94,25 @@
                   <el-button :icon="ShotTabIcon" text @click="openEpisodeScriptDialog('shots')">分镜</el-button>
                   <el-button :icon="DialogueTabIcon" text @click="openEpisodeScriptDialog('dialogue')">台词</el-button>
                 </el-button-group>
-                <el-segmented
-                  :model-value="activeShotViewSelection"
-                  :options="shotViewModeOptions"
-                  size="small"
-                  class="shot-view-segmented"
-                  aria-label="分镜展开模式"
-                  @change="handleShotViewModeChange"
-                >
-                  <template #default="{ item }">
-                    <el-icon v-if="isExpandedShotViewOption(item)" title="全部展开" aria-label="全部展开"><Expand /></el-icon>
-                    <span v-else class="shot-view-index" :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
-                      {{ segmentedOptionNumber(item) }}
-                    </span>
-                  </template>
-                </el-segmented>
+                <div class="shot-view-controls">
+                  <el-button text circle :icon="PreviousEpisodeUnit" :bg="activeEpisode.showPreviousEpisodeUnit" :disabled="Boolean(previousEpisodeUnit.reason)" :title="previousEpisodeUnit.reason || '显示上集末单元'" aria-label="上集单元" :aria-pressed="activeEpisode.showPreviousEpisodeUnit" @click="toggleNeighborUnit(-1)" />
+                  <el-segmented
+                    :model-value="activeShotViewSelection"
+                    :options="shotViewModeOptions"
+                    size="small"
+                    class="shot-view-segmented"
+                    aria-label="分镜展开模式"
+                    @change="handleShotViewModeChange"
+                  >
+                    <template #default="{ item }">
+                      <el-icon v-if="isExpandedShotViewOption(item)" title="全部展开" aria-label="全部展开"><Expand /></el-icon>
+                      <span v-else class="shot-view-index" :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
+                        {{ segmentedOptionNumber(item) }}
+                      </span>
+                    </template>
+                  </el-segmented>
+                  <el-button text circle :icon="NextEpisodeUnit" :bg="activeEpisode.showNextEpisodeUnit" :disabled="Boolean(nextEpisodeUnit.reason)" :title="nextEpisodeUnit.reason || '显示下集首单元'" aria-label="下集单元" :aria-pressed="activeEpisode.showNextEpisodeUnit" @click="toggleNeighborUnit(1)" />
+                </div>
               </div>
             </template>
           </el-page-header>
@@ -419,7 +423,7 @@
         <main v-if="activeEpisode" class="main-stage">
           <section ref="shotListRef" class="shot-list">
             <article
-              v-for="(shot, index) in activeEpisode.shots"
+              v-for="{ shot, episode, index, order } in displayedShotCards"
               :key="shot.id"
               :id="shotRowElementId(shot.id)"
               class="shot-row"
@@ -429,7 +433,7 @@
                 'is-even-unit': normalizeShotUnitNumber(shot.unitNumber) % 2 === 0,
                 'is-same-unit-as-previous':
                   index > 0 &&
-                  normalizeShotUnitNumber(activeEpisode.shots[index - 1].unitNumber) ===
+                  normalizeShotUnitNumber(episode.shots[index - 1].unitNumber) ===
                     normalizeShotUnitNumber(shot.unitNumber),
               }"
               @dblclick="copyPromptFromShotBlank($event, shot)"
@@ -441,8 +445,8 @@
                     class="shot-index"
                     @dblclick.stop.prevent="copyShotNumber(shot)"
                   >
-                    <span class="shot-order">{{ index + 1 }}</span>
-                    <span class="shot-number">{{ formatShotNumber(activeEpisode, index) }}</span>
+                    <span class="shot-order">{{ order }}</span>
+                    <span class="shot-number">{{ formatShotNumber(episode, index) }}</span>
                   </span>
                 </div>
                 <div class="shot-tools">
@@ -567,7 +571,7 @@
                       :show-stops="false"
                       :marks="shotConnectionMarks"
                       size="small"
-                      :disabled="activeEpisode.shots.length === 1"
+                      :disabled="episode.shots.length === 1"
                       :format-tooltip="formatShotConnectionTooltip"
                       aria-label="承上启下截取标点数，上滑块承上，下滑块启下"
                       @update:model-value="updateShotConnectionValue(shot, index, $event)"
@@ -587,7 +591,7 @@
                           type="primary"
                           title="复制角色配置"
                           aria-label="复制角色配置"
-                          :disabled="!composeCharacterSettings(shot, activeCharacterAssets)"
+                          :disabled="!composeCharacterSettings(shot, assetsFor(state, episode))"
                           @click="copyCharacterSettings(shot)"
                         />
                         <el-dropdown trigger="click" @command="cloneShotCharacters(shot, $event)">
@@ -626,17 +630,17 @@
                     </div>
                     <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line" :class="{ 'without-position-reference': !shot.usePositionReference }">
                       <div class="scene-selection-controls">
-                        <el-select v-model="scene.name" placeholder="选择场景" aria-label="选择场景" @change="syncSceneFromAsset(scene)">
+                        <el-select v-model="scene.name" placeholder="选择场景" aria-label="选择场景" @change="syncSceneFromAsset(scene, episode)">
                           <template #label="{ label }">{{ scene.name ? sceneAssetLabel(scene) : label }}</template>
-                          <el-option v-for="item in activeEpisode.scenes" :key="item.name" :label="sceneAssetLabel(item)" :value="item.name" />
+                          <el-option v-for="item in episode.scenes" :key="item.name" :label="sceneAssetLabel(item)" :value="item.name" />
                         </el-select>
                         <el-button :icon="PositionReference" :type="shot.usePositionReference ? 'primary' : undefined" :aria-pressed="shot.usePositionReference" aria-label="多角色位置参考" :title="shot.usePositionReference ? '关闭多角色位置参考' : '开启多角色位置参考'" @click="shot.usePositionReference = !shot.usePositionReference" />
                       </div>
                       <el-select v-if="shot.usePositionReference" :model-value="shot.referenceShotNumber ?? index + 1" :aria-label="`分镜${index + 1}引用序号`" @update:model-value="shot.referenceShotNumber = $event">
-                        <el-option v-for="number in activeEpisode.shots.length" :key="number" :label="String(number)" :value="number">
+                        <el-option v-for="number in episode.shots.length" :key="number" :label="String(number)" :value="number">
                           {{ number }}
-                          <template v-if="index > 0 && number === (activeEpisode.shots[index - 1].referenceShotNumber ?? index)"> 相同</template>
-                          <template v-else-if="index > 0 && number === (activeEpisode.shots[index - 1].referenceShotNumber ?? index) + 1"> 更新</template>
+                          <template v-if="index > 0 && number === (episode.shots[index - 1].referenceShotNumber ?? index)"> 相同</template>
+                          <template v-else-if="index > 0 && number === (episode.shots[index - 1].referenceShotNumber ?? index) + 1"> 更新</template>
                         </el-option>
                       </el-select>
                       <el-input v-model="scene.statusText" class="scene-status-input" placeholder="场景状态" aria-label="场景状态" />
@@ -648,8 +652,8 @@
                         size="small"
                         title="修改场景素材"
                         aria-label="修改场景素材"
-                        :disabled="!activeEpisode.scenes.some((item) => item.name === scene.name)"
-                        @click="openMaterialEditDialog('scenes', scene.name, $event)"
+                        :disabled="!episode.scenes.some((item) => item.name === scene.name)"
+                        @click="openMaterialEditDialog('scenes', scene.name, $event, episode)"
                       />
                     </div>
                     <VueDraggable
@@ -690,12 +694,12 @@
                           </template>
                           <template #append>
                             <el-popconfirm
-                              v-if="isEnsembleCharacter(character.name)"
-                              :title="activeEpisode.groupId ? '取消群像将影响本剧所有相关分镜，并关闭音色。' : '取消群像将影响本集所有相关分镜，并关闭音色。'"
+                              v-if="isEnsembleCharacter(character.name, episode)"
+                              :title="episode.groupId ? '取消群像将影响本剧所有相关分镜，并关闭音色。' : '取消群像将影响本集所有相关分镜，并关闭音色。'"
                               :width="280"
                               confirm-button-text="取消"
                               cancel-button-text="保留"
-                              @confirm="toggleCharacterVoice(character)"
+                              @confirm="toggleCharacterVoice(character, shot)"
                             >
                               <template #reference>
                                 <el-button type="primary" :icon="Grape" title="角色群像，点击改为普通角色" aria-label="角色群像，点击改为普通角色" />
@@ -705,9 +709,9 @@
                               v-else
                               :type="!shot.thirtySecondMode && isVoiceOverflow(shot) && character.includeVoice ? 'danger' : character.includeVoice ? 'primary' : undefined"
                               :icon="character.includeVoice ? Microphone : Mute"
-                              :title="characterVoiceDescription(character.name) || (character.includeVoice ? '关闭音色' : '开启音色')"
+                              :title="characterVoiceDescription(character.name, episode) || (character.includeVoice ? '关闭音色' : '开启音色')"
                               :aria-label="character.includeVoice ? '关闭音色' : '开启音色'"
-                              @click="toggleCharacterVoice(character)"
+                              @click="toggleCharacterVoice(character, shot)"
                             />
                           </template>
                         </el-input>
@@ -738,8 +742,8 @@
                         size="small"
                         title="修改角色"
                         aria-label="修改角色"
-                        :disabled="!activeCharacterAssets.some((item) => item.name === character.name)"
-                        @click="openMaterialEditDialog('characters', character.name)"
+                        :disabled="!assetsFor(state, episode).some((item) => item.name === character.name)"
+                        @click="openMaterialEditDialog('characters', character.name, undefined, episode)"
                       />
                       </div>
                     </VueDraggable>
@@ -775,6 +779,7 @@
                 </section>
               </div>
             </article>
+            <div v-if="neighborScrollPadding" class="neighbor-scroll-spacer" :style="{ flex: `0 0 ${neighborScrollPadding}px` }" aria-hidden="true"></div>
           </section>
           <span ref="timingPopoverAnchorRef" class="timing-popover-anchor" :style="timingPopoverAnchorStyle" aria-hidden="true"></span>
           <el-popover
@@ -1527,10 +1532,11 @@ import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import PointLedgerDialog from './components/PointLedgerDialog.vue'
 import GroupPlayMedal from './components/GroupPlayMedal.vue'
 import EpisodeGroupPreview from './components/EpisodeGroupPreview.vue'
+import { neighboringEpisode, visibleShotCards } from './neighborUnits'
 import EpisodeSplitNumberCell from './components/EpisodeSplitNumberCell.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot, normalizeReferenceMode } from './config'
 import { ElDialog, ElDrawer, ElPopover, ElMessageBox, type DropdownInstance } from 'element-plus'
-import { AddIcon, ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, Files, FileMusic, Grape, ImageFiles, Location, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, Position, PositionReference, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, View, WarningFilled } from './icons'
+import { AddIcon, ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, Files, FileMusic, Grape, ImageFiles, Location, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, NextEpisodeUnit, Position, PositionReference, PreviousEpisodeUnit, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, View, WarningFilled } from './icons'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { normalizeSplitScriptText } from './episodeScript'
 import { clearInteriorEpisodeContacts, contactEditableEpisodeIds, renameEpisodeContacts } from './episodeContacts'
@@ -1690,6 +1696,12 @@ const props = defineProps<{
 const EmptyPageHeaderIcon: Component = () => null
 const { state, activeEpisode, saveError, saveNow, replaceState, isReplacing } = useAppState(props.initialState, props.repository)
 const activeCharacterAssets = computed(() => activeEpisode.value ? assetsFor(state, activeEpisode.value) : [])
+const shotOwners = computed(() => new Map(state.episodes.flatMap(episode => episode.shots.map(shot => [shot.id, episode] as const))))
+function episodeForShot(shot: Shot) { return shotOwners.value.get(shot.id)! }
+const displayedShotCards = computed(() => activeEpisode.value ? visibleShotCards(state, activeEpisode.value) : [])
+const neighborScrollPadding = ref(0)
+const previousEpisodeUnit = computed(() => activeEpisode.value ? neighboringEpisode(state, activeEpisode.value, -1) : { episode: null, reason: '' })
+const nextEpisodeUnit = computed(() => activeEpisode.value ? neighboringEpisode(state, activeEpisode.value, 1) : { episode: null, reason: '' })
 const materialDialogVisible = ref(false)
 const outfitAssignmentVisible = ref(false)
 const assignmentOutfitEditorRefs = ref<InstanceType<typeof CharacterOutfitEditor>[]>([])
@@ -1743,7 +1755,7 @@ function saveOutfitAssignment() {
 }
 
 async function applyShotCharacters(shot: Shot, characters: CharacterConfig[]) {
-  const episode = activeEpisode.value!
+  const episode = episodeForShot(shot)
   const candidate = { ...episode, shots: episode.shots.map(item => item.id === shot.id ? { ...item, characters } : item) }
   if (!await approveEpisodeCharacters(candidate)) return false
   shot.characters = characters
@@ -1780,10 +1792,12 @@ const materialCharacterAppearanceDraft = ref('')
 const materialCharacterVoiceDraft = ref('')
 const materialCharacterIsEnsembleDraft = ref(false)
 const materialCharacterOutfitsDraft = ref<CharacterOutfit[]>([])
+const materialEditingEpisodeId = ref<string | null>(null)
+const materialEditingEpisode = computed(() => state.episodes.find(episode => episode.id === materialEditingEpisodeId.value) ?? activeEpisode.value)
 const materialOutfitEditorRef = ref<InstanceType<typeof CharacterOutfitEditor> | null>(null)
 const materialCharacterUnits = computed(() => {
-  const episode = activeEpisode.value
-  const asset = activeCharacterAssets.value.find(item => item.name === editingMaterial.value?.value)
+  const episode = materialEditingEpisode.value
+  const asset = (episode ? assetsFor(state, episode) : []).find(item => item.name === editingMaterial.value?.value)
   return episode && asset ? characterUnits(state, episode, asset) : []
 })
 const characterPasteDialogVisible = ref(false)
@@ -1821,11 +1835,11 @@ const themeModeOptions = [
 ]
 const shotViewModeOptions = computed(() => [
   { label: '全部展开', value: 'expanded', number: null },
-  ...(activeEpisode.value?.shots.map((shot, index) => ({
-    label: `第 ${index + 1} 条分镜`,
+  ...displayedShotCards.value.map(({ shot, order }) => ({
+    label: `第 ${order} 条分镜`,
     value: shot.id,
-    number: index + 1,
-  })) ?? []),
+    number: order,
+  })),
 ])
 const activeShotViewSelection = computed(() => state.shotViewMode === 'single-expanded'
   ? state.singleExpandedShotId ?? 'expanded'
@@ -1877,7 +1891,7 @@ const timingPopoverAnchorStyle = computed(() => ({
 const activeTimingSegment = computed<ShotTimingSegment | null>(() => {
   const target = activeTimingTarget.value
   if (!target) return null
-  const shot = activeEpisode.value?.shots.find((item) => item.id === target.shotId)
+  const shot = shotOwners.value.get(target.shotId)?.shots.find((item) => item.id === target.shotId)
   return shot?.timingSegments.find((segment) => segment.id === target.segmentId) ?? null
 })
 const activeDialogueTiming = computed(() => {
@@ -2097,7 +2111,7 @@ const materialCloneSourceEpisodes = computed(() => {
   )))
 })
 const productionDateSet = computed(() => new Set(state.episodes.map((episode) => normalizeDateString(productionDataFor(episode).productionDate)).filter((date): date is string => Boolean(date))))
-const detectionConflictShot = computed(() => activeEpisode.value?.shots.find((shot) => shot.id === detectionConflictShotId.value) ?? null)
+const detectionConflictShot = computed(() => state.episodes.flatMap(episode => episode.shots).find(shot => shot.id === detectionConflictShotId.value) ?? null)
 const dialogueOutputDraft = computed({
   get: () => dialogueView.value === 'replaced' ? dialogueReplacedDraft.value : dialogueOriginalDraft.value,
   set: (value: string) => {
@@ -3274,7 +3288,7 @@ function syncAllScriptHighlights() {
 }
 
 watch(
-  () => activeEpisode.value?.shots.map((shot) => `${shot.id}\u0001${shot.text}`).join('\u0000') ?? '',
+  () => displayedShotCards.value.map(({ shot }) => `${shot.id}\u0001${shot.text}`).join('\u0000'),
   () => void nextTick(syncAllScriptHighlights),
   { flush: 'post' },
 )
@@ -3283,14 +3297,14 @@ watch(
   () => JSON.stringify({
     episodeId: activeEpisode.value?.id,
     episodeCharacters: activeCharacterAssets.value,
-    shots: activeEpisode.value?.shots.map((shot) => ({
+    shots: displayedShotCards.value.map(({ shot }) => ({
       id: shot.id,
       text: shot.text,
       characterNames: shot.characters.map((character) => character.name),
       firstFrameMode: shot.firstFrameMode,
     })),
   }),
-  () => activeEpisode.value?.shots.forEach(syncShotTimingSegments),
+  () => displayedShotCards.value.forEach(({ shot }) => syncShotTimingSegments(shot)),
   { flush: 'sync' },
 )
 
@@ -3307,7 +3321,7 @@ watch(
       resetSingleExpandedView()
       void nextTick(() => {
         if (shotListRef.value) {
-          shotListRef.value.scrollTop = 0
+          scrollToCurrentEpisodeStart()
         }
       })
     }
@@ -3340,15 +3354,12 @@ watch([dataDialogVisible, dataDialogView, activeGroupSummaryId, contactEditableI
 })
 
 watch(
-  () => activeEpisode.value?.shots.map((shot) => shot.id).join('\u0000') ?? '',
+  () => displayedShotCards.value.map(({ shot }) => shot.id).join('\u0000'),
   () => {
-    if (state.singleExpandedShotId && !isCurrentEpisodeShot(state.singleExpandedShotId)) {
-      resetSingleExpandedView()
-      return
-    }
-
-    if (state.shotViewMode === 'single-expanded' && !isCurrentEpisodeShot(state.singleExpandedShotId)) {
-      resetSingleExpandedView()
+    neighborScrollPadding.value = 0
+    if (state.shotViewMode === 'single-expanded' && !isDisplayedShot(state.singleExpandedShotId)) {
+      state.singleExpandedShotId = activeEpisode.value?.shots[0]?.id ?? null
+      if (!state.singleExpandedShotId) state.shotViewMode = 'expanded'
     }
   },
 )
@@ -3586,6 +3597,7 @@ async function saveEpisodeScriptMaterials() {
 
 function handleMaterialDialogClosed() {
   if (materialDialogVisible.value) return
+  materialEditingEpisodeId.value = null
   materialDialogMode.value = 'add'
   editingMaterial.value = null
   resetMaterialDrafts()
@@ -3665,6 +3677,7 @@ function segmentedOptionNumber(item: unknown) {
 function openMaterialAddDialog(kind: MaterialKind, event?: MouseEvent) {
   if (!activeEpisode.value) return
   if (kind === 'scenes') scenePopoverReference.value = event!.currentTarget as HTMLElement
+  materialEditingEpisodeId.value = activeEpisode.value.id
   materialDialogMode.value = 'add'
   materialDialogKind.value = kind
   editingMaterial.value = null
@@ -3672,8 +3685,8 @@ function openMaterialAddDialog(kind: MaterialKind, event?: MouseEvent) {
   materialDialogVisible.value = true
 }
 
-function openMaterialEditDialog(kind: MaterialKind, value: string, event?: MouseEvent) {
-  const episode = activeEpisode.value
+function openMaterialEditDialog(kind: MaterialKind, value: string, event?: MouseEvent, owner = activeEpisode.value) {
+  const episode = owner
 
   if (!episode) {
     return
@@ -3707,6 +3720,7 @@ function openMaterialEditDialog(kind: MaterialKind, value: string, event?: Mouse
     materialSceneDrafts.value = [{ name: scene.name, time: scene.time, space: scene.space }]
   }
 
+  materialEditingEpisodeId.value = episode.id
   materialDialogKind.value = kind
   if (kind === 'scenes') scenePopoverReference.value = event!.currentTarget as HTMLElement
   materialDialogVisible.value = true
@@ -3714,7 +3728,7 @@ function openMaterialEditDialog(kind: MaterialKind, value: string, event?: Mouse
 
 function commitMaterialDialog() {
   const editing = editingMaterial.value
-  const episode = activeEpisode.value
+  const episode = materialEditingEpisode.value
   const adding = materialDialogMode.value === 'add'
 
   if (!episode || (!adding && !editing)) {
@@ -3773,7 +3787,7 @@ function commitMaterialDialog() {
 }
 
 function updateCharacterMaterial(oldName: string, nextName: string, appearanceDescription: string, voiceDescription: string, isEnsemble: boolean) {
-  const episode = activeEpisode.value
+  const episode = materialEditingEpisode.value
 
   if (!episode) {
     return
@@ -4020,7 +4034,7 @@ async function recognizeCharacterDescriptionsFromClipboard() {
 }
 
 function renameSceneMaterial(oldName: string, nextScene: MaterialSceneDraft) {
-  const episode = activeEpisode.value
+  const episode = materialEditingEpisode.value
   const sceneAsset = episode?.scenes.find((scene) => scene.name === oldName)
 
   if (!episode || !sceneAsset) {
@@ -4060,7 +4074,7 @@ async function confirmRemoveMaterial(kind: MaterialKind, value: string) {
 }
 
 function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: StatusSyncScope) {
-  const episode = activeEpisode.value
+  const episode = episodeForShot(sourceShot)
   const name = source.name.trim()
 
   if (!episode || !name) {
@@ -4295,15 +4309,45 @@ async function syncEpisodeShots(episode: Episode, segments: BatchShotSegment[], 
   return segments.length
 }
 
-function isCurrentEpisodeShot(id: string | null) {
-  return Boolean(id && activeEpisode.value?.shots.some((shot) => shot.id === id))
+function isDisplayedShot(id: string | null) {
+  return Boolean(id && displayedShotCards.value.some(card => card.shot.id === id))
 }
 
 function resetSingleExpandedView() {
   state.singleExpandedShotId = null
   state.shotViewMode = 'expanded'
 }
-
+function shotScrollContainer() {
+  const list = shotListRef.value!
+  return getComputedStyle(list).overflowY === 'visible' ? document.scrollingElement as HTMLElement : list
+}
+async function setShotScrollTop(list: HTMLElement, top: number) {
+  const missingSpace = Math.max(0, top - (list.scrollHeight - list.clientHeight))
+  if (missingSpace > 0) {
+    neighborScrollPadding.value += missingSpace
+    await nextTick()
+  }
+  list.scrollTop = top
+}
+function scrollToCurrentEpisodeStart() {
+  const list = shotScrollContainer()
+  const first = activeEpisode.value?.shots[0]
+  const row = first ? document.getElementById(shotRowElementId(first.id)) : null
+  const top = list === document.scrollingElement ? 0 : list.getBoundingClientRect().top
+  if (row) void setShotScrollTop(list, list.scrollTop + row.getBoundingClientRect().top - top)
+}
+async function toggleNeighborUnit(direction: -1 | 1) {
+  const list = shotScrollContainer()
+  const top = list === document.scrollingElement ? 0 : list.getBoundingClientRect().top
+  const anchor = [...shotListRef.value!.querySelectorAll<HTMLElement>('.shot-row')].find(row => row.getBoundingClientRect().bottom > top)
+  const before = anchor?.getBoundingClientRect().top ?? top
+  const episode = activeEpisode.value!
+  if (direction < 0) episode.showPreviousEpisodeUnit = !episode.showPreviousEpisodeUnit
+  else episode.showNextEpisodeUnit = !episode.showNextEpisodeUnit
+  await nextTick()
+  if (anchor?.isConnected) await setShotScrollTop(list, list.scrollTop + anchor.getBoundingClientRect().top - before)
+  else scrollToCurrentEpisodeStart()
+}
 function handleShotViewModeChange(value: string | number | boolean | undefined) {
   if (value === 'expanded') {
     resetSingleExpandedView()
@@ -4311,7 +4355,7 @@ function handleShotViewModeChange(value: string | number | boolean | undefined) 
   }
 
   const shot = typeof value === 'string'
-    ? activeEpisode.value?.shots.find((item) => item.id === value)
+    ? displayedShotCards.value.find(card => card.shot.id === value)?.shot
     : null
   if (shot) selectSingleExpandedShot(shot)
 }
@@ -4321,7 +4365,7 @@ function shotRowElementId(id: string) {
 }
 
 function selectSingleExpandedShot(shot: Shot) {
-  if (!isCurrentEpisodeShot(shot.id)) {
+  if (!isDisplayedShot(shot.id)) {
     return
   }
 
@@ -4362,22 +4406,23 @@ function hasExistingShotConfiguration(episode: Episode) {
 }
 
 function deleteShot(id: string) {
-  if (!activeEpisode.value) {
+  const episode = shotOwners.value.get(id)
+  if (!episode) {
     return
   }
 
-  if (activeEpisode.value.shots.length === 1) {
+  if (episode.shots.length === 1) {
     notify.warning('至少保留一条分镜')
     return
   }
 
-  activeEpisode.value.shots = activeEpisode.value.shots.filter((shot) => shot.id !== id)
-  const unitMap = compactShotUnitNumbers(activeEpisode.value.shots)
-  for (const asset of activeCharacterAssets.value) for (const outfit of asset.outfits) {
-    outfit.units = outfit.units.filter(unit => unit.episodeId !== activeEpisode.value!.id || unitMap.has(unit.unitNumber))
-      .map(unit => unit.episodeId === activeEpisode.value!.id ? { ...unit, unitNumber: unitMap.get(unit.unitNumber)! } : unit)
+  episode.shots = episode.shots.filter((shot) => shot.id !== id)
+  const unitMap = compactShotUnitNumbers(episode.shots)
+  for (const asset of assetsFor(state, episode)) for (const outfit of asset.outfits) {
+    outfit.units = outfit.units.filter(unit => unit.episodeId !== episode.id || unitMap.has(unit.unitNumber))
+      .map(unit => unit.episodeId === episode.id ? { ...unit, unitNumber: unitMap.get(unit.unitNumber)! } : unit)
   }
-  normalizeEpisodeShotConnections(activeEpisode.value)
+  normalizeEpisodeShotConnections(episode)
 }
 
 function addMaterialDrafts(showNotification = true): MaterialAddResult {
@@ -4479,8 +4524,8 @@ function removeMaterial(kind: MaterialKind, value: string) {
   episode.scenes = episode.scenes.filter((item) => item.name !== value)
 }
 
-function syncSceneFromAsset(scene: SceneConfig) {
-  const selected = activeEpisode.value?.scenes.find((item) => item.name === scene.name)
+function syncSceneFromAsset(scene: SceneConfig, episode = activeEpisode.value) {
+  const selected = episode?.scenes.find((item) => item.name === scene.name)
 
   if (!selected) {
     return
@@ -4491,7 +4536,7 @@ function syncSceneFromAsset(scene: SceneConfig) {
 }
 
 function availableCharacterAssets(shot: Shot) {
-  return activeCharacterAssets.value.filter(
+  return assetsFor(state, episodeForShot(shot)).filter(
     (asset) => !shot.characters.some((character) => character.name === asset.name),
   ) ?? []
 }
@@ -4512,7 +4557,7 @@ function removeCharacterFromShot(shot: Shot, id: string) {
 }
 
 function characterCloneSources(target: Shot) {
-  const currentEpisode = activeEpisode.value
+  const currentEpisode = episodeForShot(target)
   if (!currentEpisode) return []
   const episodeNumber = parseEpisodeNumber(currentEpisode.title)
   const targetIndex = shotIndex(target)
@@ -4533,7 +4578,7 @@ async function cloneShotCharacters(target: Shot, sourceId: string) {
   const selected = characterCloneSources(target).find((item) => item.shot.id === sourceId)
   if (sourceId === target.id || !selected?.shot.characters.length) return
   const source = selected.shot
-  const episode = activeEpisode.value!
+  const episode = episodeForShot(target)
   const assets: CharacterAsset[] = JSON.parse(JSON.stringify(assetsFor(state, episode)))
   if (selected.episode.id !== episode.id) {
     source.characters.forEach((character) => {
@@ -4565,20 +4610,20 @@ async function cloneShotCharacters(target: Shot, sourceId: string) {
 }
 
 function characterAppearanceDescription(name: string, shot: Shot) {
-  const asset = activeCharacterAssets.value.find(character => character.name === name)
-  return asset ? characterAppearance(asset, activeEpisode.value!.id, shot).description : ''
+  const asset = assetsFor(state, episodeForShot(shot)).find(character => character.name === name)
+  return asset ? characterAppearance(asset, episodeForShot(shot).id, shot).description : ''
 }
 
-function characterVoiceDescription(name: string) {
-  return activeCharacterAssets.value.find((character) => character.name === name)?.voiceDescription?.trim() ?? ''
+function characterVoiceDescription(name: string, episode = activeEpisode.value!) {
+  return assetsFor(state, episode).find((character) => character.name === name)?.voiceDescription?.trim() ?? ''
 }
 
-function isEnsembleCharacter(name: string) {
-  return activeCharacterAssets.value.find((character) => character.name === name)?.isEnsemble ?? false
+function isEnsembleCharacter(name: string, episode = activeEpisode.value!) {
+  return assetsFor(state, episode).find((character) => character.name === name)?.isEnsemble ?? false
 }
 
-function toggleCharacterVoice(character: CharacterConfig) {
-  const episode = activeEpisode.value!
+function toggleCharacterVoice(character: CharacterConfig, shot: Shot) {
+  const episode = episodeForShot(shot)
   const asset = assetsFor(state, episode).find((asset) => asset.name === character.name)
   if (asset?.isEnsemble) {
     asset.isEnsemble = false
@@ -4591,7 +4636,7 @@ function toggleCharacterVoice(character: CharacterConfig) {
 }
 
 function isVoiceOverflow(shot: Shot) {
-  return shot.characters.filter((character) => character.includeVoice && !isEnsembleCharacter(character.name)).length > 3
+  return shot.characters.filter((character) => character.includeVoice && !isEnsembleCharacter(character.name, episodeForShot(shot))).length > 3
 }
 
 function hasConfiguredScenes(shot: Shot) {
@@ -4600,7 +4645,7 @@ function hasConfiguredScenes(shot: Shot) {
 
 function timingCharacterNames(shot: Shot) {
   return Array.from(new Set([
-    ...(activeCharacterAssets.value.map((character) => character.name) ?? []),
+    ...(assetsFor(state, shotOwners.value.get(shot.id) ?? activeEpisode.value!).map((character) => character.name) ?? []),
     ...shot.characters.map((character) => character.name),
   ].map((name) => name.trim()).filter(Boolean)))
 }
@@ -4617,13 +4662,13 @@ function sourceShotTimingAnalysis(shot: Shot, start = 0, end = shot.text.length)
 }
 
 function shotTimingAnalysis(shot: Shot): TimingAnalysis {
-  const episode = activeEpisode.value
+  const episode = episodeForShot(shot)
   const index = shotIndex(shot)
   const analyses = [sourceShotTimingAnalysis(shot)]
 
   if (episode && index > 0 && shot.connectPreviousCount > 0) {
     const previous = episode.shots[index - 1]
-    const fragment = previousShotTail(index, shot.connectPreviousCount)
+    const fragment = previousShotTail(index, shot.connectPreviousCount, episode)
     const start = previous.text.lastIndexOf(fragment)
     if (fragment && start >= 0) {
       analyses.unshift(sourceShotTimingAnalysis(previous, start, start + fragment.length))
@@ -4632,7 +4677,7 @@ function shotTimingAnalysis(shot: Shot): TimingAnalysis {
 
   if (episode && index >= 0 && index < episode.shots.length - 1 && shot.connectNextCount > 0) {
     const next = episode.shots[index + 1]
-    const fragment = nextShotHead(index, shot.connectNextCount)
+    const fragment = nextShotHead(index, shot.connectNextCount, episode)
     const start = next.text.indexOf(fragment)
     if (fragment && start >= 0) {
       analyses.push(sourceShotTimingAnalysis(next, start, start + fragment.length))
@@ -4741,7 +4786,7 @@ function highlightedShotText(shot: Shot) {
       return {
         name,
         matchName: normalizeCharacterNameForMatch(name),
-        includeVoice: character.includeVoice && !isEnsembleCharacter(character.name),
+        includeVoice: character.includeVoice && !isEnsembleCharacter(character.name, episodeForShot(shot)),
       }
     })
     .filter((character, index, list) => character.name && character.matchName && list.findIndex((item) => item.matchName === character.matchName) === index)
@@ -4837,7 +4882,7 @@ function escapeHtml(value: string) {
 }
 function toggleEpisodeFirstFrameModeFromShot(shot: Shot) {
   const enabled = !shot.firstFrameMode
-  activeEpisode.value?.shots.forEach((item) => {
+  episodeForShot(shot).shots.forEach((item) => {
     item.firstFrameMode = enabled
   })
   notify.success(`已${enabled ? '开启' : '关闭'}本集全部首帧`)
@@ -4845,32 +4890,32 @@ function toggleEpisodeFirstFrameModeFromShot(shot: Shot) {
 
 function toggleEpisodeThirtySecondModeFromShot(shot: Shot) {
   const enabled = !shot.thirtySecondMode
-  activeEpisode.value?.shots.forEach((item) => {
+  episodeForShot(shot).shots.forEach((item) => {
     item.thirtySecondMode = enabled
   })
   notify.success(`已将本集全部分镜切换为 ${enabled ? 'SD2.5' : 'SD2.0'}`)
 }
 
 function shotIndex(shot: Shot) {
-  return activeEpisode.value?.shots.findIndex((item) => item.id === shot.id) ?? -1
+  return episodeForShot(shot).shots.findIndex((item) => item.id === shot.id) ?? -1
 }
 
-function previousShotTail(index: number, count = 1) {
-  const previous = activeEpisode.value?.shots[index - 1]
+function previousShotTail(index: number, count = 1, episode = activeEpisode.value!) {
+  const previous = episode.shots[index - 1]
   return takeTrailingPunctuationSegments(previous?.text ?? '', count)
 }
 
-function nextShotHead(index: number, count = 1) {
-  const next = activeEpisode.value?.shots[index + 1]
+function nextShotHead(index: number, count = 1, episode = activeEpisode.value!) {
+  const next = episode.shots[index + 1]
   return takeLeadingPunctuationSegments(next?.text ?? '', count)
 }
 
 function connectedPreviousText(shot: Shot, index: number) {
-  return previousShotTail(index, shot.connectPreviousCount)
+  return previousShotTail(index, shot.connectPreviousCount, episodeForShot(shot))
 }
 
 function connectedNextText(shot: Shot, index: number) {
-  return nextShotHead(index, shot.connectNextCount)
+  return nextShotHead(index, shot.connectNextCount, episodeForShot(shot))
 }
 
 function shotConnectionValue(shot: Shot, index: number) {
@@ -4880,7 +4925,7 @@ function shotConnectionValue(shot: Shot, index: number) {
     shot.connectNextCount,
     shot.connectNext,
     index > 0,
-    index < (activeEpisode.value?.shots.length ?? 0) - 1,
+    index < episodeForShot(shot).shots.length - 1,
   )
 
   return [
@@ -4896,7 +4941,7 @@ function updateShotConnectionValue(shot: Shot, index: number, value: unknown) {
 
   const nextValue = Number(value[0])
   const previousValue = Number(value[1])
-  const lastIndex = (activeEpisode.value?.shots.length ?? 0) - 1
+  const lastIndex = episodeForShot(shot).shots.length - 1
   const connectPreviousCount = index > 0 && Number.isFinite(previousValue) && previousValue > 0
     ? normalizeConnectionPunctuationCount(previousValue)
     : 0
@@ -4940,16 +4985,16 @@ function normalizeEpisodeShotConnections(episode: Episode) {
 function effectiveShotText(shot: Shot) {
   const index = shotIndex(shot)
   const lines = [
-    index > -1 ? previousShotTail(index, shot.connectPreviousCount) : '',
+    index > -1 ? previousShotTail(index, shot.connectPreviousCount, episodeForShot(shot)) : '',
     shot.text.trim(),
-    index > -1 ? nextShotHead(index, shot.connectNextCount) : '',
+    index > -1 ? nextShotHead(index, shot.connectNextCount, episodeForShot(shot)) : '',
   ].filter(Boolean)
 
   return lines.join('\n').trim()
 }
 
 async function detectShotCharacters(shot: Shot, options: { silent?: boolean; showConflict?: boolean } = {}) {
-  const episode = activeEpisode.value
+  const episode = episodeForShot(shot)
   const showConflict = options.showConflict ?? true
 
   if (!episode) {
@@ -4957,7 +5002,7 @@ async function detectShotCharacters(shot: Shot, options: { silent?: boolean; sho
   }
 
   const detected = detectCharacters(effectiveShotText(shot), assetsFor(state, episode).map((character) => character.name))
-    .map((character) => ({ ...character, includeVoice: character.includeVoice && !isEnsembleCharacter(character.name) }))
+    .map((character) => ({ ...character, includeVoice: character.includeVoice && !isEnsembleCharacter(character.name, episode) }))
   shot.autoSyncNotice = null
 
   if (!detected.length) {
@@ -5499,7 +5544,7 @@ async function applyEpisodeScriptShots() {
 }
 
 function promptFor(shot: Shot, detailOnly = false) {
-  const group = state.episodeGroups.find((item) => item.id === activeEpisode.value?.groupId)
+  const group = state.episodeGroups.find((item) => item.id === episodeForShot(shot).groupId)
   const profileId = group?.promptProfileId ?? state.globalConfig.prompt.activeProfileId
   const args = [
     state.globalConfig,
@@ -5507,13 +5552,13 @@ function promptFor(shot: Shot, detailOnly = false) {
     profileId,
     shotTimingAnalysis(shot).totalSeconds,
   ] as const
-  const characters = activeCharacterAssets.value
-  const referenceName = formatShotReference(activeEpisode.value!, shotIndex(shot))
+  const characters = assetsFor(state, episodeForShot(shot))
+  const referenceName = formatShotReference(episodeForShot(shot), shotIndex(shot))
   const referenceMode = group?.referenceMode ?? state.globalConfig.prompt.referenceMode
-  const appearanceReferencePrefix = `${parseEpisodeNumber(activeEpisode.value!.title)}-${normalizeShotUnitNumber(shot.unitNumber)}`
+  const appearanceReferencePrefix = `${parseEpisodeNumber(episodeForShot(shot).title)}-${normalizeShotUnitNumber(shot.unitNumber)}`
   return detailOnly
     ? composeShotDetail(...args, characters, referenceName, referenceMode)
-    : composePrompt(...args, characters, referenceName, referenceMode, appearanceReferencePrefix, activeEpisode.value!.id)
+    : composePrompt(...args, characters, referenceName, referenceMode, appearanceReferencePrefix, episodeForShot(shot).id)
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
@@ -5566,7 +5611,7 @@ function handleShotNumberShortcut(event: KeyboardEvent) {
 }
 
 function shotCopyLabel(shot: Shot) {
-  const episode = activeEpisode.value
+  const episode = episodeForShot(shot)
   const index = episode?.shots.findIndex((item) => item.id === shot.id) ?? -1
   return episode && index >= 0 ? formatShotNumber(episode, index) : '当前'
 }
@@ -5671,10 +5716,10 @@ async function copyShotDetail(shot: Shot) {
 }
 
 async function copyCharacterSettings(shot: Shot) {
-  const episode = activeEpisode.value!
+  const episode = episodeForShot(shot)
   const group = state.episodeGroups.find(group => group.id === episode.groupId)
   const detailed = (group?.referenceMode ?? state.globalConfig.prompt.referenceMode) === 'detailed'
-  const copied = await copyText(formatPromptReferences(composeCharacterSettings(shot, activeCharacterAssets.value, detailed, `${parseEpisodeNumber(episode.title)}-${shot.unitNumber}`, episode.id)))
+  const copied = await copyText(formatPromptReferences(composeCharacterSettings(shot, assetsFor(state, episode), detailed, `${parseEpisodeNumber(episode.title)}-${shot.unitNumber}`, episode.id)))
 
   if (copied) {
     notify.success('已复制角色配置')
@@ -5701,6 +5746,7 @@ function handleDrawerOutsideClick(event: MouseEvent) {
 }
 
 onMounted(() => {
+  void nextTick(scrollToCurrentEpisodeStart)
   refreshHistoryDate()
   window.addEventListener('focus', refreshHistoryDate)
   document.addEventListener('visibilitychange', handleHistoryVisibilityChange)
@@ -6106,6 +6152,8 @@ function normalizeSceneAssets(scenes: unknown): SceneAsset[] {
 function episodeComparableSignature(episode: Episode, contactPerson: string, splitEpisodeNumber: number | null, assets: CharacterAsset[]) {
   return JSON.stringify({
     title: episode.title,
+    showPreviousEpisodeUnit: episode.showPreviousEpisodeUnit,
+    showNextEpisodeUnit: episode.showNextEpisodeUnit,
     characters: assets.map(({ name, appearanceDescription, voiceDescription, isEnsemble, outfits }) => ({
       name, appearanceDescription, voiceDescription, isEnsemble,
       outfits: outfits.map(outfit => ({ note: outfit.note, appearanceDescription: outfit.appearanceDescription, units: outfit.units.filter(unit => unit.episodeId === episode.id).map(unit => unit.unitNumber).sort((a, b) => a - b) })),
@@ -6302,6 +6350,8 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
     ...episode,
     id: createId('episode'),
     title: episode.title || '导入单集',
+    showPreviousEpisodeUnit: episode.showPreviousEpisodeUnit === true,
+    showNextEpisodeUnit: episode.showNextEpisodeUnit === true,
     groupId,
     starred: Boolean(episode.starred),
     characters: normalizeCharacterAssets(episode.characters),

@@ -1,6 +1,7 @@
 import { activePromptProfile, cloneGlobalConfig, migrateLegacyGlobalConfig, normalizeGlobalConfig, normalizeReferenceMode } from './config'
 import { APP_VERSION, createEpisode, createEpisodeProductionData, createPromptReview, createSceneAsset, createSceneConfig, normalizeCharacterAssets, normalizeShotSceneSelection } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
+import { visibleShotCards } from './neighborUnits'
 import { normalizeMaterialConfirmations } from './defaults'
 import { compactShotUnitNumbers, normalizeReferenceShotNumber, normalizeShotUnitNumber } from './shotNumber'
 import { reconcileTimingSegments } from './timing'
@@ -148,6 +149,8 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     const groupIds = new Set(parsed.episodeGroups.map((group) => group.id))
 
     parsed.episodes.forEach((episode) => {
+      episode.showPreviousEpisodeUnit = episode.showPreviousEpisodeUnit === true
+      episode.showNextEpisodeUnit = episode.showNextEpisodeUnit === true
       episode.confirmedMaterialReferences = normalizeMaterialConfirmations(episode.confirmedMaterialReferences)
       episode.groupId = groupIds.has(episode.groupId ?? '') ? episode.groupId : null
       episode.starred ??= false
@@ -215,15 +218,12 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     parsed.lastSavedAt = typeof parsed.lastSavedAt === 'string' ? parsed.lastSavedAt : null
     const hasSelectedShot = Boolean(
       parsed.singleExpandedShotId
-      && activeEpisode?.shots.some((shot) => shot.id === parsed.singleExpandedShotId),
+      && activeEpisode && visibleShotCards(parsed, activeEpisode).some(card => card.shot.id === parsed.singleExpandedShotId),
     )
 
     if (!hasSelectedShot) {
-      parsed.singleExpandedShotId = null
-
-      if (parsed.shotViewMode === 'single-expanded') {
-        parsed.shotViewMode = 'expanded'
-      }
+      parsed.singleExpandedShotId = parsed.shotViewMode === 'single-expanded' ? activeEpisode?.shots[0]?.id ?? null : null
+      if (!parsed.singleExpandedShotId) parsed.shotViewMode = 'expanded'
     }
 
     return parsed

@@ -4,7 +4,7 @@ import {
   CloseSmall, Copy, Crown, DataArrival, Delete as ParkDelete, Down, DownloadTwo,
   Edit, ExpandDown, FileMusic as ParkFileMusic, FileSuccess as ParkFileSuccess, Flag as ParkFlag, GoStart as ParkGoStart, GoEnd as ParkGoEnd, ImageFiles as ParkImageFiles, LinkInterrupt as ParkLinkInterrupt, Local, MessageEmoji, Moon as ParkMoon, More, Order,
   People, Peoples, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, Search as ParkSearch, SettingTwo,
-  Slide, SlideTwo, SortTwo, SplitTurnDownRight as ParkSplitTurnDownRight, Star as ParkStar, SunOne, Switch as ParkSwitch, Sync,
+  Slide, SlideTwo, SortTwo, SplitTurnDownRight as ParkSplitTurnDownRight, Star as ParkStar, SubtractSelection, SubtractSelectionOne, SunOne, Switch as ParkSwitch, Sync,
   UploadTwo, VipOne, Voice, VoiceOff, Wallet,
 } from '@icon-park/vue-next'
 import '@icon-park/vue-next/styles/index.css'
@@ -69,6 +69,8 @@ export const Sort = icon(SortTwo)
 export const SplitTurnDownRight = icon(ParkSplitTurnDownRight)
 export const Star = icon(ParkStar)
 export const StarFilled = icon(ParkStar, 'filled')
+export const PreviousEpisodeUnit = icon(SubtractSelectionOne)
+export const NextEpisodeUnit = icon(SubtractSelection)
 export const Sunny = icon(SunOne)
 export const Switch = icon(ParkSwitch)
 export const Tickets = icon(DataArrival)

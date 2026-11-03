@@ -221,6 +221,8 @@ export function formatEpisodeTitle(index: number) {
 
 export function createEpisode(index = 1, pointCost = 0): Episode {
   return {
+    showPreviousEpisodeUnit: false,
+    showNextEpisodeUnit: false,
     confirmedMaterialReferences: [],
     id: createId('episode'),
     title: formatEpisodeTitle(index),
