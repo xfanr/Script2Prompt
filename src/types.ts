@@ -90,16 +90,28 @@ export interface CharacterAsset {
   id: string
   outfits: CharacterOutfit[]
   name: string
+  note: string
   isEnsemble: boolean
+  isMain: boolean
+  // Legacy roles are initialized in their owning episode context on first use.
+  availableUnits: CharacterUnit[] | null
   appearanceDescription: string
+  appearanceDescriptionEnabled: boolean
   voiceDescription: string
+  voiceDescriptionEnabled: boolean
+}
+
+export interface CharacterUnit {
+  episodeId: string
+  unitNumber: number
 }
 
 export interface CharacterOutfit {
   id: string
   note: string
   appearanceDescription: string
-  units: { episodeId: string; unitNumber: number }[]
+  appearanceDescriptionEnabled: boolean
+  units: CharacterUnit[]
 }
 
 export interface CharacterConfig {

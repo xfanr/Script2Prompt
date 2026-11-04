@@ -2,6 +2,7 @@ import { activePromptProfile, cloneGlobalConfig, migrateLegacyGlobalConfig, norm
 import { APP_VERSION, createEpisode, createEpisodeProductionData, createPromptReview, createSceneAsset, createSceneConfig, normalizeCharacterAssets, normalizeShotSceneSelection } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
 import { visibleShotCards } from './neighborUnits'
+import { initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes } from './characterScopes'
 import { normalizeMaterialConfirmations } from './defaults'
 import { compactShotUnitNumbers, normalizeReferenceShotNumber, normalizeShotUnitNumber } from './shotNumber'
 import { reconcileTimingSegments } from './timing'
@@ -198,10 +199,8 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
       })
       const unitMap = compactShotUnitNumbers(episode.shots ?? [])
       const assets = parsed.episodeGroups.find(group => group.id === episode.groupId)?.characters ?? episode.characters
-      for (const asset of assets) for (const outfit of asset.outfits) {
-        outfit.units = outfit.units.filter(unit => unit.episodeId !== episode.id || unitMap.has(unit.unitNumber))
-          .map(unit => unit.episodeId === episode.id ? { ...unit, unitNumber: unitMap.get(unit.unitNumber)! } : unit)
-      }
+      for (const asset of assets) mapCharacterUnitReferences(asset, units => units.filter(unit => unit.episodeId !== episode.id || unitMap.has(unit.unitNumber))
+        .map(unit => unit.episodeId === episode.id ? { ...unit, unitNumber: unitMap.get(unit.unitNumber)! } : unit))
       episode.splitScriptText = normalizeSplitScriptText(episode.splitScriptText, episode.shots ?? [])
     })
 
@@ -211,6 +210,8 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
       parsed.activeEpisodeId = episode.id
     }
 
+    for (const episode of parsed.episodes) initializeCharacterScopes(parsed, episode, parsed.episodeGroups.find(group => group.id === episode.groupId)?.characters ?? episode.characters, false)
+    pruneCharacterScopes(parsed)
     clearInteriorEpisodeContacts(parsed.episodes)
     clearInteriorSplitEpisodeNumbers(parsed.episodes)
     const activeEpisode = parsed.episodes.find((episode) => episode.id === parsed.activeEpisodeId) ?? parsed.episodes[0]

@@ -27,10 +27,39 @@ export async function runSharedCharacterTests() {
   state.activeEpisodeId = second.id
   initializeSharedCharacters(state, second)
   const asset = characterAssetsFor(state, second)[0]
+  test('single appearance is opt-in without clearing text or changing references', () => {
+    assert(!asset.appearanceDescriptionEnabled, 'description enabled by default')
+    for (const mode of ['basic', 'detailed'] as const) {
+      const output = composePrompt(config, first.shots[0], undefined, 8, [asset], '11-1', mode, '11-1', first.id)
+      assert(!output.includes('当前描述'), 'disabled description rendered')
+    }
+    asset.appearanceDescriptionEnabled = true
+    assert(composePrompt(config, first.shots[0], undefined, 8, [asset], '11-1', 'detailed', '11-1', first.id).includes('当前描述'), 'enabled description missing')
+    asset.appearanceDescriptionEnabled = false
+    assert(asset.appearanceDescription === '当前描述', 'disabling removed text')
+    const legacy = JSON.parse(JSON.stringify(state))
+    delete legacy.episodeGroups[0].characters[0].appearanceDescriptionEnabled
+    const loaded = normalizeAppState(legacy, config)
+    assert(!characterAssetsFor(loaded, loaded.episodes[0])[0].appearanceDescriptionEnabled, 'legacy description enabled')
+  })
   test('single outfit uses character name without episode or unit prefix', () => {
     const detailed = composePrompt(config, first.shots[0], undefined, 8, [asset], '11-1', 'detailed', '11-1', first.id)
     assert(detailed.includes('[林晚.png]') && !detailed.includes('[11-1林晚.png]'), 'single outfit retained numbering')
     assert(characterAppearance(asset, first.id, first.shots[0]).referenceName === '林晚', 'sidebar appearance name differs')
+  })
+  test('single outfit note takes precedence and survives JSON and WebDAV', () => {
+    asset.note = '红色礼服'
+    const detailed = composePrompt(config, first.shots[0], undefined, 8, [asset], '11-1', 'detailed', '11-1', first.id)
+    assert(detailed.includes('[林晚（红色礼服）.png]') && detailed.includes('[林晚.mp3]'), 'note or voice reference wrong')
+    assert(characterAppearance(asset, first.id, first.shots[0]).referenceName === '林晚（红色礼服）', 'sidebar note differs')
+    const basic = composePrompt(config, first.shots[0], undefined, 8, [asset], '11-1', 'basic', '11-1', first.id)
+    assert(basic.includes('林晚的妆造是@'), 'basic mode changed')
+    const json = normalizeAppState(JSON.parse(JSON.stringify(state)), config)
+    const files = new Map([...buildDataFiles(json)].map(([path, file]) => [path, parseDataFile(JSON.stringify(file), path)]))
+    const restored = assembleDataFiles(files, json)
+    assert(characterAssetsFor(restored, restored.episodes.find(episode => episode.id === first.id)!)[0].note === asset.note, 'single note lost')
+    asset.note = ''
+    assert(characterAppearance(asset, first.id, first.shots[0]).referenceName === '林晚', 'cleared note still used')
   })
   test('current episode wins shared migration', () => {
     assert(asset.appearanceDescription === '当前描述', 'wrong merge winner')
@@ -40,8 +69,8 @@ export async function runSharedCharacterTests() {
     assert(characterAssetsFor(state, first).length === 2, 'other episode assets missing')
   })
   asset.outfits = [
-    { id: 'red', note: '红色礼服', appearanceDescription: '红裙[珍珠]', units: [{ episodeId: first.id, unitNumber: 1 }] },
-    { id: 'white', note: '白衣', appearanceDescription: '白色衣服', units: [{ episodeId: second.id, unitNumber: 1 }] },
+    { id: 'red', note: '红色礼服', appearanceDescription: '红裙[珍珠]', appearanceDescriptionEnabled: true, units: [{ episodeId: first.id, unitNumber: 1 }] },
+    { id: 'white', note: '白衣', appearanceDescription: '白色衣服', appearanceDescriptionEnabled: true, units: [{ episodeId: second.id, unitNumber: 1 }] },
   ]
   asset.appearanceDescription = ''
   test('outfit validation and unit sorting', () => {
@@ -67,6 +96,14 @@ export async function runSharedCharacterTests() {
     asset.isEnsemble = false
     assert(characterAppearance(asset, second.id, second.shots[0]).description === '白色衣服', 'other unit outfit wrong')
   })
+  test('each outfit controls its description independently', () => {
+    asset.outfits[0].appearanceDescriptionEnabled = false
+    const detailed = composePrompt(config, first.shots[0], undefined, 8, [asset], '11-1', 'detailed', '11-1', first.id)
+    assert(!detailed.includes('红裙') && detailed.includes('[林晚（红色礼服）.png]') && detailed.includes('[林晚.mp3]'), 'disabling changed references or rendered text')
+    assert(characterAppearance(asset, second.id, second.shots[0]).description === '白色衣服', 'another outfit was disabled')
+    assert(asset.outfits[0].appearanceDescription === '红裙[珍珠]', 'description was cleared')
+    asset.outfits[0].appearanceDescriptionEnabled = true
+  })
   test('JSON and WebDAV preserve shared identity and outfits', () => {
     group.confirmedMaterialReferences = ['林晚.mp3', '林晚（红色礼服）.png']
     separate.confirmedMaterialReferences = ['独立.png']
@@ -78,6 +115,7 @@ export async function runSharedCharacterTests() {
     const restored = characterAssetsFor(loaded, restoredEpisode)[0]
     assert(restored.id === asset.id && restored.outfits[0].units[0].episodeId === first.id, 'roundtrip lost identifiers')
     assert(restoredEpisode.characters.length === 0 && restored.outfits[0].note === '红色礼服', 'duplicated or lost outfits')
+    assert(restored.outfits[0].appearanceDescriptionEnabled && !restored.appearanceDescriptionEnabled, 'appearance switches lost')
     assert(loaded.episodeGroups[0].confirmedMaterialReferences.join(',') === '林晚.mp3,林晚（红色礼服）.png', 'shared confirmations lost')
     assert(loaded.episodes.find(episode => episode.id === separate.id)!.confirmedMaterialReferences.join(',') === '独立.png', 'ungrouped confirmations lost')
   })

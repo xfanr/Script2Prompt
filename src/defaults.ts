@@ -30,9 +30,14 @@ export function createCharacterAsset(name = '', appearanceDescription = '', voic
     id: createId('asset'),
     outfits: [],
     name,
+    note: '',
     isEnsemble,
+    isMain: false,
+    availableUnits: [],
     appearanceDescription,
+    appearanceDescriptionEnabled: false,
     voiceDescription,
+    voiceDescriptionEnabled: false,
   }
 }
 
@@ -44,7 +49,7 @@ export function normalizeCharacterAssets(value: unknown): CharacterAsset[] {
   const assets = value.map((item) => {
     if (typeof item === 'string') {
       const name = item.trim()
-      return name ? createCharacterAsset(name, '', '', false) : null
+      return name ? { ...createCharacterAsset(name, '', '', false), availableUnits: null } : null
     }
 
     if (!item || typeof item !== 'object') {
@@ -57,15 +62,25 @@ export function normalizeCharacterAssets(value: unknown): CharacterAsset[] {
     if (!name) return null
     const normalized = createCharacterAsset(name, typeof asset.appearanceDescription === 'string' ? asset.appearanceDescription : '', typeof asset.voiceDescription === 'string' ? asset.voiceDescription : '', asset.isEnsemble === true)
     if (typeof asset.id === 'string' && asset.id) normalized.id = asset.id
+    normalized.isMain = asset.isMain === true
+    if (normalized.isMain) normalized.isEnsemble = false
+    normalized.availableUnits = Array.isArray(asset.availableUnits) ? asset.availableUnits.filter(unit => unit && typeof unit.episodeId === 'string' && Number.isInteger(unit.unitNumber) && unit.unitNumber > 0)
+      .map(unit => ({ episodeId: unit.episodeId, unitNumber: unit.unitNumber })) : null
+    normalized.note = typeof asset.note === 'string' ? asset.note.trim() : ''
+    normalized.appearanceDescriptionEnabled = asset.appearanceDescriptionEnabled === true
+    normalized.voiceDescriptionEnabled = asset.voiceDescriptionEnabled === true
     normalized.outfits = Array.isArray(asset.outfits) ? asset.outfits.filter(outfit => outfit && typeof outfit === 'object').map((outfit) => ({
       id: typeof outfit.id === 'string' && outfit.id ? outfit.id : createId('outfit'),
       note: typeof outfit.note === 'string' ? outfit.note.trim() : '',
       appearanceDescription: typeof outfit.appearanceDescription === 'string' ? outfit.appearanceDescription : '',
+      appearanceDescriptionEnabled: outfit.appearanceDescriptionEnabled === true,
       units: Array.isArray(outfit.units) ? outfit.units.filter((unit) => unit && typeof unit.episodeId === 'string' && Number.isInteger(unit.unitNumber) && unit.unitNumber > 0) : [],
     })) : []
     if (normalized.outfits.length > 1) normalized.appearanceDescription = ''
     else if (normalized.outfits.length === 1) {
       normalized.appearanceDescription = normalized.outfits[0].appearanceDescription
+      normalized.appearanceDescriptionEnabled = normalized.outfits[0].appearanceDescriptionEnabled
+      normalized.note = normalized.outfits[0].note || normalized.note
       normalized.outfits = []
     }
     return normalized

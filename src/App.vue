@@ -313,7 +313,7 @@
                               </div>
                             </div>
                             <ul v-if="item.references.length" class="material-unit-list" :aria-label="`${item.name}引用名称`">
-                              <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name, item.used)" @dblclick="copyMaterialReferenceName(reference.name)">
+                              <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name)" @dblclick="copyMaterialReferenceName(reference.name)">
                                 <MaterialReferenceIcon v-if="item.used && /\.(mp3|png)$/i.test(reference.name)" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
                                 <el-icon v-else-if="/\.(mp3|png)$/i.test(reference.name)" aria-hidden="true"><component :is="/\.mp3$/i.test(reference.name) ? FileMusic : ImageFiles" /></el-icon>
                                 <span>{{ reference.name }}</span>
@@ -343,7 +343,7 @@
                         <div class="material-management-list">
                           <div v-for="item in sidebarMaterials.characters" :key="`character-${item.name}`" class="material-management-entry has-reference-list">
                             <ul class="material-unit-list" :class="{ 'is-unrecognized': !item.used }" :aria-label="`${item.name}引用名称`">
-                              <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name, item.used)" @dblclick="copyMaterialReferenceName(reference.name)">
+                              <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name)" @dblclick="copyMaterialReferenceName(reference.name)">
                                 <el-icon v-if="!item.used" aria-label="未识别"><LinkInterrupt /></el-icon>
                                 <MaterialReferenceIcon v-else-if="/\.(mp3|png)$/i.test(reference.name)" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
                                 <span>{{ reference.name }}</span>
@@ -367,7 +367,7 @@
                               <span class="material-management-name is-used" :title="item.name">{{ item.name }}</span>
                             </div>
                             <ul class="material-unit-list" :aria-label="`${item.name}引用名称`">
-                              <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name, item.used)" @dblclick="copyMaterialReferenceName(reference.name)">
+                              <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name)" @dblclick="copyMaterialReferenceName(reference.name)">
                                 <MaterialReferenceIcon v-if="item.used && /\.(mp3|png)$/i.test(reference.name)" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
                                 <el-icon v-else-if="/\.(mp3|png)$/i.test(reference.name)" aria-hidden="true"><component :is="/\.mp3$/i.test(reference.name) ? FileMusic : ImageFiles" /></el-icon>
                                 <span>{{ reference.name }}</span>
@@ -1386,50 +1386,74 @@
       <component :is="shouldShowMaterialScenes ? ElPopover : ElDrawer" v-bind="materialDialogProps" :title="materialDialogTitle" :class="shouldShowMaterialScenes ? undefined : 'app-drawer material-dialog'" @update:model-value="materialDialogVisible = $event" @closed="handleMaterialDialogClosed" @after-leave="handleMaterialDialogClosed">
         <el-form class="material-form" :class="{ 'material-form-inline': isCharacterMaterialEdit }" :label-position="isCharacterMaterialEdit ? 'left' : 'top'" :label-width="isCharacterMaterialEdit ? '4em' : undefined" @submit.prevent @keydown.esc.stop="materialDialogVisible = false">
           <el-form-item v-if="shouldShowMaterialCharacters" label="角色">
-            <el-input
-              v-model="materialCharacterDraft"
-              class="material-character-input"
-              clearable
-              placeholder="请输入角色名称"
-              @input="materialCharacterIsEnsembleDraft = /(?:们|群像|若干)$/.test($event.trim())"
-              @keyup.enter="confirmMaterialDialog"
-            >
-              <template #append>
-                <el-button :icon="Grape" :type="materialCharacterIsEnsembleDraft ? 'primary' : undefined" :aria-pressed="materialCharacterIsEnsembleDraft" aria-label="角色群像" title="角色群像" @click="materialCharacterIsEnsembleDraft = !materialCharacterIsEnsembleDraft" />
+            <div class="material-character-name-row">
+              <el-input
+                v-model="materialCharacterDraft"
+                class="material-character-input"
+                clearable
+                placeholder="请输入角色名称"
+                @input="materialDialogMode === 'add' && !materialCharacterTypeManuallySelected && (materialCharacterTypeDraft = /(?:们|群像|若干)$/.test($event.trim()) ? 'ensemble' : 'ordinary')"
+                @keyup.enter="confirmMaterialDialog"
+              />
+              <el-radio-group v-model="materialCharacterTypeDraft" class="material-character-type" aria-label="角色类型" @change="materialCharacterTypeManuallySelected = true">
+                <el-radio-button value="ordinary" aria-label="普通" title="普通"><el-icon><User /></el-icon></el-radio-button>
+                <el-radio-button value="main" aria-label="主角" title="主角"><el-icon><MainCharacter /></el-icon></el-radio-button>
+                <el-radio-button value="ensemble" aria-label="群像" title="群像"><el-icon><Grape /></el-icon></el-radio-button>
+              </el-radio-group>
+            </div>
+          </el-form-item>
+          <el-form-item v-if="shouldShowMaterialCharacters && materialCharacterOutfitsDraft.length < 2" label="备注">
+            <el-input v-model="materialCharacterNoteDraft" />
+          </el-form-item>
+          <el-form-item v-if="shouldShowMaterialCharacters" label="可选范围">
+            <el-select v-model="materialCharacterScopeSelection" class="material-character-scope" value-key="key" multiple collapse-tags collapse-tags-tooltip clearable :disabled="materialCharacterTypeDraft === 'main'" :placeholder="materialCharacterTypeDraft === 'main' ? '全剧所有单元' : '选择单元'" aria-label="角色可选范围">
+              <el-option-group v-for="group in materialCharacterScopeOptions" :key="group.value" :label="group.label">
+                <el-option v-for="unit in group.children" :key="unit.value.key" :label="unit.label" :value="unit.value" />
+              </el-option-group>
+            </el-select>
+          </el-form-item>
+          <CharacterOutfitEditor v-if="shouldShowMaterialCharacters && materialDialogVisible" ref="materialOutfitEditorRef" v-model:outfits="materialCharacterOutfitsDraft" v-model:description="materialCharacterAppearanceDraft" v-model:description-enabled="materialCharacterAppearanceEnabledDraft" v-model:note="materialCharacterNoteDraft" :units="materialCharacterUnits" :allow-add="materialCharacterUnits.length > 1">
+            <el-form-item v-if="shouldShowMaterialCharacters" label="音色描述">
+              <div class="appearance-description-control">
+                <el-switch v-model="materialCharacterVoiceEnabledDraft" :disabled="materialCharacterIsEnsembleDraft" aria-label="启用音色描述" />
+                <el-input
+                  v-if="materialCharacterVoiceEnabledDraft"
+                  v-model="materialCharacterVoiceDraft"
+                  :disabled="materialCharacterIsEnsembleDraft"
+                  aria-label="音色描述"
+                  type="textarea"
+                  :rows="2"
+                  resize="vertical"
+                  placeholder="输入角色的音色描述（选填）"
+                />
+              </div>
+            </el-form-item>
+            <el-form-item v-if="shouldShowMaterialCharacters && materialCharacterOutfitsDraft.length < 2" class="material-appearance-field" label="形象描述">
+              <template #label>
+                <span>形象描述</span>
+                <el-dropdown v-if="materialCharacterIsEnsembleDraft && materialCharacterAppearanceEnabledDraft" trigger="click" @command="(content) => materialCharacterAppearanceDraft = content">
+                  <el-link type="primary" underline="never">模板</el-link>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item v-for="template in state.globalConfig.prompt.ensembleAppearanceTemplates" :key="template.id" :command="template.content">{{ template.name }}</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
               </template>
-            </el-input>
-          </el-form-item>
-          <el-form-item v-if="shouldShowMaterialCharacters" label="音色描述">
-            <el-input
-              v-model="materialCharacterVoiceDraft"
-              :disabled="materialCharacterIsEnsembleDraft"
-              type="textarea"
-              :rows="2"
-              resize="vertical"
-              placeholder="输入角色的音色描述（选填）"
-            />
-          </el-form-item>
-          <el-form-item v-if="shouldShowMaterialCharacters && materialCharacterOutfitsDraft.length < 2" class="material-appearance-field" label="形象描述">
-            <template #label>
-              <span>形象描述</span>
-              <el-dropdown v-if="materialCharacterIsEnsembleDraft" trigger="click" @command="(content) => materialCharacterAppearanceDraft = content">
-                <el-link type="primary" underline="never">模板</el-link>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item v-for="template in state.globalConfig.prompt.ensembleAppearanceTemplates" :key="template.id" :command="template.content">{{ template.name }}</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </template>
-            <el-input
-              v-model="materialCharacterAppearanceDraft"
-              type="textarea"
-              :rows="4"
-              resize="vertical"
-              placeholder="输入角色的外貌、服装或造型描述（选填）"
-            />
-          </el-form-item>
-          <CharacterOutfitEditor v-if="shouldShowMaterialCharacters && materialDialogVisible" ref="materialOutfitEditorRef" v-model:outfits="materialCharacterOutfitsDraft" v-model:description="materialCharacterAppearanceDraft" :units="materialCharacterUnits" :allow-add="materialCharacterUnits.length > 1" />
+              <div class="appearance-description-control">
+                <el-switch v-model="materialCharacterAppearanceEnabledDraft" aria-label="启用形象描述" />
+                <el-input
+                  v-if="materialCharacterAppearanceEnabledDraft"
+                  v-model="materialCharacterAppearanceDraft"
+                  aria-label="形象描述"
+                  type="textarea"
+                  :rows="4"
+                  resize="vertical"
+                  placeholder="输入角色的外貌、服装或造型描述（选填）"
+                />
+              </div>
+            </el-form-item>
+          </CharacterOutfitEditor>
           <el-form-item v-if="shouldShowMaterialScenes">
             <div class="material-scene-list">
               <div v-for="(scene, index) in materialSceneDrafts" :key="index" class="material-scene-row">
@@ -1515,8 +1539,13 @@
         <el-form label-position="top">
           <section v-for="item in outfitAssignmentDrafts" :key="item.asset.id">
             <h4>{{ item.asset.name }}</h4>
-            <el-form-item v-if="item.asset.outfits.length < 2" label="形象描述"><el-input v-model="item.asset.appearanceDescription" type="textarea" :rows="3" /></el-form-item>
-            <CharacterOutfitEditor ref="assignmentOutfitEditorRefs" v-model:outfits="item.asset.outfits" v-model:description="item.asset.appearanceDescription" :units="item.units" :allow-add="false" />
+            <el-form-item v-if="item.asset.outfits.length < 2" label="形象描述">
+              <div class="appearance-description-control">
+                <el-switch v-model="item.asset.appearanceDescriptionEnabled" aria-label="启用形象描述" />
+                <el-input v-if="item.asset.appearanceDescriptionEnabled" v-model="item.asset.appearanceDescription" aria-label="形象描述" type="textarea" :rows="3" />
+              </div>
+            </el-form-item>
+            <CharacterOutfitEditor ref="assignmentOutfitEditorRefs" v-model:outfits="item.asset.outfits" v-model:description="item.asset.appearanceDescription" v-model:description-enabled="item.asset.appearanceDescriptionEnabled" v-model:note="item.asset.note" :units="item.units" :allow-add="false" />
           </section>
         </el-form>
         <template #footer><el-button type="primary" @click="saveOutfitAssignment">保存</el-button></template>
@@ -1536,7 +1565,7 @@ import { neighboringEpisode, visibleShotCards } from './neighborUnits'
 import EpisodeSplitNumberCell from './components/EpisodeSplitNumberCell.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot, normalizeReferenceMode } from './config'
 import { ElDialog, ElDrawer, ElPopover, ElMessageBox, type DropdownInstance } from 'element-plus'
-import { AddIcon, ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, Files, FileMusic, Grape, ImageFiles, Location, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, NextEpisodeUnit, Position, PositionReference, PreviousEpisodeUnit, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, View, WarningFilled } from './icons'
+import { AddIcon, ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, Files, FileMusic, Grape, ImageFiles, Location, MainCharacter, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, NextEpisodeUnit, Position, PositionReference, PreviousEpisodeUnit, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, View, WarningFilled } from './icons'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { normalizeSplitScriptText } from './episodeScript'
 import { clearInteriorEpisodeContacts, contactEditableEpisodeIds, renameEpisodeContacts } from './episodeContacts'
@@ -1585,6 +1614,7 @@ import {
 } from './timing'
 import type { AppState, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotTimingSegment } from './types'
 import { characterAssetsFor as assetsFor, initializeSharedCharacters, characterAppearance, characterUnits, validateCharacterOutfits } from './sharedCharacters'
+import { characterAvailableInUnit, compareCharacterAssets, episodeCharacterUnits, extendCharacterScopes, initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes } from './characterScopes'
 import { formatPromptReferences } from './prompt'
 import { LinkInterrupt } from './icons'
 import { GoStart, GoEnd } from './icons'
@@ -1714,7 +1744,9 @@ async function approveEpisodeCharacters(candidate: Episode, candidateAssets?: Ch
     character.characterId = assets.find(asset => asset.name === character.name)?.id ?? null
   }))
   const proposed = { ...state, episodeGroups: state.episodeGroups.map(group => group.id === candidate.groupId ? { ...group, characters: assets } : group), episodes: state.episodes.map(episode => episode.id === candidate.id ? candidate : episode) }
-  return approveCharacterOutfits(proposed, candidate, assets)
+  if (!await approveCharacterOutfits(proposed, candidate, assets)) return false
+  extendCharacterScopes(assets, candidate, state.episodes.find(episode => episode.id === candidate.id))
+  return true
 }
 
 async function approveCharacterOutfits(proposed: AppState, candidate: Episode, assets: CharacterAsset[]) {
@@ -1788,12 +1820,29 @@ const materialDialogProps = computed(() => materialDialogKind.value === 'scenes'
 const isCharacterMaterialEdit = computed(() => materialDialogMode.value === 'edit' && materialDialogKind.value === 'characters')
 const editingMaterial = ref<EditingMaterial | null>(null)
 const materialCharacterDraft = ref('')
+const materialCharacterNoteDraft = ref('')
 const materialCharacterAppearanceDraft = ref('')
+const materialCharacterAppearanceEnabledDraft = ref(false)
 const materialCharacterVoiceDraft = ref('')
-const materialCharacterIsEnsembleDraft = ref(false)
+const materialCharacterVoiceEnabledDraft = ref(false)
+const materialCharacterTypeDraft = ref<'ordinary' | 'main' | 'ensemble'>('ordinary')
+const materialCharacterTypeManuallySelected = ref(false)
+const materialCharacterIsEnsembleDraft = computed(() => materialCharacterTypeDraft.value === 'ensemble')
+const materialCharacterAvailableUnitsDraft = ref<NonNullable<CharacterAsset['availableUnits']>>([])
 const materialCharacterOutfitsDraft = ref<CharacterOutfit[]>([])
 const materialEditingEpisodeId = ref<string | null>(null)
 const materialEditingEpisode = computed(() => state.episodes.find(episode => episode.id === materialEditingEpisodeId.value) ?? activeEpisode.value)
+const materialCharacterScopeSelection = computed({
+  get: () => materialCharacterTypeDraft.value === 'main' ? [] : materialCharacterAvailableUnitsDraft.value.map(unit => ({ ...unit, key: JSON.stringify([unit.episodeId, unit.unitNumber]) })),
+  set: (units: NonNullable<CharacterAsset['availableUnits']>) => { materialCharacterAvailableUnitsDraft.value = units.map(({ episodeId, unitNumber }) => ({ episodeId, unitNumber })) },
+})
+const materialCharacterScopeOptions = computed(() => {
+  const owner = materialEditingEpisode.value
+  if (!owner) return []
+  return state.episodes.filter(episode => owner.groupId ? episode.groupId === owner.groupId : episode.id === owner.id)
+    .sort((a, b) => parseEpisodeNumber(a.title) - parseEpisodeNumber(b.title))
+    .map(episode => ({ value: episode.id, label: episode.title, children: episodeCharacterUnits(episode).map(unit => ({ value: { ...unit, key: JSON.stringify([unit.episodeId, unit.unitNumber]) }, label: `${parseEpisodeNumber(episode.title)}-${unit.unitNumber}` })) }))
+})
 const materialOutfitEditorRef = ref<InstanceType<typeof CharacterOutfitEditor> | null>(null)
 const materialCharacterUnits = computed(() => {
   const episode = materialEditingEpisode.value
@@ -1944,7 +1993,11 @@ const materialReferenceUnits = computed(() => {
     const collectManual = (text: string, unitNumber: number) => {
       for (const match of text.matchAll(/\[([^\[\]\r\n]+)\]/g)) {
         const name = match[1].trim()
-        if (name) add(formatPromptReferenceName(prepareManualReferenceName(name, text.slice(0, match.index))), unitNumber)
+        if (name) {
+          add(formatPromptReferenceName(prepareManualReferenceName(name, text.slice(0, match.index))), unitNumber)
+          const characterName = name.replace(/\.[a-z\d]+$/i, '').replace(/\.+$/u, '').trim()
+          if (assets.some(asset => asset.name === characterName)) add(characterName, unitNumber)
+        }
       }
     }
     episode.shots.map((shot, index) => ({ shot, index })).sort((a, b) => a.shot.unitNumber - b.shot.unitNumber).forEach(({ shot, index }) => {
@@ -1954,6 +2007,7 @@ const materialReferenceUnits = computed(() => {
           : mode === 'basic' ? `${name}@` : formatPromptReferenceName(name), shot.unitNumber)
       })
       shot.characters.forEach(character => {
+        add(character.name, shot.unitNumber)
         const asset = assets.find(asset => asset.name === character.name)
         const appearance = asset ? characterAppearance(asset, episode.id, shot) : null
         if (!asset?.isEnsemble) add(mode === 'basic' ? `${character.name}@` : formatPromptReferenceName(appearance?.referenceName ?? character.name), shot.unitNumber)
@@ -1964,8 +2018,8 @@ const materialReferenceUnits = computed(() => {
   }
   return references
 })
-function materialReferenceTitle(name: string, used: boolean) {
-  const units = used && !/\.mp3$/i.test(name) ? materialReferenceUnits.value.get(name) : undefined
+function materialReferenceTitle(name: string) {
+  const units = !/\.mp3$/i.test(name) ? materialReferenceUnits.value.get(name) : undefined
   return units?.size ? `${name}\n${[...units].join('丨')}` : name
 }
 async function copyMaterialReferenceName(name: string) {
@@ -2042,8 +2096,8 @@ const sidebarMaterials = computed(() => {
     collectBracketReferences(shot.text, unit)
   })
   assetsFor(state, episode).forEach((character) => {
-    collectBracketReferences(character.appearanceDescription)
-    character.outfits.forEach(outfit => collectBracketReferences(outfit.appearanceDescription))
+    if (character.appearanceDescriptionEnabled) collectBracketReferences(character.appearanceDescription)
+    character.outfits.filter(outfit => outfit.appearanceDescriptionEnabled).forEach(outfit => collectBracketReferences(outfit.appearanceDescription))
   })
   const referenceNames = (usage: Usage) => ({
     used: usage.used,
@@ -2063,7 +2117,8 @@ const sidebarMaterials = computed(() => {
       const item = { ...asset, ...referenceNames(usage) }
       if (!item.references.length) item.references.push({ name: asset.name })
       return item
-    }).sort((a, b) => Number(b.used) - Number(a.used)),
+    }).filter(asset => asset.isMain || !asset.availableUnits?.length || asset.availableUnits.some(unit => unit.episodeId === episode.id))
+      .sort((a, b) => Number(b.used) - Number(a.used) || compareCharacterAssets(a, b)),
     custom: [...custom].map(([name, usage]) => ({ name, ...referenceNames(usage) })),
   }
 })
@@ -3333,6 +3388,7 @@ watch(
   () => {
     clearInteriorEpisodeContacts(state.episodes)
     clearInteriorSplitEpisodeNumbers(state.episodes)
+    pruneCharacterScopes(state)
   },
 )
 
@@ -3541,7 +3597,7 @@ function cloneEpisodeMaterials(sourceEpisodeId: string) {
   const existingCharacterNames = new Set(assetsFor(state, targetEpisode).map((character) => character.name))
   const characters = assetsFor(state, sourceEpisode)
     .filter((character) => !existingCharacterNames.has(character.name))
-    .map((character) => ({ ...JSON.parse(JSON.stringify(character)), id: createId('asset') } as CharacterAsset))
+    .map((character) => ({ ...JSON.parse(JSON.stringify(character)), id: createId('asset'), availableUnits: episodeCharacterUnits(targetEpisode) } as CharacterAsset))
   const existingSceneNames = new Set(targetEpisode.scenes.map((scene) => scene.name))
   const scenes = sourceEpisode.scenes
     .filter((scene) => !existingSceneNames.has(scene.name))
@@ -3617,9 +3673,14 @@ function createMaterialSceneDrafts(count = 1) {
 
 function resetMaterialDrafts(sceneCount = 1) {
   materialCharacterDraft.value = ''
+  materialCharacterNoteDraft.value = ''
   materialCharacterAppearanceDraft.value = ''
+  materialCharacterAppearanceEnabledDraft.value = false
   materialCharacterVoiceDraft.value = ''
-  materialCharacterIsEnsembleDraft.value = false
+  materialCharacterVoiceEnabledDraft.value = false
+  materialCharacterTypeDraft.value = 'ordinary'
+  materialCharacterTypeManuallySelected.value = false
+  materialCharacterAvailableUnitsDraft.value = materialEditingEpisode.value ? episodeCharacterUnits(materialEditingEpisode.value) : []
   materialCharacterOutfitsDraft.value = []
   materialSceneDrafts.value = createMaterialSceneDrafts(sceneCount)
 }
@@ -3703,9 +3764,13 @@ function openMaterialEditDialog(kind: MaterialKind, value: string, event?: Mouse
     editingMaterial.value = { kind, value }
     resetMaterialDrafts()
     materialCharacterDraft.value = character.name
+    materialCharacterNoteDraft.value = character.note
     materialCharacterAppearanceDraft.value = character.appearanceDescription
+    materialCharacterAppearanceEnabledDraft.value = character.appearanceDescriptionEnabled
     materialCharacterVoiceDraft.value = character.voiceDescription
-    materialCharacterIsEnsembleDraft.value = character.isEnsemble
+    materialCharacterVoiceEnabledDraft.value = character.voiceDescriptionEnabled
+    materialCharacterTypeDraft.value = character.isMain ? 'main' : character.isEnsemble ? 'ensemble' : 'ordinary'
+    materialCharacterAvailableUnitsDraft.value = JSON.parse(JSON.stringify(character.availableUnits ?? []))
     materialCharacterOutfitsDraft.value = JSON.parse(JSON.stringify(character.outfits))
   } else {
     const scene = episode.scenes.find((item) => item.name === value)
@@ -3752,7 +3817,7 @@ function commitMaterialDialog() {
     const outfitError = validateCharacterOutfits(state, episode, draftAsset)
     if (outfitError) { notify.warning(outfitError); return false }
     if (adding) {
-      assetsFor(state, episode).push(createCharacterAsset(nextName, materialCharacterAppearanceDraft.value.trim(), materialCharacterVoiceDraft.value.trim(), materialCharacterIsEnsembleDraft.value))
+      assetsFor(state, episode).push({ ...createCharacterAsset(nextName, materialCharacterAppearanceDraft.value.trim(), materialCharacterVoiceDraft.value.trim(), materialCharacterIsEnsembleDraft.value), isMain: materialCharacterTypeDraft.value === 'main', availableUnits: materialCharacterAvailableUnitsDraft.value.map(unit => ({ ...unit })), note: materialCharacterNoteDraft.value.trim(), appearanceDescriptionEnabled: materialCharacterAppearanceEnabledDraft.value, voiceDescriptionEnabled: materialCharacterVoiceEnabledDraft.value })
       notify.success('已添加角色')
     } else {
       updateCharacterMaterial(editing!.value, nextName, materialCharacterAppearanceDraft.value, materialCharacterVoiceDraft.value, materialCharacterIsEnsembleDraft.value)
@@ -3800,9 +3865,14 @@ function updateCharacterMaterial(oldName: string, nextName: string, appearanceDe
   }
 
   characterAsset.name = nextName
+  characterAsset.note = materialCharacterNoteDraft.value.trim()
   characterAsset.appearanceDescription = appearanceDescription.trim()
+  characterAsset.appearanceDescriptionEnabled = materialCharacterAppearanceEnabledDraft.value
   characterAsset.voiceDescription = voiceDescription.trim()
+  characterAsset.voiceDescriptionEnabled = materialCharacterVoiceEnabledDraft.value
   characterAsset.isEnsemble = isEnsemble
+  characterAsset.isMain = materialCharacterTypeDraft.value === 'main'
+  characterAsset.availableUnits = materialCharacterAvailableUnitsDraft.value.map(unit => ({ ...unit }))
   characterAsset.outfits = JSON.parse(JSON.stringify(materialCharacterOutfitsDraft.value))
   characterAsset.outfits.forEach(outfit => { outfit.note = outfit.note.trim() })
   const scope = state.episodes.filter(item => episode.groupId ? item.groupId === episode.groupId : item.id === episode.id)
@@ -3944,7 +4014,10 @@ async function applyCharacterDescriptionText(text: string) {
         } else character.appearanceDescription = item.appearanceDescription
       }
       if (item.voiceDescription !== undefined) character.voiceDescription = item.voiceDescription
-      character.isEnsemble = item.isEnsemble ?? /(?:们|群像|若干)$/.test(character.name)
+      if (item.isEnsemble !== undefined) {
+        character.isEnsemble = item.isEnsemble
+        if (item.isEnsemble) character.isMain = false
+      }
       updatedNames.add(character.name)
     } else if (normalizedMatches.length > 1) {
       ambiguousNames.push(item.name)
@@ -4301,7 +4374,9 @@ async function syncEpisodeShots(episode: Episode, segments: BatchShotSegment[], 
     const detected = detectCharacters(contextText, assets.map(asset => asset.name)).map(character => ({ ...character, includeVoice: character.includeVoice && !assets.find(asset => asset.name === character.name)?.isEnsemble }))
     shot.characters = mergeDetectedCharacters(shot.characters, detected, true)
   })
-  compactShotUnitNumbers(nextShots)
+  const unitMap = compactShotUnitNumbers(nextShots)
+  for (const asset of assets) mapCharacterUnitReferences(asset, units => units.filter(unit => unit.episodeId !== episode.id || unitMap.has(unit.unitNumber))
+    .map(unit => unit.episodeId === episode.id ? { ...unit, unitNumber: unitMap.get(unit.unitNumber)! } : unit))
   if (!await approveEpisodeCharacters({ ...episode, shots: nextShots }, assets)) return 0
   episode.shots = nextShots
   episode.shots.forEach(syncShotTimingSegments)
@@ -4418,10 +4493,8 @@ function deleteShot(id: string) {
 
   episode.shots = episode.shots.filter((shot) => shot.id !== id)
   const unitMap = compactShotUnitNumbers(episode.shots)
-  for (const asset of assetsFor(state, episode)) for (const outfit of asset.outfits) {
-    outfit.units = outfit.units.filter(unit => unit.episodeId !== episode.id || unitMap.has(unit.unitNumber))
-      .map(unit => unit.episodeId === episode.id ? { ...unit, unitNumber: unitMap.get(unit.unitNumber)! } : unit)
-  }
+  for (const asset of assetsFor(state, episode)) mapCharacterUnitReferences(asset, units => units.filter(unit => unit.episodeId !== episode.id || unitMap.has(unit.unitNumber))
+    .map(unit => unit.episodeId === episode.id ? { ...unit, unitNumber: unitMap.get(unit.unitNumber)! } : unit))
   normalizeEpisodeShotConnections(episode)
 }
 
@@ -4460,7 +4533,7 @@ function addCharacterMaterials(episode: Episode, value: string): MaterialAddResu
   const existingNames = new Set(assetsFor(state, episode).map((character) => character.name))
   const added = items.filter((item) => !existingNames.has(item))
 
-  assetsFor(state, episode).push(...added.map((name) => createCharacterAsset(name)))
+  assetsFor(state, episode).push(...added.map((name) => ({ ...createCharacterAsset(name), availableUnits: episodeCharacterUnits(episode) })))
 
   return {
     added: added.length,
@@ -4536,9 +4609,9 @@ function syncSceneFromAsset(scene: SceneConfig, episode = activeEpisode.value) {
 }
 
 function availableCharacterAssets(shot: Shot) {
-  return assetsFor(state, episodeForShot(shot)).filter(
-    (asset) => !shot.characters.some((character) => character.name === asset.name),
-  ) ?? []
+  const episode = episodeForShot(shot)
+  return assetsFor(state, episode).filter(asset => characterAvailableInUnit(asset, episode.id, shot.unitNumber)
+    && !shot.characters.some(character => character.name === asset.name)).sort(compareCharacterAssets)
 }
 
 async function addCharacterToShot(shot: Shot, name: string) {
@@ -4584,7 +4657,7 @@ async function cloneShotCharacters(target: Shot, sourceId: string) {
     source.characters.forEach((character) => {
       const asset = assetsFor(state, selected.episode).find((asset) => asset.name === character.name)
       if (asset && !assets.some((item) => item.name === asset.name)) {
-        assets.push({ ...JSON.parse(JSON.stringify(asset)), id: createId('asset') })
+        assets.push({ ...JSON.parse(JSON.stringify(asset)), id: createId('asset'), availableUnits: [] })
       }
     })
   }
@@ -4615,7 +4688,8 @@ function characterAppearanceDescription(name: string, shot: Shot) {
 }
 
 function characterVoiceDescription(name: string, episode = activeEpisode.value!) {
-  return assetsFor(state, episode).find((character) => character.name === name)?.voiceDescription?.trim() ?? ''
+  const asset = assetsFor(state, episode).find(character => character.name === name)
+  return asset?.voiceDescriptionEnabled ? asset.voiceDescription.trim() : ''
 }
 
 function isEnsembleCharacter(name: string, episode = activeEpisode.value!) {
@@ -5525,7 +5599,7 @@ async function applyEpisodeScriptShots() {
     const assets: CharacterAsset[] = JSON.parse(JSON.stringify(assetsFor(state, episode)))
     candidate.splitScriptText = splitScriptDraft.value
     for (const name of splitMaterialInput(materialCharacterDraft.value)) {
-      if (!assets.some(asset => asset.name === name)) assets.push(createCharacterAsset(name))
+      if (!assets.some(asset => asset.name === name)) assets.push({ ...createCharacterAsset(name), availableUnits: episodeCharacterUnits(episode) })
     }
     addSceneMaterials(candidate, sceneDrafts)
     if (!candidate.groupId) candidate.characters = assets
@@ -5973,10 +6047,10 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, stat
     const episodeIds = new Map(batch.episodes.map((episode, index) => [episode.id, importedEpisodes[index].id]))
     const unitMaps = new Map(batch.episodes.map((episode, index) => [episode.id, new Map(episode.shots.map((shot, shotIndex) => [normalizeShotUnitNumber(shot.unitNumber), importedEpisodes[index].shots[shotIndex].unitNumber]))]))
     for (const asset of [...importedGroups.flatMap(item => item.group.characters ?? []), ...importedEpisodes.flatMap(item => item.characters)]) {
-      for (const outfit of asset.outfits) {
-        outfit.units = outfit.units.filter(unit => unitMaps.get(unit.episodeId)?.has(unit.unitNumber)).map(unit => ({ episodeId: episodeIds.get(unit.episodeId)!, unitNumber: unitMaps.get(unit.episodeId)!.get(unit.unitNumber)! }))
-      }
+      mapCharacterUnitReferences(asset, units => units.filter(unit => unitMaps.get(unit.episodeId)?.has(unit.unitNumber)).map(unit => ({ episodeId: episodeIds.get(unit.episodeId)!, unitNumber: unitMaps.get(unit.episodeId)!.get(unit.unitNumber)! })))
     }
+    const importedState = { ...state, episodeGroups: importedGroups.map(item => item.group), episodes: importedEpisodes }
+    for (const episode of importedEpisodes) initializeCharacterScopes(importedState, episode, assetsFor(importedState, episode), false)
     return { batch, importedGroups, importedEpisodes }
   })
   // Compare contacts using the final group membership, before any imported value is cleared.
@@ -6017,7 +6091,7 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, stat
     })
     for (const asset of [...importedGroups.flatMap(item => item.group.characters ?? []), ...importedEpisodes.flatMap(item => item.characters)]) {
       const resolvedIds = new Map(importedEpisodes.map((episode, index) => [episode.id, episodeIdMap.get(batch.episodes[index].id)!]))
-      asset.outfits.forEach(outfit => { outfit.units = outfit.units.map(unit => ({ ...unit, episodeId: resolvedIds.get(unit.episodeId)! })) })
+      mapCharacterUnitReferences(asset, units => units.map(unit => ({ ...unit, episodeId: resolvedIds.get(unit.episodeId)! })))
     }
     const usedGroupIds = new Set(episodesToImport.map((episode) => episode.groupId).filter((id): id is string => Boolean(id)))
 
@@ -6032,8 +6106,12 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, stat
             for (const asset of group.characters ?? []) {
               const existing = sameTitleGroup.characters.find(item => item.name === asset.name)
               if (!existing) sameTitleGroup.characters.push(asset)
-              else if (existing.outfits.length > 1 && asset.outfits.length > 1) {
-                asset.outfits.forEach(outfit => {
+              else {
+                if (asset.availableUnits !== null) {
+                  const units = existing.availableUnits ?? []
+                  existing.availableUnits = [...units, ...asset.availableUnits.filter(unit => !units.some(item => item.episodeId === unit.episodeId && item.unitNumber === unit.unitNumber))]
+                }
+                if (existing.outfits.length > 1 && asset.outfits.length > 1) asset.outfits.forEach(outfit => {
                   const match = existing.outfits.find(item => item.note === outfit.note)
                   if (match) match.units.push(...outfit.units.filter(unit => !match.units.some(item => item.episodeId === unit.episodeId && item.unitNumber === unit.unitNumber)))
                   else existing.outfits.push(outfit)
@@ -6075,6 +6153,8 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, stat
     state.activeEpisodeId = episode.id
   }
 
+  for (const episode of state.episodes) initializeCharacterScopes(state, episode, assetsFor(state, episode), false)
+  pruneCharacterScopes(state)
   clearInteriorEpisodeContacts(state.episodes)
   clearInteriorSplitEpisodeNumbers(state.episodes)
   return importedCount
@@ -6154,9 +6234,10 @@ function episodeComparableSignature(episode: Episode, contactPerson: string, spl
     title: episode.title,
     showPreviousEpisodeUnit: episode.showPreviousEpisodeUnit,
     showNextEpisodeUnit: episode.showNextEpisodeUnit,
-    characters: assets.map(({ name, appearanceDescription, voiceDescription, isEnsemble, outfits }) => ({
-      name, appearanceDescription, voiceDescription, isEnsemble,
-      outfits: outfits.map(outfit => ({ note: outfit.note, appearanceDescription: outfit.appearanceDescription, units: outfit.units.filter(unit => unit.episodeId === episode.id).map(unit => unit.unitNumber).sort((a, b) => a - b) })),
+    characters: assets.map(({ name, note, appearanceDescription, appearanceDescriptionEnabled, voiceDescription, voiceDescriptionEnabled, isEnsemble, isMain, availableUnits, outfits }) => ({
+      name, note, appearanceDescription, appearanceDescriptionEnabled, voiceDescription, voiceDescriptionEnabled, isEnsemble, isMain,
+      availableUnits: availableUnits?.filter(unit => unit.episodeId === episode.id).map(unit => unit.unitNumber).sort((a, b) => a - b) ?? null,
+      outfits: outfits.map(outfit => ({ note: outfit.note, appearanceDescription: outfit.appearanceDescription, appearanceDescriptionEnabled: outfit.appearanceDescriptionEnabled, units: outfit.units.filter(unit => unit.episodeId === episode.id).map(unit => unit.unitNumber).sort((a, b) => a - b) })),
     })),
     contactPerson,
     splitEpisodeNumber,

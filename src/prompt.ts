@@ -246,7 +246,7 @@ export function composeCharacterSettings(shot: Shot, characterAssets: CharacterA
 
       if (character.includeVoice && !asset?.isEnsemble) {
         parts.push(`音色是${resolveReferences ? ` [${name}.] ` : '@'}`)
-        if (asset?.voiceDescription?.trim()) {
+        if (asset?.voiceDescriptionEnabled && asset.voiceDescription.trim()) {
           parts.push(asset.voiceDescription.trim())
         }
       }

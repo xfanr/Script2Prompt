@@ -1,4 +1,5 @@
 import { createCharacterAsset } from './defaults'
+import { initializeCharacterScopes } from './characterScopes'
 import type { AppState, CharacterAsset, Episode, Shot } from './types'
 
 export function characterAssetsFor(state: AppState, episode: Episode): CharacterAsset[] {
@@ -27,6 +28,7 @@ export function initializeSharedCharacters(state: AppState, episode: Episode) {
         let asset = assets.find(asset => asset.id === character.characterId) ?? assets.find(asset => asset.name === character.name)
         if (!asset && character.name.trim()) {
           asset = createCharacterAsset(character.name.trim())
+          asset.availableUnits = null
           assets.push(asset)
         }
         character.characterId = asset?.id ?? null
@@ -35,13 +37,15 @@ export function initializeSharedCharacters(state: AppState, episode: Episode) {
     }
     if (group) item.characters = []
   }
+  initializeCharacterScopes(state, episode, assets)
 }
 
 export function characterAppearance(asset: CharacterAsset, episodeId: string, shot: Shot) {
   const outfit = asset.outfits?.find(outfit => outfit.units.some(unit => unit.episodeId === episodeId && unit.unitNumber === shot.unitNumber))
+  const appearance = asset.outfits.length > 1 ? outfit : asset
   return {
-    description: asset.outfits?.length > 1 ? outfit?.appearanceDescription ?? '' : asset.appearanceDescription,
-    referenceName: asset.outfits.length < 2 ? asset.name : outfit ? `${asset.name}（${outfit.note}）` : null,
+    description: appearance?.appearanceDescriptionEnabled ? appearance.appearanceDescription : '',
+    referenceName: asset.outfits.length < 2 ? (asset.note ? `${asset.name}（${asset.note}）` : asset.name) : outfit ? `${asset.name}（${outfit.note}）` : null,
   }
 }
 

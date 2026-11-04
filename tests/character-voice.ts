@@ -22,6 +22,7 @@ export async function runCharacterVoiceTests() {
     const state = createInitialState(config)
     const episode = state.episodes[0]
     episode.characters = [createCharacterAsset('程鹏', '', '20岁男性浑厚音')]
+    episode.characters[0].voiceDescriptionEnabled = true
     episode.shots[0].characters = [createCharacterConfig('程鹏', true)]
     return state
   }
@@ -36,6 +37,8 @@ export async function runCharacterVoiceTests() {
     const episode = state.episodes[0]
     episode.characters = [createCharacterAsset('村民们', '男女老少，穿着各异', '不应输出的音色')]
     episode.shots[0].characters = [createCharacterConfig('村民们', true)]
+    assert(composeCharacterSettings(episode.shots[0], episode.characters) === '村民们。', 'disabled ensemble description rendered')
+    episode.characters[0].appearanceDescriptionEnabled = true
     assert(composeCharacterSettings(episode.shots[0], episode.characters) === '村民们，男女老少，穿着各异。', 'ensemble output incorrect')
     episode.shots[0].characters[0].statusText = '站在广场上'
     assert(composeCharacterSettings(episode.shots[0], episode.characters, true) === '村民们，男女老少，穿着各异，站在广场上。', 'ensemble status lost')
@@ -107,6 +110,7 @@ export async function runCharacterVoiceTests() {
     const state = fixture()
     const episode = state.episodes[0]
     episode.characters[0].appearanceDescription = '身穿西装'
+    episode.characters[0].appearanceDescriptionEnabled = true
     episode.shots[0].characters[0].statusText = '坐在椅子上'
     assert(composeCharacterSettings(episode.shots[0], episode.characters) === '程鹏的妆造是@，身穿西装，音色是@，20岁男性浑厚音，坐在椅子上。', 'description ordering changed')
   })
@@ -119,13 +123,28 @@ export async function runCharacterVoiceTests() {
     episode.characters[0].voiceDescription = '   '
     assert(composeCharacterSettings(episode.shots[0], episode.characters) === '程鹏的妆造是@，音色是@。', 'empty description changed legacy prompt')
   })
+  await test('Voice descriptions are opt-in without disabling voice references or clearing text', () => {
+    const state = fixture(), episode = state.episodes[0], asset = episode.characters[0]
+    assert(!createCharacterAsset('程鹏', '', '已有文字').voiceDescriptionEnabled, 'new descriptions enabled by default')
+    asset.voiceDescriptionEnabled = false
+    assert(composeCharacterSettings(episode.shots[0], episode.characters) === '程鹏的妆造是@，音色是@。', 'disabled description rendered or voice reference removed')
+    const output = composePrompt(config, episode.shots[0], undefined, undefined, episode.characters)
+    assert(output.includes('[程鹏.mp3]') && !output.includes('20岁男性浑厚音'), 'full prompt did not respect description switch')
+    assert(asset.voiceDescription === '20岁男性浑厚音', 'disabling cleared text')
+    const legacy = JSON.parse(JSON.stringify(state))
+    delete legacy.episodes[0].characters[0].voiceDescriptionEnabled
+    const restored = normalizeAppState(legacy, config).episodes[0].characters[0]
+    assert(!restored.voiceDescriptionEnabled && restored.voiceDescription === asset.voiceDescription, 'legacy normalization enabled or cleared description')
+  })
   await test('Local storage and normalized JSON preserve voice descriptions', async () => {
     const state = fixture()
     const repository = new LocalRepository(new MemoryStorage(), testDatabaseName())
     await repository.save(state)
     assert((await repository.load(config)).episodes[0].characters[0].voiceDescription === '20岁男性浑厚音', 'local storage dropped voice description')
+    assert((await repository.load(config)).episodes[0].characters[0].voiceDescriptionEnabled, 'local storage dropped voice switch')
     const normalized = normalizeAppState(JSON.parse(JSON.stringify(state)), config)
     assert(normalized.episodes[0].characters[0].voiceDescription === '20岁男性浑厚音', 'JSON normalization dropped voice description')
+    assert(normalized.episodes[0].characters[0].voiceDescriptionEnabled, 'JSON normalization dropped voice switch')
   })
   await test('WebDAV data files validate and round-trip voice descriptions', async () => {
     const state = fixture()
@@ -133,6 +152,7 @@ export async function runCharacterVoiceTests() {
     const file = files.get('ungrouped.json')!
     parseDataFile(JSON.stringify(file), 'ungrouped.json')
     assert(assembleDataFiles(files, state).episodes[0].characters[0].voiceDescription === '20岁男性浑厚音', 'data-file roundtrip dropped description')
+    assert(assembleDataFiles(files, state).episodes[0].characters[0].voiceDescriptionEnabled, 'data-file roundtrip dropped voice switch')
     const invalid = JSON.parse(JSON.stringify(file))
     invalid.episodes[0].characters[0].voiceDescription = 42
     let rejected = false
