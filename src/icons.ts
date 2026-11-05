@@ -2,7 +2,7 @@ import { defineComponent, h, type Component } from 'vue'
 import {
   AddFour, Attention, BeachUmbrella, Box, CardTwo, CarouselVideo, CategoryManagement, CheckOne, CheckSmall, CircleRightUp,
   CloseSmall, Copy, Crown, DataArrival, Delete as ParkDelete, Down, DownloadTwo,
-  Edit, ExpandDown, FileMusic as ParkFileMusic, FileSuccess as ParkFileSuccess, Flag as ParkFlag, GoStart as ParkGoStart, GoEnd as ParkGoEnd, ImageFiles as ParkImageFiles, LinkInterrupt as ParkLinkInterrupt, Local, MessageEmoji, Moon as ParkMoon, More, Order,
+  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, GoStart as ParkGoStart, GoEnd as ParkGoEnd, ImageFiles as ParkImageFiles, LinkInterrupt as ParkLinkInterrupt, Local, MessageEmoji, Moon as ParkMoon, More, Order,
   Peoples, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, RightUser, Search as ParkSearch, SettingTwo,
   Slide, SlideTwo, SortTwo, SplitTurnDownRight as ParkSplitTurnDownRight, Star as ParkStar, SubtractSelection, SubtractSelectionOne, SunOne, Switch as ParkSwitch, Sync,
   UploadTwo, User as ParkUser, VipOne, Voice, VoiceOff, Wallet,
@@ -42,6 +42,7 @@ export const Expand = icon(ExpandDown)
 export const Files = icon(Box)
 export const FileMusic = icon(ParkFileMusic)
 export const FileMusicFilled = icon(ParkFileMusic, 'filled')
+export const FileRemovalFilled = icon(FileRemoval, 'filled')
 export const FileSuccessFilled = icon(ParkFileSuccess, 'filled')
 export const ImageFiles = icon(ParkImageFiles)
 export const ImageFilesFilled = icon(ParkImageFiles, 'filled')
@@ -50,7 +51,9 @@ export const Flag = icon(ParkFlag, 'filled')
 export const GoStart = icon(ParkGoStart)
 export const GoEnd = icon(ParkGoEnd)
 export const Grape = icon(Peoples)
+export const GrapeFilled = icon(Peoples, 'filled')
 export const MainCharacter = icon(RightUser)
+export const MainCharacterFilled = icon(RightUser, 'filled')
 export const Location = icon(Local)
 export const PositionReference = icon(Local)
 export const MaterialTabIcon = icon(CarouselVideo)

@@ -94,8 +94,10 @@
                   <el-button :icon="ShotTabIcon" text @click="openEpisodeScriptDialog('shots')">分镜</el-button>
                   <el-button :icon="DialogueTabIcon" text @click="openEpisodeScriptDialog('dialogue')">台词</el-button>
                 </el-button-group>
+                <el-divider direction="vertical" />
                 <div class="shot-view-controls">
-                  <el-button text circle :icon="PreviousEpisodeUnit" :bg="activeEpisode.showPreviousEpisodeUnit" :disabled="Boolean(previousEpisodeUnit.reason)" :title="previousEpisodeUnit.reason || '显示上集末单元'" aria-label="上集单元" :aria-pressed="activeEpisode.showPreviousEpisodeUnit" @click="toggleNeighborUnit(-1)" />
+                  <el-button text circle :icon="Expand" :bg="state.shotViewMode === 'single-expanded'" title="手风琴模式" aria-label="手风琴模式" :aria-pressed="state.shotViewMode === 'single-expanded'" @click="toggleShotAccordion" />
+                  <el-button text circle :icon="PreviousEpisodeUnit" :bg="activeEpisode.showPreviousEpisodeUnit" :disabled="Boolean(previousEpisodeUnit.reason)" :title="previousEpisodeUnit.reason || '衔接上集单元'" aria-label="衔接上集单元" :aria-pressed="activeEpisode.showPreviousEpisodeUnit" @click="toggleNeighborUnit(-1)" />
                   <el-segmented
                     :model-value="activeShotViewSelection"
                     :options="shotViewModeOptions"
@@ -105,13 +107,12 @@
                     @change="handleShotViewModeChange"
                   >
                     <template #default="{ item }">
-                      <el-icon v-if="isExpandedShotViewOption(item)" title="全部展开" aria-label="全部展开"><Expand /></el-icon>
-                      <span v-else class="shot-view-index" :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
+                      <span class="shot-view-index" :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
                         {{ segmentedOptionNumber(item) }}
                       </span>
                     </template>
                   </el-segmented>
-                  <el-button text circle :icon="NextEpisodeUnit" :bg="activeEpisode.showNextEpisodeUnit" :disabled="Boolean(nextEpisodeUnit.reason)" :title="nextEpisodeUnit.reason || '显示下集首单元'" aria-label="下集单元" :aria-pressed="activeEpisode.showNextEpisodeUnit" @click="toggleNeighborUnit(1)" />
+                  <el-button text circle :icon="NextEpisodeUnit" :bg="activeEpisode.showNextEpisodeUnit" :disabled="Boolean(nextEpisodeUnit.reason)" :title="nextEpisodeUnit.reason || '衔接下集单元'" aria-label="衔接下集单元" :aria-pressed="activeEpisode.showNextEpisodeUnit" @click="toggleNeighborUnit(1)" />
                 </div>
               </div>
             </template>
@@ -129,7 +130,10 @@
                     <div class="episode-group-row root-group-row" role="button" tabindex="0" @contextmenu.prevent.stop @click="toggleGroup(myEpisodesTreeId)" @keyup.enter="toggleGroup(myEpisodesTreeId)">
                       <span class="root-group-title">我的剧集</span>
                       <el-icon class="root-group-caret" :class="{ expanded: isGroupExpanded(myEpisodesTreeId) }"><ArrowRight /></el-icon>
-                      <el-button class="root-group-add sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="新建剧集" @click.stop="addEpisodeGroup" />
+                      <div class="group-row-actions" @click.stop @keydown.stop @keyup.stop>
+                        <el-tooltip :content="showFullGroupNames ? '显示剧集简称' : '显示剧集全称'" :trigger-keys="[]" placement="top"><el-button class="root-group-name-toggle sidebar-row-action-button" :icon="Switch" text size="small" aria-label="切换剧集简称和全称" :aria-pressed="showFullGroupNames" @click="showFullGroupNames = !showFullGroupNames" /></el-tooltip>
+                        <el-button class="root-group-add sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="新建剧集" @click="addEpisodeGroup" />
+                      </div>
                     </div>
                     <div v-if="isGroupExpanded(myEpisodesTreeId)" class="episode-children root-group-children">
                       <div v-for="episode in episodeTreeUngroupedEpisodes" :key="episode.id" class="episode-tree-entry">
@@ -341,20 +345,29 @@
                           </div>
                         </div>
                         <div class="material-management-list">
-                          <div v-for="item in sidebarMaterials.characters" :key="`character-${item.name}`" class="material-management-entry has-reference-list">
-                            <ul class="material-unit-list" :class="{ 'is-unrecognized': !item.used }" :aria-label="`${item.name}引用名称`">
-                              <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name)" @dblclick="copyMaterialReferenceName(reference.name)">
-                                <el-icon v-if="!item.used" aria-label="未识别"><LinkInterrupt /></el-icon>
-                                <MaterialReferenceIcon v-else-if="/\.(mp3|png)$/i.test(reference.name)" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
-                                <span>{{ reference.name }}</span>
-                              </li>
-                            </ul>
-                            <div class="material-management-actions">
-                              <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" :aria-label="`修改角色${item.name}`" @click="openMaterialEditDialog('characters', item.name)" />
-                              <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" :aria-label="`删除角色${item.name}`" @click="confirmRemoveMaterial('characters', item.name)" />
+                          <section v-for="group in sidebarCharacterGroups" :key="group.value" class="material-character-group" :aria-label="`${group.label}角色`">
+                            <div class="material-management-item material-character-group-title">
+                              <el-icon aria-hidden="true"><component :is="group.icon" /></el-icon>
+                              <span class="material-management-name is-used">{{ group.label }}</span>
                             </div>
-                          </div>
-                          <div v-if="!activeCharacterAssets.length" class="material-management-empty">暂无角色</div>
+                            <div class="material-management-list">
+                              <div v-for="item in group.items" :key="`character-${item.name}`" class="material-management-entry has-reference-list">
+                                <ul class="material-unit-list" :class="{ 'is-unrecognized': !item.used }" :aria-label="`${item.name}引用名称`">
+                                  <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name)" @dblclick="copyMaterialReferenceName(reference.name)">
+                                    <el-icon v-if="!item.used" aria-label="未识别"><LinkInterrupt /></el-icon>
+                                    <MaterialReferenceIcon v-else-if="/\.(mp3|png)$/i.test(reference.name)" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
+                                    <el-icon v-else-if="item.isEnsemble" aria-hidden="true"><FileRemovalFilled /></el-icon>
+                                    <span>{{ reference.name }}</span>
+                                  </li>
+                                </ul>
+                                <div class="material-management-actions">
+                                  <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" :aria-label="`修改角色${item.name}`" @click="openMaterialEditDialog('characters', item.name)" />
+                                  <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" :aria-label="`删除角色${item.name}`" @click="confirmRemoveMaterial('characters', item.name)" />
+                                </div>
+                              </div>
+                            </div>
+                          </section>
+                          <div v-if="!sidebarCharacterGroups.length" class="material-management-empty">暂无角色</div>
                         </div>
                       </section>
                       <section class="material-management-section" aria-label="自定义配置">
@@ -386,7 +399,6 @@
             <nav class="sidebar-footer-actions" aria-label="剧本管理快捷操作">
               <el-tooltip content="从云端下载" placement="top"><el-button :icon="Download" text aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="requestWebDavTransfer('download')" /></el-tooltip>
               <el-tooltip content="上传到云端" placement="top"><el-button :icon="Upload" text aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="requestWebDavTransfer('upload')" /></el-tooltip>
-              <el-tooltip :content="showFullGroupNames ? '显示剧集简称' : '显示剧集全称'" placement="top"><el-button :icon="Switch" text aria-label="切换剧集简称和全称" :aria-pressed="showFullGroupNames" @click="showFullGroupNames = !showFullGroupNames" /></el-tooltip>
               <div class="sidebar-footer-ledger-entry">
                 <el-tooltip :content="isTodayMonday ? '积分记录；右键选择周报（记得交周报）' : '积分记录；右键选择并复制周报'" placement="top">
                   <el-button :icon="Calendar" text :class="{ 'is-reminder': isTodayMonday }" aria-label="积分记录" @click="openPointLedger" @contextmenu.prevent.stop="weeklyReportPickerRef?.handleOpen()" />
@@ -446,7 +458,7 @@
                     @dblclick.stop.prevent="copyShotNumber(shot)"
                   >
                     <span class="shot-order">{{ order }}</span>
-                    <span class="shot-number">{{ formatShotNumber(episode, index) }}</span>
+                    <span class="shot-number">{{ formatShotNumber(episode, index) }}{{ linkedCurrentShotIds.has(shot.id) ? '（衔接中）' : '' }}</span>
                   </span>
                 </div>
                 <div class="shot-tools">
@@ -611,9 +623,12 @@
                           <el-button class="title-copy-button" :icon="AddIcon" text type="primary" title="添加角色" aria-label="添加角色" />
                           <template #dropdown>
                             <el-dropdown-menu class="character-add-menu" :class="{ 'has-three-columns': availableCharacterAssets(shot).length > 8 }">
-                              <el-dropdown-item v-for="item in availableCharacterAssets(shot)" :key="item.name" :command="item.name">
-                                <span class="character-add-name" :title="item.name">{{ item.name }}</span>
-                              </el-dropdown-item>
+                              <template v-for="group in groupCharactersByType(availableCharacterAssets(shot))" :key="group.value">
+                                <li class="character-add-group-heading el-select-group__title" role="presentation"><el-icon aria-hidden="true"><component :is="group.icon" /></el-icon><span>{{ group.label }}</span></li>
+                                <el-dropdown-item v-for="item in group.items" :key="item.name" :command="item.name">
+                                  <span class="character-add-name" :title="item.name">{{ item.name }}</span>
+                                </el-dropdown-item>
+                              </template>
                               <el-dropdown-item v-if="!availableCharacterAssets(shot).length" class="character-add-empty" disabled>暂无可添加的角色</el-dropdown-item>
                             </el-dropdown-menu>
                           </template>
@@ -678,40 +693,28 @@
                         <el-input :model-value="character.name" class="character-name-input" readonly aria-label="角色名称">
                           <template #prefix>
                             <el-tooltip
-                              :content="characterAppearanceDescription(character.name, shot)"
-                              :disabled="!characterAppearanceDescription(character.name, shot)"
+                              :content="characterAppearanceInfo(character.name, shot).description"
+                              :disabled="!characterAppearanceInfo(character.name, shot).description"
                               placement="top"
                               popper-class="character-appearance-tooltip"
                             >
                               <el-icon
                                 class="character-appearance-icon"
-                                :class="{ 'has-description': Boolean(characterAppearanceDescription(character.name, shot)) }"
-                                :aria-label="characterAppearanceDescription(character.name, shot) ? '查看形象描述' : '暂无形象描述'"
+                                :class="{ 'has-description': Boolean(characterAppearanceInfo(character.name, shot).description) }"
+                                :aria-label="characterAppearanceInfo(character.name, shot).description ? '查看形象描述' : '暂无形象描述'"
                               >
-                                <component :is="characterAppearanceDescription(character.name, shot) ? UserFilled : User" />
+                                <component :is="characterAppearanceInfo(character.name, shot).icon" />
                               </el-icon>
                             </el-tooltip>
                           </template>
                           <template #append>
-                            <el-popconfirm
-                              v-if="isEnsembleCharacter(character.name, episode)"
-                              :title="episode.groupId ? '取消群像将影响本剧所有相关分镜，并关闭音色。' : '取消群像将影响本集所有相关分镜，并关闭音色。'"
-                              :width="280"
-                              confirm-button-text="取消"
-                              cancel-button-text="保留"
-                              @confirm="toggleCharacterVoice(character, shot)"
-                            >
-                              <template #reference>
-                                <el-button type="primary" :icon="Grape" title="角色群像，点击改为普通角色" aria-label="角色群像，点击改为普通角色" />
-                              </template>
-                            </el-popconfirm>
                             <el-button
-                              v-else
-                              :type="!shot.thirtySecondMode && isVoiceOverflow(shot) && character.includeVoice ? 'danger' : character.includeVoice ? 'primary' : undefined"
-                              :icon="character.includeVoice ? Microphone : Mute"
-                              :title="characterVoiceDescription(character.name, episode) || (character.includeVoice ? '关闭音色' : '开启音色')"
-                              :aria-label="character.includeVoice ? '关闭音色' : '开启音色'"
-                              @click="toggleCharacterVoice(character, shot)"
+                              :disabled="isEnsembleCharacter(character.name, episode)"
+                              :type="isEnsembleCharacter(character.name, episode) ? undefined : !shot.thirtySecondMode && isVoiceOverflow(shot) && character.includeVoice ? 'danger' : character.includeVoice ? 'primary' : undefined"
+                              :icon="!isEnsembleCharacter(character.name, episode) && character.includeVoice ? Microphone : Mute"
+                              :title="isEnsembleCharacter(character.name, episode) ? '角色群像不使用音色' : characterVoiceDescription(character.name, episode) || (character.includeVoice ? '关闭音色' : '开启音色')"
+                              :aria-label="isEnsembleCharacter(character.name, episode) ? '角色群像不使用音色' : character.includeVoice ? '关闭音色' : '开启音色'"
+                              @click="character.includeVoice = !character.includeVoice"
                             />
                           </template>
                         </el-input>
@@ -1395,9 +1398,15 @@
                 @input="materialDialogMode === 'add' && !materialCharacterTypeManuallySelected && (materialCharacterTypeDraft = /(?:们|群像|若干)$/.test($event.trim()) ? 'ensemble' : 'ordinary')"
                 @keyup.enter="confirmMaterialDialog"
               />
-              <el-radio-group v-model="materialCharacterTypeDraft" class="material-character-type" aria-label="角色类型" @change="materialCharacterTypeManuallySelected = true">
-                <el-radio-button value="ordinary" aria-label="普通" title="普通"><el-icon><User /></el-icon></el-radio-button>
+              <el-radio-group v-model="materialCharacterTypeDraft" class="material-character-type" aria-label="角色类型" @change="() => {
+                materialCharacterTypeManuallySelected = true
+                if (materialCharacterTypeDraft === 'ensemble') {
+                  materialCharacterAppearanceEnabledDraft = true
+                  materialCharacterOutfitsDraft.forEach(outfit => outfit.appearanceDescriptionEnabled = true)
+                }
+              }">
                 <el-radio-button value="main" aria-label="主角" title="主角"><el-icon><MainCharacter /></el-icon></el-radio-button>
+                <el-radio-button value="ordinary" aria-label="普通" title="普通"><el-icon><User /></el-icon></el-radio-button>
                 <el-radio-button value="ensemble" aria-label="群像" title="群像"><el-icon><Grape /></el-icon></el-radio-button>
               </el-radio-group>
             </div>
@@ -1561,7 +1570,7 @@ import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import PointLedgerDialog from './components/PointLedgerDialog.vue'
 import GroupPlayMedal from './components/GroupPlayMedal.vue'
 import EpisodeGroupPreview from './components/EpisodeGroupPreview.vue'
-import { neighboringEpisode, visibleShotCards } from './neighborUnits'
+import { linkedSourceShotIds, neighboringEpisode, visibleShotCards } from './neighborUnits'
 import EpisodeSplitNumberCell from './components/EpisodeSplitNumberCell.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot, normalizeReferenceMode } from './config'
 import { ElDialog, ElDrawer, ElPopover, ElMessageBox, type DropdownInstance } from 'element-plus'
@@ -1614,9 +1623,9 @@ import {
 } from './timing'
 import type { AppState, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotTimingSegment } from './types'
 import { characterAssetsFor as assetsFor, initializeSharedCharacters, characterAppearance, characterUnits, validateCharacterOutfits } from './sharedCharacters'
-import { characterAvailableInUnit, compareCharacterAssets, episodeCharacterUnits, extendCharacterScopes, initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes } from './characterScopes'
+import { characterAvailableInUnit, compareCharacterAssets, episodeCharacterUnits, extendCharacterScopes, initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes, referencedCharacterNames } from './characterScopes'
 import { formatPromptReferences } from './prompt'
-import { LinkInterrupt } from './icons'
+import { FileRemovalFilled, GrapeFilled, LinkInterrupt, MainCharacterFilled } from './icons'
 import { GoStart, GoEnd } from './icons'
 import MaterialReferenceIcon from './components/MaterialReferenceIcon.vue'
 import { normalizeMaterialConfirmations } from './defaults'
@@ -1729,7 +1738,15 @@ const activeCharacterAssets = computed(() => activeEpisode.value ? assetsFor(sta
 const shotOwners = computed(() => new Map(state.episodes.flatMap(episode => episode.shots.map(shot => [shot.id, episode] as const))))
 function episodeForShot(shot: Shot) { return shotOwners.value.get(shot.id)! }
 const displayedShotCards = computed(() => activeEpisode.value ? visibleShotCards(state, activeEpisode.value) : [])
+const referencedCharactersByEpisode = computed(() => new Map([...new Set(displayedShotCards.value.map(card => card.episode))]
+  .map(episode => [episode.id, referencedCharacterNames(episode)])))
+const linkedCurrentShotIds = computed(() => {
+  const linked = linkedSourceShotIds(state)
+  return new Set(displayedShotCards.value.filter(card => card.region === 'current' && linked.has(card.shot.id)).map(card => card.shot.id))
+})
+const selectableShotCards = computed(() => displayedShotCards.value.filter(card => !linkedCurrentShotIds.value.has(card.shot.id)))
 const neighborScrollPadding = ref(0)
+let shotScrollAnimation = 0
 const previousEpisodeUnit = computed(() => activeEpisode.value ? neighboringEpisode(state, activeEpisode.value, -1) : { episode: null, reason: '' })
 const nextEpisodeUnit = computed(() => activeEpisode.value ? neighboringEpisode(state, activeEpisode.value, 1) : { episode: null, reason: '' })
 const materialDialogVisible = ref(false)
@@ -1882,17 +1899,18 @@ const themeModeOptions = [
   { label: '浅色模式', value: false, icon: Sunny },
   { label: '深色模式', value: true, icon: Moon },
 ]
-const shotViewModeOptions = computed(() => [
-  { label: '全部展开', value: 'expanded', number: null },
-  ...displayedShotCards.value.map(({ shot, order }) => ({
-    label: `第 ${order} 条分镜`,
-    value: shot.id,
-    number: order,
-  })),
-])
-const activeShotViewSelection = computed(() => state.shotViewMode === 'single-expanded'
-  ? state.singleExpandedShotId ?? 'expanded'
-  : 'expanded')
+const characterTypeGroups = [
+  { value: 'main', label: '主角', icon: MainCharacter },
+  { value: 'ordinary', label: '普通', icon: User },
+  { value: 'ensemble', label: '群像', icon: Grape },
+]
+const shotViewModeOptions = computed(() => displayedShotCards.value.map(({ shot, order }) => ({
+  label: `第 ${order} 条分镜${linkedCurrentShotIds.value.has(shot.id) ? '（衔接中）' : ''}`,
+  value: shot.id,
+  number: order,
+  disabled: linkedCurrentShotIds.value.has(shot.id),
+})))
+const activeShotViewSelection = computed(() => state.singleExpandedShotId ?? undefined)
 const speechRateOptions = [
   { label: '慢 · 5', value: 'slow' },
   { label: '中 · 6', value: 'medium' },
@@ -2118,10 +2136,11 @@ const sidebarMaterials = computed(() => {
       if (!item.references.length) item.references.push({ name: asset.name })
       return item
     }).filter(asset => asset.isMain || !asset.availableUnits?.length || asset.availableUnits.some(unit => unit.episodeId === episode.id))
-      .sort((a, b) => Number(b.used) - Number(a.used) || compareCharacterAssets(a, b)),
+      .sort((a, b) => compareCharacterAssets(a, b, referencedCharactersByEpisode.value.get(episode.id))),
     custom: [...custom].map(([name, usage]) => ({ name, ...referenceNames(usage) })),
   }
 })
+const sidebarCharacterGroups = computed(() => groupCharactersByType(sidebarMaterials.value.characters))
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
 const isEpisodeShotUpdateMode = computed(() => Boolean(activeEpisode.value && hasExistingShotConfiguration(activeEpisode.value)))
 const sortedEpisodeGroups = computed(() => state.episodeGroups.filter((group) => !group.archived).sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
@@ -3373,6 +3392,8 @@ watch(
   () => state.activeEpisodeId,
   (episodeId, previousEpisodeId) => {
     if (episodeId !== previousEpisodeId) {
+      cancelAnimationFrame(shotScrollAnimation)
+      neighborScrollPadding.value = 0
       resetSingleExpandedView()
       void nextTick(() => {
         if (shotListRef.value) {
@@ -3410,14 +3431,13 @@ watch([dataDialogVisible, dataDialogView, activeGroupSummaryId, contactEditableI
 })
 
 watch(
-  () => displayedShotCards.value.map(({ shot }) => shot.id).join('\u0000'),
+  () => selectableShotCards.value.map(({ shot }) => shot.id).join('\u0000'),
   () => {
-    neighborScrollPadding.value = 0
-    if (state.shotViewMode === 'single-expanded' && !isDisplayedShot(state.singleExpandedShotId)) {
-      state.singleExpandedShotId = activeEpisode.value?.shots[0]?.id ?? null
-      if (!state.singleExpandedShotId) state.shotViewMode = 'expanded'
+    if (!isSelectableShot(state.singleExpandedShotId)) {
+      state.singleExpandedShotId = selectableShotCards.value.find(card => card.region === 'current')?.shot.id ?? null
     }
   },
+  { immediate: true },
 )
 
 watch(
@@ -3721,10 +3741,6 @@ function segmentedOptionIcon(item: unknown) {
   }
 
   return Sunny
-}
-
-function isExpandedShotViewOption(item: unknown) {
-  return Boolean(item && typeof item === 'object' && 'value' in item && item.value === 'expanded')
 }
 
 function segmentedOptionNumber(item: unknown) {
@@ -4384,75 +4400,103 @@ async function syncEpisodeShots(episode: Episode, segments: BatchShotSegment[], 
   return segments.length
 }
 
-function isDisplayedShot(id: string | null) {
-  return Boolean(id && displayedShotCards.value.some(card => card.shot.id === id))
+function isSelectableShot(id: string | null) {
+  return Boolean(id && selectableShotCards.value.some(card => card.shot.id === id))
 }
 
 function resetSingleExpandedView() {
-  state.singleExpandedShotId = null
+  state.singleExpandedShotId = selectableShotCards.value.find(card => card.region === 'current')?.shot.id ?? null
   state.shotViewMode = 'expanded'
 }
 function shotScrollContainer() {
   const list = shotListRef.value!
   return getComputedStyle(list).overflowY === 'visible' ? document.scrollingElement as HTMLElement : list
 }
-async function setShotScrollTop(list: HTMLElement, top: number) {
-  const missingSpace = Math.max(0, top - (list.scrollHeight - list.clientHeight))
-  if (missingSpace > 0) {
-    neighborScrollPadding.value += missingSpace
-    await nextTick()
+async function scrollShotListTo(shotId: string, mode: 'smooth' | 'instant' | 'preserve' = 'smooth', offset = 0) {
+  cancelAnimationFrame(shotScrollAnimation)
+  await nextTick()
+  const list = shotScrollContainer()
+  const row = document.getElementById(shotRowElementId(shotId))!
+  const lastRow = shotListRef.value!.querySelector<HTMLElement>('.shot-row:last-of-type')
+  const start = list.scrollTop
+  const started = performance.now()
+  const frame = (now: number) => {
+    if (!row.isConnected) return
+    const progress = mode === 'instant' ? 1 : Math.min(1, (now - started) / 550)
+    const top = list === document.scrollingElement ? 0 : list.getBoundingClientRect().top
+    const naturalEnd = lastRow ? list.scrollTop + lastRow.getBoundingClientRect().bottom - top - list.clientHeight : 0
+    const destination = Math.max(0, list.scrollTop + row.getBoundingClientRect().top - top - offset)
+    const nextTop = mode === 'smooth' ? start + (destination - start) * (1 - (1 - progress) ** 3) : destination
+    // Shrink the spacer with the scroll, so removing it cannot abruptly clamp the current position.
+    neighborScrollPadding.value = Math.max(destination - naturalEnd, nextTop > 0 ? nextTop - naturalEnd : 0, 0)
+    list.scrollTop = nextTop
+    if (progress < 1) shotScrollAnimation = requestAnimationFrame(frame)
   }
-  list.scrollTop = top
+  shotScrollAnimation = requestAnimationFrame(frame)
 }
 function scrollToCurrentEpisodeStart() {
-  const list = shotScrollContainer()
   const first = activeEpisode.value?.shots[0]
-  const row = first ? document.getElementById(shotRowElementId(first.id)) : null
-  const top = list === document.scrollingElement ? 0 : list.getBoundingClientRect().top
-  if (row) void setShotScrollTop(list, list.scrollTop + row.getBoundingClientRect().top - top)
+  if (first) void scrollShotListTo(first.id, 'instant')
 }
 async function toggleNeighborUnit(direction: -1 | 1) {
-  const list = shotScrollContainer()
-  const top = list === document.scrollingElement ? 0 : list.getBoundingClientRect().top
-  const anchor = [...shotListRef.value!.querySelectorAll<HTMLElement>('.shot-row')].find(row => row.getBoundingClientRect().bottom > top)
-  const before = anchor?.getBoundingClientRect().top ?? top
   const episode = activeEpisode.value!
+  const removing = direction < 0 ? episode.showPreviousEpisodeUnit : episode.showNextEpisodeUnit
+  let retainedPosition: { shotId: string; offset: number } | undefined
+  if (removing) {
+    cancelAnimationFrame(shotScrollAnimation)
+    const list = shotScrollContainer()
+    const top = list === document.scrollingElement ? 0 : list.getBoundingClientRect().top
+    const remaining = displayedShotCards.value.filter(card => card.region !== (direction < 0 ? 'previous' : 'next'))
+      .map(card => ({ shotId: card.shot.id, row: document.getElementById(shotRowElementId(card.shot.id))! }))
+    const anchor = remaining.find(item => item.row.getBoundingClientRect().bottom > top) ?? remaining.at(-1)
+    if (anchor) retainedPosition = { shotId: anchor.shotId, offset: anchor.row.getBoundingClientRect().bottom > top ? anchor.row.getBoundingClientRect().top - top : 0 }
+    neighborScrollPadding.value += displayedShotCards.value
+      .filter(card => card.region === (direction < 0 ? 'previous' : 'next'))
+      .reduce((height, card) => height + document.getElementById(shotRowElementId(card.shot.id))!.getBoundingClientRect().height, 0)
+  }
   if (direction < 0) episode.showPreviousEpisodeUnit = !episode.showPreviousEpisodeUnit
   else episode.showNextEpisodeUnit = !episode.showNextEpisodeUnit
   await nextTick()
-  if (anchor?.isConnected) await setShotScrollTop(list, list.scrollTop + anchor.getBoundingClientRect().top - before)
-  else scrollToCurrentEpisodeStart()
-}
-function handleShotViewModeChange(value: string | number | boolean | undefined) {
-  if (value === 'expanded') {
-    resetSingleExpandedView()
+  if (removing) {
+    if (retainedPosition) void scrollShotListTo(retainedPosition.shotId, 'preserve', retainedPosition.offset)
+    else neighborScrollPadding.value = 0
     return
   }
-
+  const enabled = direction < 0 ? episode.showPreviousEpisodeUnit : episode.showNextEpisodeUnit
+  const region = enabled && direction < 0 ? 'previous' : 'current'
+  const candidates = selectableShotCards.value.filter(card => card.region === region)
+  const useLast = direction > 0 || enabled
+  const target = useLast ? candidates.at(-1) : candidates[0]
+  state.singleExpandedShotId = target?.shot.id ?? selectableShotCards.value.find(card => card.region === 'current')?.shot.id ?? null
+  if (state.singleExpandedShotId) void scrollShotListTo(state.singleExpandedShotId)
+  else neighborScrollPadding.value = 0
+}
+function toggleShotAccordion() {
+  state.shotViewMode = state.shotViewMode === 'single-expanded' ? 'expanded' : 'single-expanded'
+  if (state.singleExpandedShotId) void scrollShotListTo(state.singleExpandedShotId)
+}
+function handleShotViewModeChange(value: string | number | boolean | undefined) {
   const shot = typeof value === 'string'
     ? displayedShotCards.value.find(card => card.shot.id === value)?.shot
     : null
-  if (shot) selectSingleExpandedShot(shot)
+  if (shot) selectShotView(shot)
 }
 
 function shotRowElementId(id: string) {
   return `shot-row-${id}`
 }
 
-function selectSingleExpandedShot(shot: Shot) {
-  if (!isDisplayedShot(shot.id)) {
+function selectShotView(shot: Shot) {
+  if (!isSelectableShot(shot.id)) {
     return
   }
 
   state.singleExpandedShotId = shot.id
-  state.shotViewMode = 'single-expanded'
-  void nextTick(() => {
-    document.getElementById(shotRowElementId(shot.id))?.scrollIntoView({ block: 'nearest' })
-  })
+  void scrollShotListTo(shot.id)
 }
 
 function isShotCollapsed(shot: Shot) {
-  return state.shotViewMode === 'single-expanded' && shot.id !== state.singleExpandedShotId
+  return linkedCurrentShotIds.value.has(shot.id) || state.shotViewMode === 'single-expanded' && shot.id !== state.singleExpandedShotId
 }
 
 function hasModifiedShots(episode: Episode) {
@@ -4608,10 +4652,16 @@ function syncSceneFromAsset(scene: SceneConfig, episode = activeEpisode.value) {
   scene.space = selected.space
 }
 
+function groupCharactersByType<T extends CharacterAsset>(assets: T[]) {
+  return characterTypeGroups.map(group => ({ ...group, items: assets.filter(asset => (asset.isMain ? 'main' : asset.isEnsemble ? 'ensemble' : 'ordinary') === group.value) }))
+    .filter(group => group.items.length)
+}
+
 function availableCharacterAssets(shot: Shot) {
   const episode = episodeForShot(shot)
   return assetsFor(state, episode).filter(asset => characterAvailableInUnit(asset, episode.id, shot.unitNumber)
-    && !shot.characters.some(character => character.name === asset.name)).sort(compareCharacterAssets)
+    && !shot.characters.some(character => character.name === asset.name))
+    .sort((a, b) => compareCharacterAssets(a, b, referencedCharactersByEpisode.value.get(episode.id)))
 }
 
 async function addCharacterToShot(shot: Shot, name: string) {
@@ -4682,9 +4732,14 @@ async function cloneShotCharacters(target: Shot, sourceId: string) {
   notify.success('已克隆角色配置')
 }
 
-function characterAppearanceDescription(name: string, shot: Shot) {
-  const asset = assetsFor(state, episodeForShot(shot)).find(character => character.name === name)
-  return asset ? characterAppearance(asset, episodeForShot(shot).id, shot).description : ''
+function characterAppearanceInfo(name: string, shot: Shot) {
+  const episode = episodeForShot(shot)
+  const asset = assetsFor(state, episode).find(character => character.name === name)
+  const description = asset ? characterAppearance(asset, episode.id, shot).description : ''
+  const icon = asset?.isMain ? description ? MainCharacterFilled : MainCharacter
+    : asset?.isEnsemble ? description ? GrapeFilled : Grape
+    : description ? UserFilled : User
+  return { description, icon }
 }
 
 function characterVoiceDescription(name: string, episode = activeEpisode.value!) {
@@ -4694,19 +4749,6 @@ function characterVoiceDescription(name: string, episode = activeEpisode.value!)
 
 function isEnsembleCharacter(name: string, episode = activeEpisode.value!) {
   return assetsFor(state, episode).find((character) => character.name === name)?.isEnsemble ?? false
-}
-
-function toggleCharacterVoice(character: CharacterConfig, shot: Shot) {
-  const episode = episodeForShot(shot)
-  const asset = assetsFor(state, episode).find((asset) => asset.name === character.name)
-  if (asset?.isEnsemble) {
-    asset.isEnsemble = false
-    state.episodes.filter(item => episode.groupId ? item.groupId === episode.groupId : item.id === episode.id).flatMap(item => item.shots).forEach((shot) => shot.characters.forEach((item) => {
-      if (item.name === character.name) item.includeVoice = false
-    }))
-  } else {
-    character.includeVoice = !character.includeVoice
-  }
 }
 
 function isVoiceOverflow(shot: Shot) {
@@ -5645,7 +5687,7 @@ function isEditableShortcutTarget(target: EventTarget | null) {
   }
 
   const tagName = target.tagName.toLowerCase()
-  return tagName === 'input' || tagName === 'textarea' || tagName === 'select'
+  return (tagName === 'input' && (target as HTMLInputElement).type !== 'radio') || tagName === 'textarea' || tagName === 'select'
 }
 
 function isShortcutBlocked() {
@@ -5681,7 +5723,7 @@ function handleShotNumberShortcut(event: KeyboardEvent) {
     return
   }
 
-  selectSingleExpandedShot(shot)
+  selectShotView(shot)
 }
 
 function shotCopyLabel(shot: Shot) {
@@ -5834,6 +5876,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  cancelAnimationFrame(shotScrollAnimation)
   groupSummaryTableObserver?.disconnect()
   window.clearTimeout(historyDateTimer)
   window.removeEventListener('focus', refreshHistoryDate)

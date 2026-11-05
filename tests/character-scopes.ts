@@ -1,6 +1,6 @@
 import { normalizeGlobalConfig } from '../src/config'
 import { createCharacterAsset, createCharacterConfig, createEpisode, createEpisodeGroup, createInitialState, createShot } from '../src/defaults'
-import { characterAvailableInUnit, compareCharacterAssets, episodeCharacterUnits, extendCharacterScopes, initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes } from '../src/characterScopes'
+import { characterAvailableInUnit, compareCharacterAssets, episodeCharacterUnits, extendCharacterScopes, initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes, referencedCharacterNames } from '../src/characterScopes'
 import { initializeSharedCharacters } from '../src/sharedCharacters'
 import { normalizeAppState } from '../src/stateNormalization'
 import { assembleDataFiles, buildDataFiles, parseDataFile } from '../src/dataFiles'
@@ -64,7 +64,28 @@ export async function runCharacterScopeTests() {
   test('type sorting precedes pinyin and Latin name sorting', () => {
     const roles = ['普通B', '普通A', '张主角', '杨主角', '乙群像', '甲群像'].map(name => createCharacterAsset(name))
     roles[2].isMain = roles[3].isMain = true; roles[4].isEnsemble = roles[5].isEnsemble = true
-    assert(roles.sort(compareCharacterAssets).map(role => role.name).join(',') === '杨主角,张主角,甲群像,乙群像,普通A,普通B', 'sort order wrong')
+    assert(roles.sort(compareCharacterAssets).map(role => role.name).join(',') === '杨主角,张主角,普通A,普通B,甲群像,乙群像', 'sort order wrong')
+  })
+  test('type precedes reference status and reference status precedes names', () => {
+    const roles = ['普通A', '普通Z', '主角A', '主角Z', '群像A', '群像Z'].map(name => createCharacterAsset(name))
+    roles[2].isMain = roles[3].isMain = true
+    roles[4].isEnsemble = roles[5].isEnsemble = true
+    const used = new Set(['普通Z', '主角Z', '群像Z'])
+    const sorted = [...roles].sort((a, b) => compareCharacterAssets(a, b, used))
+    assert(sorted.map(role => role.name).join(',') === '主角Z,主角A,普通Z,普通A,群像Z,群像A', 'sort priorities wrong')
+    assert(roles[0].name === '普通A', 'source library reordered')
+  })
+  test('equal usage preserves alphabetical and natural number ordering', () => {
+    const roles = ['Role10', 'Role2', 'Alpha'].map(name => createCharacterAsset(name))
+    assert(roles.sort(compareCharacterAssets).map(role => role.name).join(',') === 'Alpha,Role2,Role10', 'name ordering wrong')
+  })
+  test('reference status uses owning episode configurations and normalized brackets only', ({ first, second }) => {
+    first.shots[0].text = '[ 配角.png ] [音色.] [普通.mp3] 仅正文提及'
+    first.scriptText = '[原始剧本角色]'
+    second.shots[0].text = '[其他集角色]'
+    const used = referencedCharacterNames(first)
+    assert(used.has('林晚') && used.has('配角') && used.has('音色') && used.has('普通'), 'configured or normalized reference missing')
+    assert(!used.has('原始剧本角色') && !used.has('其他集角色') && !used.has('仅正文提及'), 'unrelated content counted as reference')
   })
   test('new use extends scope without restoring deliberately excluded old use', ({ asset, first }) => {
     const candidate = JSON.parse(JSON.stringify(first))

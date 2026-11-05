@@ -28,3 +28,9 @@ export function visibleShotCards(state: AppState, current: Episode): ShotCard[] 
   const next = current.showNextEpisodeUnit ? neighboringEpisode(state, current, 1).episode : null
   return [...(previous ? cards(previous, 'previous') : []), ...cards(current, 'current'), ...(next ? cards(next, 'next') : [])]
 }
+
+export function linkedSourceShotIds(state: AppState): Set<string> {
+  return new Set(state.episodes.filter(episode => episode.showPreviousEpisodeUnit || episode.showNextEpisodeUnit)
+    .flatMap(episode => visibleShotCards(state, episode)
+      .filter(card => card.region !== 'current').map(card => card.shot.id)))
+}

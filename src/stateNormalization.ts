@@ -1,7 +1,7 @@
 import { activePromptProfile, cloneGlobalConfig, migrateLegacyGlobalConfig, normalizeGlobalConfig, normalizeReferenceMode } from './config'
 import { APP_VERSION, createEpisode, createEpisodeProductionData, createPromptReview, createSceneAsset, createSceneConfig, normalizeCharacterAssets, normalizeShotSceneSelection } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
-import { visibleShotCards } from './neighborUnits'
+import { linkedSourceShotIds, visibleShotCards } from './neighborUnits'
 import { initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes } from './characterScopes'
 import { normalizeMaterialConfirmations } from './defaults'
 import { compactShotUnitNumbers, normalizeReferenceShotNumber, normalizeShotUnitNumber } from './shotNumber'
@@ -217,14 +217,13 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     const activeEpisode = parsed.episodes.find((episode) => episode.id === parsed.activeEpisodeId) ?? parsed.episodes[0]
     parsed.activeEpisodeId = activeEpisode?.id ?? ''
     parsed.lastSavedAt = typeof parsed.lastSavedAt === 'string' ? parsed.lastSavedAt : null
-    const hasSelectedShot = Boolean(
-      parsed.singleExpandedShotId
-      && activeEpisode && visibleShotCards(parsed, activeEpisode).some(card => card.shot.id === parsed.singleExpandedShotId),
-    )
+    const linked = linkedSourceShotIds(parsed)
+    const selectableCards = activeEpisode ? visibleShotCards(parsed, activeEpisode)
+      .filter(card => card.region !== 'current' || !linked.has(card.shot.id)) : []
+    const hasSelectedShot = selectableCards.some(card => card.shot.id === parsed.singleExpandedShotId)
 
     if (!hasSelectedShot) {
-      parsed.singleExpandedShotId = parsed.shotViewMode === 'single-expanded' ? activeEpisode?.shots[0]?.id ?? null : null
-      if (!parsed.singleExpandedShotId) parsed.shotViewMode = 'expanded'
+      parsed.singleExpandedShotId = selectableCards.find(card => card.region === 'current')?.shot.id ?? null
     }
 
     return parsed

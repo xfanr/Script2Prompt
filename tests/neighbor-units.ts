@@ -1,6 +1,6 @@
 import { normalizeGlobalConfig } from '../src/config'
 import { createEpisode, createEpisodeGroup, createInitialState, createShot } from '../src/defaults'
-import { neighboringEpisode, visibleShotCards } from '../src/neighborUnits'
+import { linkedSourceShotIds, neighboringEpisode, visibleShotCards } from '../src/neighborUnits'
 import { normalizeAppState } from '../src/stateNormalization'
 import { assembleDataFiles, buildDataFiles, parseDataFile } from '../src/dataFiles'
 
@@ -81,6 +81,61 @@ export async function runNeighborUnitTests() {
     const legacy = JSON.parse(JSON.stringify(state))
     legacy.episodes.forEach((episode: Record<string, unknown>) => { delete episode.showPreviousEpisodeUnit; delete episode.showNextEpisodeUnit })
     assert(normalizeAppState(legacy, config).episodes.every(episode => !episode.showPreviousEpisodeUnit && !episode.showNextEpisodeUnit), 'legacy flags not false')
+  })
+  test('saved links mark only actual boundary reference cards', () => {
+    const linked = linkedSourceShotIds(state)
+    assert(linked.has(previous.shots[1].id) && linked.has(previous.shots[2].id), 'previous boundary not linked')
+    assert(linked.has(next.shots[0].id) && linked.has(next.shots[1].id), 'next boundary not linked')
+    assert(!linked.has(previous.shots[0].id) && !linked.has(next.shots[2].id) && !linked.has(current.shots[0].id), 'unreferenced cards marked')
+    state.activeEpisodeId = previous.id
+    assert(linkedSourceShotIds(state).has(previous.shots[2].id), 'switching to source cleared link')
+    state.activeEpisodeId = current.id
+  })
+  test('blank source and changed boundary update linked status', () => {
+    const texts = previous.shots.map(shot => shot.text)
+    previous.shots.forEach(shot => { shot.text = '' })
+    assert(!linkedSourceShotIds(state).has(previous.shots[2].id), 'blank source remains linked')
+    previous.shots.forEach((shot, index) => { shot.text = texts[index] })
+    previous.shots[2].unitNumber = 3
+    const linked = linkedSourceShotIds(state)
+    assert(!linked.has(previous.shots[1].id) && linked.has(previous.shots[2].id), 'old boundary remains linked')
+    previous.shots[2].unitNumber = 2
+  })
+  test('linked source selection falls back to first available local card', () => {
+    const snapshot = JSON.parse(JSON.stringify(state))
+    snapshot.activeEpisodeId = previous.id
+    snapshot.shotViewMode = 'single-expanded'
+    snapshot.singleExpandedShotId = previous.shots[2].id
+    const restored = normalizeAppState(snapshot, config)
+    assert(restored.singleExpandedShotId === previous.shots[0].id, 'linked card remains selected')
+    assert(restored.shotViewMode === 'single-expanded', 'accordion preference lost')
+  })
+  test('all local cards may be linked without disabling accordion preference', () => {
+    const snapshot = JSON.parse(JSON.stringify(state))
+    snapshot.activeEpisodeId = next.id
+    snapshot.episodes.find((episode: typeof next) => episode.id === next.id).shots.forEach((shot: typeof next.shots[number]) => { shot.unitNumber = 1 })
+    snapshot.shotViewMode = 'single-expanded'
+    snapshot.singleExpandedShotId = next.shots[0].id
+    const restored = normalizeAppState(snapshot, config)
+    assert(restored.singleExpandedShotId === null, 'all-linked episode should have no selection')
+    assert(restored.shotViewMode === 'single-expanded', 'empty selection reset accordion')
+  })
+  test('multiple incoming links require all users to release the source', () => {
+    previous.showNextEpisodeUnit = true
+    next.showPreviousEpisodeUnit = true
+    assert(linkedSourceShotIds(state).has(current.shots[0].id), 'incoming references missing')
+    previous.showNextEpisodeUnit = false
+    assert(linkedSourceShotIds(state).has(current.shots[0].id), 'one unlink released shared source')
+    next.showPreviousEpisodeUnit = false
+    assert(!linkedSourceShotIds(state).has(current.shots[0].id), 'all unlinked source remains marked')
+  })
+  test('expanded mode retains numeric selection and reference cards remain selectable', () => {
+    const snapshot = JSON.parse(JSON.stringify(state))
+    snapshot.shotViewMode = 'expanded'
+    snapshot.singleExpandedShotId = previous.shots[2].id
+    const restored = normalizeAppState(snapshot, config)
+    assert(restored.singleExpandedShotId === previous.shots[2].id, 'reference card was treated like its collapsed source')
+    assert(restored.shotViewMode === 'expanded', 'numeric selection enabled accordion')
   })
   return { passed: results.filter(result => result.passed).length, total: results.length, results }
 }

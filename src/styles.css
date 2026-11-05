@@ -514,6 +514,10 @@ html.dark .episode-panel {
   font-size: 16px;
 }
 
+.root-group-name-toggle {
+  font-size: 16px;
+}
+
 .episode-title-display {
   display: flex;
   min-width: 0;
@@ -714,7 +718,7 @@ html.dark .episode-panel {
 .sidebar-footer-actions {
   display: grid;
   flex: 0 0 auto;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
   margin: 0 -14px -14px;
   padding: 5px 4px;
@@ -1099,6 +1103,13 @@ html.dark .episode-panel {
   min-width: 0;
   height: 32px;
 }
+.character-add-group-heading {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+}
 .character-add-name {
   min-width: 0;
   overflow: hidden;
@@ -1201,7 +1212,7 @@ html.dark .episode-panel {
   border-radius: 6px;
 }
 
-.material-management-item:hover {
+.material-management-item:not(.material-character-group-title):hover {
   background: var(--el-fill-color-dark);
 }
 
@@ -1217,6 +1228,10 @@ html.dark .episode-panel {
 }
 
 .material-management-name.is-used {
+  color: var(--el-text-color-regular);
+}
+
+.material-character-group-title {
   color: var(--el-text-color-regular);
 }
 
@@ -1542,6 +1557,7 @@ html.dark .episode-panel {
   box-shadow: none;
   overflow-y: auto;
   scrollbar-width: none;
+  overflow-anchor: none;
 }
 
 .shot-list::-webkit-scrollbar,
@@ -3811,6 +3827,10 @@ html.dark .episode-panel {
   .shot-row {
     height: auto;
     min-height: 420px;
+  }
+
+  .shot-row.is-collapsed {
+    min-height: 64px;
   }
 
   .shot-grid {

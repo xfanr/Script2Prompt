@@ -21,9 +21,22 @@ export function characterAvailableInUnit(asset: CharacterAsset, episodeId: strin
   return asset.isMain || Boolean(asset.availableUnits?.some(unit => unit.episodeId === episodeId && unit.unitNumber === unitNumber))
 }
 
-export function compareCharacterAssets(a: CharacterAsset, b: CharacterAsset) {
-  const rank = (asset: CharacterAsset) => asset.isMain ? 0 : asset.isEnsemble ? 1 : 2
-  return rank(a) - rank(b) || a.name.localeCompare(b.name, 'zh-CN', { sensitivity: 'base', numeric: true })
+export function referencedCharacterNames(episode: Episode): Set<string> {
+  const names = new Set<string>()
+  for (const shot of episode.shots) {
+    shot.characters.forEach(character => names.add(character.name.trim()))
+    for (const match of shot.text.matchAll(/\[([^\[\]\r\n]+)\]/g)) {
+      names.add(match[1].trim().replace(/\.[a-z\d]+$/i, '').replace(/\.+$/u, '').trim())
+    }
+  }
+  return names
+}
+
+export function compareCharacterAssets(a: CharacterAsset, b: CharacterAsset, referenced?: ReadonlySet<string>) {
+  const rank = (asset: CharacterAsset) => asset.isMain ? 0 : asset.isEnsemble ? 2 : 1
+  return rank(a) - rank(b)
+    || Number(referenced?.has(b.name.trim()) ?? false) - Number(referenced?.has(a.name.trim()) ?? false)
+    || a.name.localeCompare(b.name, 'zh-CN', { sensitivity: 'base', numeric: true })
 }
 
 export function extendCharacterScopes(assets: CharacterAsset[], candidate: Episode, previous?: Episode) {
