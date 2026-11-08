@@ -2,10 +2,10 @@ import { defineComponent, h, type Component } from 'vue'
 import {
   AddFour, Attention, BeachUmbrella, Box, CardTwo, CarouselVideo, CategoryManagement, CheckOne, CheckSmall, CircleRightUp,
   CloseSmall, Copy, Crown, DataArrival, Delete as ParkDelete, Down, DownloadTwo,
-  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, GoStart as ParkGoStart, GoEnd as ParkGoEnd, ImageFiles as ParkImageFiles, LinkInterrupt as ParkLinkInterrupt, Local, MessageEmoji, Moon as ParkMoon, More, Order,
+  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, GoStart as ParkGoStart, GoEnd as ParkGoEnd, ImageFiles as ParkImageFiles, LinkInterrupt as ParkLinkInterrupt, Local, Message, Moon as ParkMoon, More, Order,
   Peoples, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, RightUser, Search as ParkSearch, SettingTwo,
   Slide, SlideTwo, SortTwo, SplitTurnDownRight as ParkSplitTurnDownRight, Star as ParkStar, SubtractSelection, SubtractSelectionOne, SunOne, Switch as ParkSwitch, Sync,
-  UploadTwo, User as ParkUser, VipOne, Voice, VoiceOff, Wallet,
+  UploadTwo, User as ParkUser, VipOne, Voice, VoiceOff, Wallet, WritingFluently,
 } from '@icon-park/vue-next'
 import '@icon-park/vue-next/styles/index.css'
 
@@ -22,6 +22,7 @@ export const ArrowDown = icon(Down)
 export const ArrowRight = icon(Right)
 export const Calendar = icon(Order)
 export const CategoryManagementIcon = icon(CategoryManagement)
+export const SceneStatus = icon(WritingFluently)
 export const Check = icon(CheckSmall)
 export const CircleCheckFilled = icon(CheckOne, 'filled')
 export const Close = icon(CloseSmall)
@@ -35,7 +36,7 @@ export const DataLine = icon(Slide)
 export const Delete = icon(ParkDelete)
 export const Document = icon(SlideTwo)
 export const DocumentCopy = icon(RightSmallUp)
-export const DialogueTabIcon = icon(MessageEmoji)
+export const DialogueTabIcon = icon(Message)
 export const Download = icon(DownloadTwo)
 export const EditPen = icon(Edit)
 export const Expand = icon(ExpandDown)

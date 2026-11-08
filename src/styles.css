@@ -2149,15 +2149,27 @@ html.dark .episode-panel {
 .scene-line {
   position: relative;
   display: grid;
-  /* Preserve the existing scene and reference widths; use the remaining space for status. */
-  grid-template-columns: minmax(0, calc((100% - max(72px, 12%) - 8px) * 0.75)) minmax(72px, 12%) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(calc(100px + var(--el-component-size)), 12%) var(--el-component-size);
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
 }
 
-.scene-line.without-position-reference .scene-status-input {
-  grid-column: 2 / -1;
+.scene-status-button.el-button {
+  width: var(--el-component-size);
+  height: var(--el-component-size);
+  margin: 0;
+  padding: 0;
+}
+
+.shot-reference-dropdown .el-select-group__title {
+  display: none;
+}
+
+.shot-reference-dropdown .el-select-group__wrap + .el-select-group__wrap {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--el-border-color-light);
 }
 
 .scene-selection-controls {
@@ -3369,6 +3381,11 @@ html.dark .episode-panel {
 
 .episode-script-dialog .el-dialog__header {
   display: none;
+}
+
+.dialogue-dialog .el-dialog__header {
+  display: block;
+  flex: 0 0 auto;
 }
 
 .episode-script-dialog .el-dialog__footer {

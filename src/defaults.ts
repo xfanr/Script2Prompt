@@ -25,6 +25,10 @@ export function createSceneAsset(name = '', time: SceneTime = '白天', space: S
   }
 }
 
+export function sceneAssetKey(scene: Pick<SceneAsset, 'name' | 'time'>) {
+  return JSON.stringify([scene.time, scene.name.trim()])
+}
+
 export function createCharacterAsset(name = '', appearanceDescription = '', voiceDescription = '', isEnsemble = /(?:们|群像|若干)$/.test(name.trim())): CharacterAsset {
   return {
     id: createId('asset'),
@@ -194,6 +198,7 @@ export function createShot(unitNumber = 1): Shot {
     thirtySecondMode: true,
     unitNumber: normalizedUnitNumber,
     referenceShotNumber: null,
+    referenceEpisodeId: null,
     connectPrevious: false,
     connectPreviousCount: 0,
     connectNext: false,

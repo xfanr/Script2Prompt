@@ -207,6 +207,7 @@ export interface Shot {
   thirtySecondMode: boolean
   unitNumber: number
   referenceShotNumber: number | null
+  referenceEpisodeId: string | null
   connectPrevious: boolean
   connectPreviousCount: number
   connectNext: boolean

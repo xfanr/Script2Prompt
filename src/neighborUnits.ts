@@ -16,17 +16,24 @@ export function neighboringEpisode(state: AppState, current: Episode, direction:
 }
 
 export function visibleShotCards(state: AppState, current: Episode): ShotCard[] {
-  const cards = (episode: Episode, region: ShotCard['region']): ShotCard[] => {
-    const all = episode.shots.map((shot, index) => ({ episode, shot, index, region, order: String(index + 1) }))
-    if (region === 'current') return all
-    if (!episode.shots.some(shot => shot.text.trim())) return []
-    const unit = episode.shots[region === 'previous' ? episode.shots.length - 1 : 0].unitNumber
-    const selected = all.filter(card => card.shot.unitNumber === unit)
-    return selected.map((card, index) => ({ ...card, order: region === 'previous' ? `P${selected.length - index}` : `N${index + 1}` }))
+  const linkedCards = (direction: -1 | 1): ShotCard[] => {
+    const cards: ShotCard[] = []
+    const region = direction < 0 ? 'previous' : 'next'
+    let episode = current
+    while (direction < 0 ? episode.showPreviousEpisodeUnit : episode.showNextEpisodeUnit) {
+      const source = neighboringEpisode(state, episode, direction).episode
+      if (!source || !source.shots.some(shot => shot.text.trim())) break
+      const unit = source.shots[direction < 0 ? source.shots.length - 1 : 0].unitNumber
+      const selected: ShotCard[] = source.shots.flatMap((shot, index) => shot.unitNumber === unit
+        ? [{ episode: source, shot, index, region, order: '' }] : [])
+      if (direction < 0) cards.unshift(...selected)
+      else cards.push(...selected)
+      if (selected.length !== source.shots.length) break
+      episode = source
+    }
+    return cards.map((card, index) => ({ ...card, order: direction < 0 ? `P${cards.length - index}` : `N${index + 1}` }))
   }
-  const previous = current.showPreviousEpisodeUnit ? neighboringEpisode(state, current, -1).episode : null
-  const next = current.showNextEpisodeUnit ? neighboringEpisode(state, current, 1).episode : null
-  return [...(previous ? cards(previous, 'previous') : []), ...cards(current, 'current'), ...(next ? cards(next, 'next') : [])]
+  return [...linkedCards(-1), ...current.shots.map((shot, index) => ({ episode: current, shot, index, region: 'current' as const, order: String(index + 1) })), ...linkedCards(1)]
 }
 
 export function linkedSourceShotIds(state: AppState): Set<string> {

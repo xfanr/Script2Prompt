@@ -38,7 +38,8 @@ export async function runEpisodeScriptTests() {
     const before = JSON.stringify(episode.shots)
     const migrated = normalizeAppState(state, config).episodes[0]
     assert(migrated.scriptText === episode.scriptText, 'original overwritten')
-    assert(migrated.splitScriptText === '--- #备注#\n第一镜\n===\n+++\n第二镜', 'shot fields lost in serialization')
+    assert(migrated.splitScriptText === '--- #备注#\n第一镜\n===\n---\n第二镜', 'shot fields lost or mixed delimiters serialized')
+    assert(!migrated.shots[0].thirtySecondMode && migrated.shots[1].thirtySecondMode, 'loading changed confirmed shot modes')
     assert(JSON.stringify(episode.shots) === before, 'migration mutated its input')
   })
   await test('Legacy episodes with only blank shots do not split their original during loading', () => {
@@ -59,6 +60,17 @@ export async function runEpisodeScriptTests() {
     const migrated = normalizeAppState(state, config).episodes[0]
     assert(migrated.splitScriptText === episode.splitScriptText, 'draft reformatted or overwritten by actual shots')
     assert(migrated.shots[0].text === episode.shots[0].text && migrated.scriptText === episode.scriptText, 'normalization applied pending draft')
+  })
+  await test('Legacy separator lines become ordinary separators without changing original text or literal plus signs', () => {
+    const state = createInitialState(config), episode = state.episodes[0]
+    const draft = '  +++ #备注#\r\n第一镜\r\n+++\r\n第二镜\n文字A+++B\n+++普通正文'
+    episode.scriptText = draft
+    episode.splitScriptText = draft
+    episode.shots[0].text = '已确认正文'
+    episode.shots[0].thirtySecondMode = false
+    const loaded = normalizeAppState(state, config).episodes[0]
+    assert(loaded.splitScriptText === '  --- #备注#\r\n第一镜\r\n---\r\n第二镜\n文字A+++B\n+++普通正文', 'legacy separator or literal plus signs changed incorrectly')
+    assert(loaded.scriptText === draft && loaded.shots[0].text === '已确认正文' && !loaded.shots[0].thirtySecondMode, 'draft migration rewrote original text or confirmed shots')
   })
   await test('Intentionally empty split scripts remain empty even with confirmed shots', () => {
     const state = createInitialState(config)
@@ -99,7 +111,7 @@ export async function runEpisodeScriptTests() {
       state.episodes[0].extractedDialogueText = '\n第一句\n\n第二句\n'
       await repository.save(state)
       let loaded = await repository.load(config)
-      assert(loaded.episodes[0].scriptText === '原始剧本' && loaded.episodes[0].splitScriptText === '+++\n拆分草稿' && loaded.episodes[0].shots[0].text === '已确认正文', 'reload applied or lost draft')
+      assert(loaded.episodes[0].scriptText === '原始剧本' && loaded.episodes[0].splitScriptText === '---\n拆分草稿' && loaded.episodes[0].shots[0].text === '已确认正文', 'reload applied or lost draft')
       assert(loaded.episodes[0].extractedDialogueText === '\n第一句\n\n第二句\n', 'IndexedDB lost dialogue line breaks')
       loaded.episodes[0].splitScriptText = ''
       await repository.save(loaded)

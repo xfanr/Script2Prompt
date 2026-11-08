@@ -8,6 +8,7 @@ import type {
   DetectedCharacter,
   GlobalConfig,
   ReferenceMode,
+  SceneAsset,
   Shot,
 } from './types'
 
@@ -199,6 +200,10 @@ function composeSceneRoleSection(shot: Shot, characterAssets: CharacterAsset[], 
   ])
 }
 
+export function sceneReferenceName(scene: Pick<SceneAsset, 'name' | 'time'>) {
+  return `${scene.time}·${scene.name.trim()}`
+}
+
 export function composeSceneSettings(shot: Shot, referenceName?: string, referenceMode: ReferenceMode = 'detailed') {
   const lines: string[] = []
 
@@ -217,7 +222,7 @@ export function composeSceneSettings(shot: Shot, referenceName?: string, referen
         parts.push(scene.statusText.trim())
       }
 
-      const sceneReference = shot.usePositionReference ? '' : referenceMode === 'basic' ? '@' : ` [${scene.name.trim()}] `
+      const sceneReference = shot.usePositionReference ? '' : referenceMode === 'basic' ? '@' : ` [${sceneReferenceName(scene)}] `
       lines.push(`分镜场景设定在${parts.join('，')}${sceneReference}。`)
     })
 

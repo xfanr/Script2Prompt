@@ -137,5 +137,80 @@ export async function runNeighborUnitTests() {
     assert(restored.singleExpandedShotId === previous.shots[2].id, 'reference card was treated like its collapsed source')
     assert(restored.shotViewMode === 'expanded', 'numeric selection enabled accordion')
   })
+  function chainFixture() {
+    const snapshot = createInitialState(config)
+    snapshot.episodeGroups = [createEpisodeGroup(config.prompt.activeProfileId)]
+    snapshot.episodes = Array.from({ length: 7 }, (_, index) => {
+      const episode = createEpisode(index + 1)
+      episode.groupId = snapshot.episodeGroups[0].id
+      episode.shots = [createShot(), createShot()]
+      episode.shots.forEach(shot => shot.text = `第${index + 1}集正文`)
+      episode.showPreviousEpisodeUnit = episode.showNextEpisodeUnit = true
+      return episode
+    })
+    snapshot.activeEpisodeId = snapshot.episodes[3].id
+    return snapshot
+  }
+  test('fully linked episodes extend both directions with continuous P/N numbering', () => {
+    const snapshot = chainFixture(), current = snapshot.episodes[3]
+    snapshot.episodes[0].shots.unshift(createShot())
+    snapshot.episodes[0].shots.slice(1).forEach(shot => shot.unitNumber = 2)
+    snapshot.episodes[6].shots.push(createShot(2))
+    const cards = visibleShotCards(snapshot, current)
+    assert(cards.map(card => card.order).join(',') === 'P6,P5,P4,P3,P2,P1,1,2,N1,N2,N3,N4,N5,N6', 'chain labels restarted per episode')
+    assert(cards.map(card => Number(card.episode.title.match(/\d+/)![0])).join(',') === '1,1,2,2,3,3,4,4,5,5,6,6,7,7', 'source episodes not in order')
+    assert(cards[0].index === 1 && cards[0].shot === snapshot.episodes[0].shots[1], 'previous boundary identity changed')
+    assert(cards.at(-1)!.index === 1 && cards.at(-1)!.shot === snapshot.episodes[6].shots[1], 'next boundary identity changed')
+    cards[0].shot.remark = '跨集编辑'
+    assert(snapshot.episodes[0].shots[1].remark === '跨集编辑' && current.shots.length === 2, 'chain copied into the current episode')
+  })
+  test('partial source coverage and disabled onward switches stop extension', () => {
+    const snapshot = chainFixture(), current = snapshot.episodes[3], previous = snapshot.episodes[2], next = snapshot.episodes[4]
+    previous.shots[0].unitNumber = next.shots[1].unitNumber = 2
+    let cards = visibleShotCards(snapshot, current)
+    assert(cards.length === 4 && !cards.some(card => card.episode === snapshot.episodes[1] || card.episode === snapshot.episodes[5]), 'partial source was skipped over')
+    previous.shots[0].unitNumber = next.shots[1].unitNumber = 1
+    previous.showPreviousEpisodeUnit = next.showNextEpisodeUnit = false
+    cards = visibleShotCards(snapshot, current)
+    assert(cards.length === 6, 'disabled onward switches still extended')
+    previous.showPreviousEpisodeUnit = next.showNextEpisodeUnit = true
+    assert(visibleShotCards(snapshot, current).length === 14, 'updated source flags did not extend')
+    current.showPreviousEpisodeUnit = current.showNextEpisodeUnit = false
+    assert(visibleShotCards(snapshot, current).length === current.shots.length, 'current flags failed to hide whole chains')
+  })
+  test('chained references still stop at gaps, duplicate sources, foreign groups and blank sources', () => {
+    const snapshot = chainFixture(), current = snapshot.episodes[3], next = snapshot.episodes[4], further = snapshot.episodes[5]
+    further.title = '第 09 集'
+    assert(!visibleShotCards(snapshot, current).some(card => card.episode === snapshot.episodes[6]), 'chain jumped a gap')
+    further.title = '第 06 集'
+    const duplicate = createEpisode(6); duplicate.groupId = current.groupId; snapshot.episodes.push(duplicate)
+    assert(!visibleShotCards(snapshot, current).some(card => card.episode === further), 'ambiguous chain source displayed')
+    snapshot.episodes.pop()
+    further.groupId = null
+    assert(!visibleShotCards(snapshot, current).some(card => card.episode === further), 'chain crossed groups')
+    further.groupId = current.groupId
+    next.shots.forEach(shot => shot.text = '')
+    assert(!visibleShotCards(snapshot, current).some(card => card.region === 'next'), 'blank episode allowed onward references')
+    assert(next.showNextEpisodeUnit && current.showNextEpisodeUnit, 'blank source cleared preferences')
+    next.shots[0].text = '恢复'
+    assert(visibleShotCards(snapshot, current).some(card => card.episode === further), 'restoring source text did not restore onward chain')
+  })
+  test('far reference selections and ownership survive JSON, WebDAV and reload validation', () => {
+    const snapshot = chainFixture(), current = snapshot.episodes[3], far = snapshot.episodes[6].shots[1]
+    snapshot.shotViewMode = 'single-expanded'
+    snapshot.singleExpandedShotId = far.id
+    const restored = normalizeAppState(snapshot, config)
+    const files = new Map([...buildDataFiles(restored)].map(([path, value]) => [path, parseDataFile(JSON.stringify(value), path)]))
+    const downloaded = assembleDataFiles(files, restored)
+    assert(downloaded.singleExpandedShotId === far.id, 'far reference selection rejected on load')
+    const cards = visibleShotCards(downloaded, downloaded.episodes.find(episode => episode.id === current.id)!)
+    const card = cards.find(card => card.shot.id === far.id)!
+    assert(card.episode.id === snapshot.episodes[6].id && card.index === 1 && card.order === 'N6', 'far source context changed')
+    const linked = linkedSourceShotIds(downloaded)
+    assert(linked.has(far.id) && linked.has(snapshot.episodes[0].shots[0].id), 'far sources not marked linked')
+    downloaded.episodes[4].showNextEpisodeUnit = false
+    const shortened = normalizeAppState(downloaded, config)
+    assert(shortened.singleExpandedShotId === null && shortened.shotViewMode === 'single-expanded', 'hidden far card stayed selected or accordion reset')
+  })
   return { passed: results.filter(result => result.passed).length, total: results.length, results }
 }

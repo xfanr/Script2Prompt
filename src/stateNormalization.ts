@@ -1,10 +1,10 @@
 import { activePromptProfile, cloneGlobalConfig, migrateLegacyGlobalConfig, normalizeGlobalConfig, normalizeReferenceMode } from './config'
-import { APP_VERSION, createEpisode, createEpisodeProductionData, createPromptReview, createSceneAsset, createSceneConfig, normalizeCharacterAssets, normalizeShotSceneSelection } from './defaults'
+import { APP_VERSION, createEpisode, createEpisodeProductionData, createPromptReview, createSceneAsset, createSceneConfig, normalizeCharacterAssets, normalizeShotSceneSelection, sceneAssetKey } from './defaults'
 import { normalizeStoredShotConnection } from './shotContext'
 import { linkedSourceShotIds, visibleShotCards } from './neighborUnits'
 import { initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes } from './characterScopes'
 import { normalizeMaterialConfirmations } from './defaults'
-import { compactShotUnitNumbers, normalizeReferenceShotNumber, normalizeShotUnitNumber } from './shotNumber'
+import { compactShotUnitNumbers, reconcileShotReferences, normalizeShotUnitNumber } from './shotNumber'
 import { reconcileTimingSegments } from './timing'
 import { normalizePointInvoices } from './pointLedger'
 import { normalizeGroupResults } from './groupResults'
@@ -45,11 +45,11 @@ function normalizeSceneAssets(scenes: unknown): SceneAsset[] {
   }
 
   const normalized = scenes.map(normalizeSceneAsset).filter((scene): scene is SceneAsset => Boolean(scene))
-  return normalized.filter((scene, index, list) => list.findIndex((item) => item.name === scene.name) === index)
+  return normalized.filter((scene, index, list) => list.findIndex((item) => sceneAssetKey(item) === sceneAssetKey(scene)) === index)
 }
 
 function normalizeShotScene(scene: SceneConfig, assets: SceneAsset[]): SceneConfig {
-  const asset = assets.find((item) => item.name === scene.name)
+  const asset = assets.find((item) => item.name === scene.name && (scene.time == null || item.time === scene.time))
 
   return {
     ...scene,
@@ -169,7 +169,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
         const hadStoredThirtySecondMode = typeof shot.thirtySecondMode === 'boolean'
         shot.thirtySecondMode = hadStoredThirtySecondMode ? shot.thirtySecondMode : true
         shot.unitNumber = normalizeShotUnitNumber(shot.unitNumber)
-        shot.referenceShotNumber = normalizeReferenceShotNumber(shot.referenceShotNumber, shots.length)
+        shot.referenceEpisodeId = typeof shot.referenceEpisodeId === 'string' ? shot.referenceEpisodeId : null
         Object.assign(shot, normalizeStoredShotConnection(
           shot.connectPreviousCount,
           shot.connectPrevious,
@@ -211,6 +211,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     }
 
     for (const episode of parsed.episodes) initializeCharacterScopes(parsed, episode, parsed.episodeGroups.find(group => group.id === episode.groupId)?.characters ?? episode.characters, false)
+    reconcileShotReferences(parsed.episodes)
     pruneCharacterScopes(parsed)
     clearInteriorEpisodeContacts(parsed.episodes)
     clearInteriorSplitEpisodeNumbers(parsed.episodes)

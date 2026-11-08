@@ -92,7 +92,7 @@
                 <el-button-group class="stage-action-group">
                   <el-button :icon="MaterialTabIcon" text @click="openEpisodeScriptDialog('materials')">素材</el-button>
                   <el-button :icon="ShotTabIcon" text @click="openEpisodeScriptDialog('shots')">分镜</el-button>
-                  <el-button :icon="DialogueTabIcon" text @click="openEpisodeScriptDialog('dialogue')">台词</el-button>
+                  <el-button :icon="DialogueTabIcon" text @click="openDialogueDialog">台词</el-button>
                 </el-button-group>
                 <el-divider direction="vertical" />
                 <div class="shot-view-controls">
@@ -131,7 +131,7 @@
                       <span class="root-group-title">我的剧集</span>
                       <el-icon class="root-group-caret" :class="{ expanded: isGroupExpanded(myEpisodesTreeId) }"><ArrowRight /></el-icon>
                       <div class="group-row-actions" @click.stop @keydown.stop @keyup.stop>
-                        <el-tooltip :content="showFullGroupNames ? '显示剧集简称' : '显示剧集全称'" :trigger-keys="[]" placement="top"><el-button class="root-group-name-toggle sidebar-row-action-button" :icon="Switch" text size="small" aria-label="切换剧集简称和全称" :aria-pressed="showFullGroupNames" @click="showFullGroupNames = !showFullGroupNames" /></el-tooltip>
+                        <el-button class="root-group-name-toggle sidebar-row-action-button" :icon="Switch" text size="small" aria-label="切换剧集简称和全称" :aria-pressed="showFullGroupNames" @click="showFullGroupNames = !showFullGroupNames" />
                         <el-button class="root-group-add sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="新建剧集" @click="addEpisodeGroup" />
                       </div>
                     </div>
@@ -308,12 +308,12 @@
                           </div>
                         </div>
                         <div class="material-management-list">
-                          <div v-for="item in sidebarMaterials.scenes" :key="`scene-${item.name}`" class="material-management-entry">
+                          <div v-for="item in sidebarMaterials.scenes" :key="sceneAssetKey(item)" class="material-management-entry">
                             <div class="material-management-item">
                               <span class="material-management-name" :class="{ 'is-used': item.used }" :title="sceneAssetLabel(item)">{{ sceneAssetLabel(item) }}</span>
                               <div class="material-management-actions">
-                                <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改场景素材" @click="openMaterialEditDialog('scenes', item.name, $event)" />
-                                <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除场景素材" @click="confirmRemoveMaterial('scenes', item.name)" />
+                                <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改场景素材" @click="openMaterialEditDialog('scenes', sceneAssetKey(item), $event)" />
+                                <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除场景素材" @click="confirmRemoveMaterial('scenes', sceneAssetKey(item))" />
                               </div>
                             </div>
                             <ul v-if="item.references.length" class="material-unit-list" :aria-label="`${item.name}引用名称`">
@@ -643,22 +643,28 @@
                         </el-dropdown>
                       </div>
                     </div>
-                    <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line" :class="{ 'without-position-reference': !shot.usePositionReference }">
+                    <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line">
                       <div class="scene-selection-controls">
-                        <el-select v-model="scene.name" placeholder="选择场景" aria-label="选择场景" @change="syncSceneFromAsset(scene, episode)">
+                        <el-select :model-value="scene.name ? sceneAssetKey(scene) : ''" placeholder="选择场景" aria-label="选择场景" @change="syncSceneFromAsset(scene, $event, episode)">
                           <template #label="{ label }">{{ scene.name ? sceneAssetLabel(scene) : label }}</template>
-                          <el-option v-for="item in episode.scenes" :key="item.name" :label="sceneAssetLabel(item)" :value="item.name" />
+                          <el-option v-for="item in episode.scenes" :key="sceneAssetKey(item)" :label="sceneAssetLabel(item)" :value="sceneAssetKey(item)" />
                         </el-select>
                         <el-button :icon="PositionReference" :type="shot.usePositionReference ? 'primary' : undefined" :aria-pressed="shot.usePositionReference" aria-label="多角色位置参考" :title="shot.usePositionReference ? '关闭多角色位置参考' : '开启多角色位置参考'" @click="shot.usePositionReference = !shot.usePositionReference" />
                       </div>
-                      <el-select v-if="shot.usePositionReference" :model-value="shot.referenceShotNumber ?? index + 1" :aria-label="`分镜${index + 1}引用序号`" @update:model-value="shot.referenceShotNumber = $event">
-                        <el-option v-for="number in episode.shots.length" :key="number" :label="String(number)" :value="number">
-                          {{ number }}
-                          <template v-if="index > 0 && number === (episode.shots[index - 1].referenceShotNumber ?? index)"> 相同</template>
-                          <template v-else-if="index > 0 && number === (episode.shots[index - 1].referenceShotNumber ?? index) + 1"> 更新</template>
-                        </el-option>
-                      </el-select>
-                      <el-input v-model="scene.statusText" class="scene-status-input" placeholder="场景状态" aria-label="场景状态" />
+                      <div class="scene-selection-controls scene-reference-controls">
+                        <el-select popper-class="shot-reference-dropdown" :model-value="referenceSelectionId(episode, index)" :aria-label="`分镜${index + 1}引用序号`" @update:model-value="selectShotReference(shot, $event)">
+                          <el-option-group v-for="source in continuousEpisodes(state.episodes, episode)" :key="source.id" label="">
+                            <el-option v-for="(sourceShot, sourceIndex) in source.shots" :key="sourceShot.id" :label="formatShotNumber(source, sourceIndex)" :value="sourceShot.id" />
+                          </el-option-group>
+                        </el-select>
+                        <el-button :icon="CopyDocument" title="复制引用序号" aria-label="复制引用序号" @click="copyReferenceShotNumber(shot)" />
+                      </div>
+                      <el-popover trigger="click" placement="bottom-end" :width="280" popper-class="scene-status-popover">
+                        <template #reference>
+                          <el-button class="scene-status-button" :icon="SceneStatus" :type="scene.statusText?.trim() ? 'primary' : undefined" plain :title="scene.statusText?.trim() || '场景状态'" aria-label="场景状态" />
+                        </template>
+                        <el-input v-model="scene.statusText" class="scene-status-input" type="textarea" :rows="3" resize="vertical" placeholder="场景状态" aria-label="场景状态" />
+                      </el-popover>
                       <el-button
                         class="config-edit-button"
                         :icon="EditPen"
@@ -667,8 +673,8 @@
                         size="small"
                         title="修改场景素材"
                         aria-label="修改场景素材"
-                        :disabled="!episode.scenes.some((item) => item.name === scene.name)"
-                        @click="openMaterialEditDialog('scenes', scene.name, $event, episode)"
+                        :disabled="!episode.scenes.some((item) => sceneAssetKey(item) === sceneAssetKey(scene))"
+                        @click="openMaterialEditDialog('scenes', sceneAssetKey(scene), $event, episode)"
                       />
                     </div>
                     <VueDraggable
@@ -1163,7 +1169,7 @@
                   type="textarea"
                   :rows="16"
                   resize="none"
-                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，“---”划分 SD2.0 分镜，“+++”划分 SD2.5 分镜"
+                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，“---”划分分镜（默认为 SD2.5）"
                   @input="syncMaterialSceneDraftCount"
                 />
               </div>
@@ -1250,7 +1256,7 @@
                       </div>
                       <div v-if="activeEpisode.scenes.length" class="episode-script-current-material-row">
                         <div class="episode-script-current-material-tags">
-                          <el-tag v-for="scene in activeEpisode.scenes" :key="scene.name" size="small" type="info" effect="plain">
+                          <el-tag v-for="scene in activeEpisode.scenes" :key="sceneAssetKey(scene)" size="small" type="info" effect="plain">
                             <span class="episode-script-current-material-tag-text">{{ sceneAssetLabel(scene) }}</span>
                           </el-tag>
                         </div>
@@ -1278,7 +1284,7 @@
                   type="textarea"
                   :rows="16"
                   resize="none"
-                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，“---”划分 SD2.0 分镜，“+++”划分 SD2.5 分镜"
+                  placeholder="粘贴或输入本集完整剧本；使用“===”划分单元，“---”划分分镜（默认为 SD2.5）"
                   @input="syncSplitScriptDraft"
                 />
               </div>
@@ -1294,62 +1300,24 @@
                 <div class="batch-shot-preview">
                   <div
                     v-for="(segment, index) in batchShotSegments"
-                    :key="`${segment.unitNumber}-${index}-${segment.text.length}-${segment.remark}-${segment.thirtySecondMode}`"
+                    :key="`${segment.unitNumber}-${index}-${segment.text.length}-${segment.remark}`"
                     class="batch-shot-preview-item"
                     :class="{
-                      warn: batchDurationState(segment.text, segment.thirtySecondMode).warn,
+                      warn: batchDurationState(segment.text, true).warn,
                       'is-even-unit': normalizeShotUnitNumber(segment.unitNumber) % 2 === 0,
                     }"
                   >
                     <div class="batch-shot-preview-head">
                       <div class="batch-shot-heading">
                         <span class="batch-shot-index">{{ batchShotNumber(segment, index) }}</span>
-                        <span v-if="segment.thirtySecondMode" class="batch-shot-remark">SD2.5</span>
+                        <span class="batch-shot-remark">SD2.5</span>
                         <span v-if="segment.remark" class="batch-shot-remark" :title="segment.remark">{{ segment.remark }}</span>
                       </div>
                       <span class="batch-shot-stat">{{ batchShotMatchedCharacterCount(segment.text) }} 人 · {{ batchTimingAnalysis(segment.text).dialogueCharacters }} / {{ batchTimingAnalysis(segment.text).totalCharacters }} 字 · {{ formatTimingSeconds(batchTimingAnalysis(segment.text).totalSeconds) }}</span>
                     </div>
                     <p>{{ segment.text }}</p>
                   </div>
-                  <div v-if="!batchShotSegments.length" class="episode-script-empty empty-note">使用“===”划分单元、“---”划分 SD2.0 分镜、“+++”划分 SD2.5 分镜后，将在此显示识别结果。</div>
-                </div>
-              </div>
-            </div>
-          </el-tab-pane>
-          <el-tab-pane label="台词" name="dialogue">
-            <div class="episode-script-columns">
-              <div class="episode-script-source-panel">
-                <div class="episode-script-panel-title">
-                  <span>原始剧本</span>
-                </div>
-                <el-input
-                  :model-value="activeEpisode?.scriptText ?? ''"
-                  class="episode-script-source-input"
-                  type="textarea"
-                  :rows="16"
-                  resize="none"
-                  placeholder="粘贴或输入包含角色名称及冒号的剧本文字"
-                  readonly
-                />
-              </div>
-              <div class="dialogue-result-panel">
-                <div class="episode-script-panel-title has-inline-action">
-                  <span>提取结果</span>
-                  <el-link type="primary" underline="never" :disabled="episodeScriptSaving" @click="resetDialogueExtraction">重置</el-link>
-                </div>
-                <div class="dialogue-result-stack" :class="{ 'is-readonly': dialogueView === 'replaced' }">
-                  <div :ref="setDialogueHighlightRef" class="dialogue-line-highlight-layer" aria-hidden="true" v-html="highlightedDialogueText"></div>
-                  <el-input
-                    :ref="setDialogueInputRef"
-                    v-model="dialogueOutputDraft"
-                    :disabled="episodeScriptSaving"
-                    class="dialogue-result-input"
-                    type="textarea"
-                    :rows="16"
-                    resize="none"
-                    :readonly="dialogueView === 'replaced'"
-                    placeholder="暂无提取结果"
-                  />
+                  <div v-if="!batchShotSegments.length" class="episode-script-empty empty-note">使用“===”划分单元、“---”划分分镜（默认为 SD2.5）后，将在此显示识别结果。</div>
                 </div>
               </div>
             </div>
@@ -1360,7 +1328,7 @@
             <el-button :disabled="episodeScriptSaving" @click="saveEpisodeScriptMaterials">保存</el-button>
             <el-button type="primary" :disabled="episodeScriptSaving" @click="continueFromEpisodeScriptMaterials">下一步</el-button>
           </template>
-          <template v-else-if="episodeScriptActiveTab === 'shots'">
+          <template v-else>
             <el-popconfirm
               v-if="isEpisodeShotUpdateMode"
               title="将按识别结果更新分镜列表，并按顺序保留对应配置。确认继续？"
@@ -1375,15 +1343,53 @@
             </el-popconfirm>
             <el-button v-else type="primary" :loading="episodeScriptSaving" @click="applyEpisodeScriptShots">确认添加</el-button>
           </template>
-          <template v-else>
-            <el-button
-              :disabled="episodeScriptSaving || (dialogueView === 'original' && !state.globalConfig.dialogueExtraction.replacementRules.length)"
-              @click="toggleDialogueReplacement"
-            >
-              {{ dialogueView === 'replaced' ? '原文' : '替换' }}
-            </el-button>
-            <el-button type="primary" :disabled="!dialogueOutputDraft.trim()" :loading="episodeScriptSaving" @click="copyExtractedDialogue">复制</el-button>
-          </template>
+        </template>
+      </el-dialog>
+      <el-dialog v-model="dialogueDialogVisible" title="台词" width="820px" class="episode-script-dialog dialogue-dialog" :close-on-click-modal="!dialogueSaving" :close-on-press-escape="!dialogueSaving" :show-close="!dialogueSaving" @closed="resetDialogueDialog">
+        <div class="episode-script-columns">
+          <div class="episode-script-source-panel">
+            <div class="episode-script-panel-title">
+              <span>原始剧本</span>
+            </div>
+            <el-input
+              :model-value="activeEpisode?.scriptText ?? ''"
+              class="episode-script-source-input"
+              type="textarea"
+              :rows="16"
+              resize="none"
+              placeholder="粘贴或输入包含角色名称及冒号的剧本文字"
+              readonly
+            />
+          </div>
+          <div class="dialogue-result-panel">
+            <div class="episode-script-panel-title has-inline-action">
+              <span>提取结果</span>
+              <el-link type="primary" underline="never" :disabled="dialogueSaving" @click="resetDialogueExtraction">重置</el-link>
+            </div>
+            <div class="dialogue-result-stack" :class="{ 'is-readonly': dialogueView === 'replaced' }">
+              <div :ref="setDialogueHighlightRef" class="dialogue-line-highlight-layer" aria-hidden="true" v-html="highlightedDialogueText"></div>
+              <el-input
+                :ref="setDialogueInputRef"
+                v-model="dialogueOutputDraft"
+                :disabled="dialogueSaving"
+                class="dialogue-result-input"
+                type="textarea"
+                :rows="16"
+                resize="none"
+                :readonly="dialogueView === 'replaced'"
+                placeholder="暂无提取结果"
+              />
+            </div>
+          </div>
+        </div>
+        <template #footer>
+          <el-button
+            :disabled="dialogueSaving || (dialogueView === 'original' && !state.globalConfig.dialogueExtraction.replacementRules.length)"
+            @click="toggleDialogueReplacement"
+          >
+            {{ dialogueView === 'replaced' ? '原文' : '替换' }}
+          </el-button>
+          <el-button type="primary" :disabled="!dialogueOutputDraft.trim()" :loading="dialogueSaving" @click="copyExtractedDialogue">复制</el-button>
         </template>
       </el-dialog>
       <component :is="shouldShowMaterialScenes ? ElPopover : ElDrawer" v-bind="materialDialogProps" :title="materialDialogTitle" :class="shouldShowMaterialScenes ? undefined : 'app-drawer material-dialog'" @update:model-value="materialDialogVisible = $event" @closed="handleMaterialDialogClosed" @after-leave="handleMaterialDialogClosed">
@@ -1597,6 +1603,7 @@ import {
   createShot,
   normalizeCharacterAssets,
   normalizeShotSceneSelection,
+  sceneAssetKey,
 } from './defaults'
 import {
   buildDetectedCharacters,
@@ -1610,9 +1617,10 @@ import {
   mergeDetectedCharacters,
   normalizeCharacterNameForMatch,
   prepareManualReferenceName,
+  sceneReferenceName,
 } from './prompt'
 import { normalizeConnectionPunctuationCount, normalizeStoredShotConnection, takeLeadingPunctuationSegments, takeTrailingPunctuationSegments } from './shotContext'
-import { compactShotUnitNumbers, formatShotNumber, formatShotReference, normalizeReferenceShotNumber, normalizeShotUnitNumber } from './shotNumber'
+import { compactShotUnitNumbers, continuousEpisodes, formatShotNumber, formatShotReference, reconcileShotReferences, normalizeShotUnitNumber } from './shotNumber'
 import {
   analyzeDialogueTiming,
   analyzeTimingRange,
@@ -1626,7 +1634,7 @@ import { characterAssetsFor as assetsFor, initializeSharedCharacters, characterA
 import { characterAvailableInUnit, compareCharacterAssets, episodeCharacterUnits, extendCharacterScopes, initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes, referencedCharacterNames } from './characterScopes'
 import { formatPromptReferences } from './prompt'
 import { FileRemovalFilled, GrapeFilled, LinkInterrupt, MainCharacterFilled } from './icons'
-import { GoStart, GoEnd } from './icons'
+import { GoStart, GoEnd, SceneStatus } from './icons'
 import MaterialReferenceIcon from './components/MaterialReferenceIcon.vue'
 import { normalizeMaterialConfirmations } from './defaults'
 import CharacterOutfitEditor from './components/CharacterOutfitEditor.vue'
@@ -1688,12 +1696,11 @@ type CharacterDescriptionImport = {
 }
 type MaterialDialogMode = 'add' | 'edit'
 type SidebarManagementTab = 'scripts' | 'materials'
-type EpisodeScriptTab = 'materials' | 'shots' | 'dialogue'
+type EpisodeScriptTab = 'materials' | 'shots'
 type DialogueView = 'original' | 'replaced'
 type BatchShotSegment = {
   text: string
   remark: string
-  thirtySecondMode: boolean
   unitNumber: number
 }
 type EditingMaterial = {
@@ -1938,6 +1945,7 @@ const shotListRef = ref<HTMLElement | null>(null)
 const dataDialogVisible = ref(false)
 const dataDialogView = ref<'group' | 'episode' | 'shot'>('group')
 const episodeScriptDialogVisible = ref(false)
+const dialogueDialogVisible = ref(false)
 const activeReviewShot = ref<Shot | null>(null)
 const activeReviewEpisodeId = ref<string | null>(null)
 const reviewOpenedFromSummary = ref(false)
@@ -1972,6 +1980,7 @@ const reviewNotePrefixPath = ref<string[]>([])
 const episodeScriptDraft = ref('')
 const splitScriptDraft = ref('')
 const episodeScriptSaving = ref(false)
+const dialogueSaving = ref(false)
 const weeklyReportWeek = ref<Date | string | null>(null)
 const archivedTreeId = 'archived'
 const historicalTreeId = 'historical'
@@ -2020,9 +2029,8 @@ const materialReferenceUnits = computed(() => {
     }
     episode.shots.map((shot, index) => ({ shot, index })).sort((a, b) => a.shot.unitNumber - b.shot.unitNumber).forEach(({ shot, index }) => {
       shot.scenes.filter(scene => scene.name.trim()).forEach(scene => {
-        const name = scene.name.trim()
-        add(shot.usePositionReference ? mode === 'basic' ? '@' : formatPromptReferenceName(formatShotReference(episode, index))
-          : mode === 'basic' ? `${name}@` : formatPromptReferenceName(name), shot.unitNumber)
+        add(shot.usePositionReference ? mode === 'basic' ? '@' : formatPromptReferenceName(formatShotReference(episode, index, state.episodes))
+          : mode === 'basic' ? `${sceneReferenceName(scene)}@` : formatPromptReferenceName(sceneReferenceName(scene)), shot.unitNumber)
       })
       shot.characters.forEach(character => {
         add(character.name, shot.unitNumber)
@@ -2056,7 +2064,7 @@ const sidebarMaterials = computed(() => {
   const episode = activeEpisode.value
   if (!episode) return { scenes: [], characters: [], custom: [] }
   type Usage = { used: boolean; references: Map<number, Set<string>> }
-  const scenes = new Map<string, Usage>(episode.scenes.map((asset) => [asset.name.trim(), { used: false, references: new Map() }]))
+  const scenes = new Map<string, Usage>(episode.scenes.map((asset) => [sceneAssetKey(asset), { used: false, references: new Map() }]))
   const characters = new Map<string, Usage>(assetsFor(state, episode).map((asset) => [asset.name.trim(), { used: false, references: new Map() }]))
   const custom = new Map<string, Usage>()
   const group = state.episodeGroups.find((group) => group.id === episode.groupId)
@@ -2074,13 +2082,13 @@ const sidebarMaterials = computed(() => {
       const name = rawName.replace(/\.[a-z\d]+$/i, '').replace(/\.+$/u, '').trim()
       if (!name) continue
       const reference = formatPromptReferenceName(prepareManualReferenceName(rawName, text.slice(0, match.index)))
-      const sceneUsage = scenes.get(name)
+      const matchedScenes = episode.scenes.filter(asset => asset.name.trim() === name || sceneReferenceName(asset) === name)
       const characterUsage = characters.get(name)
       if (unit !== undefined) {
-        if (sceneUsage) addReference(sceneUsage, unit, reference)
+        for (const scene of matchedScenes) addReference(scenes.get(sceneAssetKey(scene))!, unit, reference)
         if (characterUsage) addReference(characterUsage, unit, reference)
       }
-      if (!sceneUsage && !characterUsage) {
+      if (!matchedScenes.length && !characterUsage) {
         const usage = custom.get(name) ?? { used: false, references: new Map<number, Set<string>>() }
         addReference(usage, unit ?? 0, reference)
         custom.set(name, usage)
@@ -2090,12 +2098,11 @@ const sidebarMaterials = computed(() => {
   episode.shots.forEach((shot, index) => {
     const unit = shot.unitNumber
     shot.scenes.forEach((scene) => {
-      const name = scene.name.trim()
-      const usage = scenes.get(name)
+      const usage = scenes.get(sceneAssetKey(scene))
       if (!usage) return
       const reference = shot.usePositionReference
-        ? mode === 'basic' ? '@' : formatPromptReferenceName(formatShotReference(episode, index))
-        : mode === 'basic' ? `${name}@` : formatPromptReferenceName(name)
+        ? mode === 'basic' ? '@' : formatPromptReferenceName(formatShotReference(episode, index, state.episodes))
+        : mode === 'basic' ? `${sceneReferenceName(scene)}@` : formatPromptReferenceName(sceneReferenceName(scene))
       addReference(usage, unit, reference)
     })
     shot.characters.forEach((character) => {
@@ -2124,7 +2131,7 @@ const sidebarMaterials = computed(() => {
       .map(name => ({ name })),
   })
   return {
-    scenes: episode.scenes.map((asset) => ({ ...asset, ...referenceNames(scenes.get(asset.name.trim())!) })),
+    scenes: episode.scenes.map((asset) => ({ ...asset, ...referenceNames(scenes.get(sceneAssetKey(asset))!) })),
     characters: assetsFor(state, episode).map((asset) => {
       const usage = characters.get(asset.name.trim())!
       if (asset.outfits.length > 1 && !asset.isEnsemble) {
@@ -3414,14 +3421,8 @@ watch(
 )
 
 watch(
-  () => state.episodes.map((episode) => episode.shots.length),
-  () => {
-    state.episodes.forEach((episode) => episode.shots.forEach((shot) => {
-      if (shot.referenceShotNumber !== null && shot.referenceShotNumber > episode.shots.length) {
-        shot.referenceShotNumber = null
-      }
-    }))
-  },
+  () => JSON.stringify(state.episodes.map(({ id, groupId, title, shots }) => [id, groupId, title, shots.length])),
+  () => reconcileShotReferences(state.episodes),
 )
 
 watch([dataDialogVisible, dataDialogView, activeGroupSummaryId, contactEditableIds], ([visible, view, groupId], [, , previousGroupId]) => {
@@ -3450,7 +3451,7 @@ watch([episodeScriptDialogVisible, episodeScriptActiveTab], ([visible, tab]) => 
   const episode = activeEpisode.value
   if (!visible || tab !== 'shots' || !episode) return
   if (episode.splitScriptText === null) {
-    episode.splitScriptText = normalizeSplitScriptText(null, episode.shots) ?? episode.scriptText
+    episode.splitScriptText = normalizeSplitScriptText(null, episode.shots) ?? normalizeSplitScriptText(episode.scriptText, []) ?? ''
   }
   splitScriptDraft.value = episode.splitScriptText
   batchShotSegments.value = splitBatchShotText(splitScriptDraft.value)
@@ -3618,9 +3619,9 @@ function cloneEpisodeMaterials(sourceEpisodeId: string) {
   const characters = assetsFor(state, sourceEpisode)
     .filter((character) => !existingCharacterNames.has(character.name))
     .map((character) => ({ ...JSON.parse(JSON.stringify(character)), id: createId('asset'), availableUnits: episodeCharacterUnits(targetEpisode) } as CharacterAsset))
-  const existingSceneNames = new Set(targetEpisode.scenes.map((scene) => scene.name))
+  const existingSceneNames = new Set(targetEpisode.scenes.map(sceneAssetKey))
   const scenes = sourceEpisode.scenes
-    .filter((scene) => !existingSceneNames.has(scene.name))
+    .filter((scene) => !existingSceneNames.has(sceneAssetKey(scene)))
     .map((scene) => createSceneAsset(scene.name, scene.time, scene.space))
   const added = characters.length + scenes.length
   const skipped = assetsFor(state, sourceEpisode).length + sourceEpisode.scenes.length - added
@@ -3789,7 +3790,7 @@ function openMaterialEditDialog(kind: MaterialKind, value: string, event?: Mouse
     materialCharacterAvailableUnitsDraft.value = JSON.parse(JSON.stringify(character.availableUnits ?? []))
     materialCharacterOutfitsDraft.value = JSON.parse(JSON.stringify(character.outfits))
   } else {
-    const scene = episode.scenes.find((item) => item.name === value)
+    const scene = episode.scenes.find((item) => sceneAssetKey(item) === value)
 
     if (!scene) {
       return
@@ -3849,8 +3850,9 @@ function commitMaterialDialog() {
     return false
   }
 
-  if ((adding || nextName !== editing?.value) && episode.scenes.some((scene) => scene.name === nextName)) {
-    notify.warning('本集已存在同名场景素材')
+  const nextKey = sceneAssetKey({ name: nextName, time: draft.time })
+  if ((adding || nextKey !== editing?.value) && episode.scenes.some((scene) => sceneAssetKey(scene) === nextKey)) {
+    notify.warning('本集已存在同名、同时段的场景素材')
     return false
   }
 
@@ -4122,9 +4124,9 @@ async function recognizeCharacterDescriptionsFromClipboard() {
   openCharacterPasteDialog()
 }
 
-function renameSceneMaterial(oldName: string, nextScene: MaterialSceneDraft) {
+function renameSceneMaterial(oldKey: string, nextScene: MaterialSceneDraft) {
   const episode = materialEditingEpisode.value
-  const sceneAsset = episode?.scenes.find((scene) => scene.name === oldName)
+  const sceneAsset = episode?.scenes.find((scene) => sceneAssetKey(scene) === oldKey)
 
   if (!episode || !sceneAsset) {
     return
@@ -4135,7 +4137,7 @@ function renameSceneMaterial(oldName: string, nextScene: MaterialSceneDraft) {
   sceneAsset.space = nextScene.space
   episode.shots.forEach((shot) => {
     shot.scenes.forEach((scene) => {
-      if (scene.name === oldName) {
+      if (sceneAssetKey(scene) === oldKey) {
         scene.name = nextScene.name
         scene.time = nextScene.time
         scene.space = nextScene.space
@@ -4290,18 +4292,11 @@ function splitBatchShotText(value: string): BatchShotSegment[] {
     .split(/===/g)
     .forEach((unitText) => {
       const unitSegments: Omit<BatchShotSegment, 'unitNumber'>[] = []
-      let marker: '---' | '+++' | null = null
-
-      unitText.split(/(---|\+\+\+)/g).forEach((item) => {
-        if (item === '---' || item === '+++') {
-          marker = item
-          return
-        }
-
+      unitText.split(/---/g).forEach((item, index) => {
         let text = item
         let remark = ''
 
-        if (marker) {
+        if (index > 0) {
           const remarkMatch = text.match(/^[ \t　]*#([^#\r\n]*)#/)
 
           if (remarkMatch) {
@@ -4316,11 +4311,8 @@ function splitBatchShotText(value: string): BatchShotSegment[] {
           unitSegments.push({
             text,
             remark,
-            thirtySecondMode: marker === '+++',
           })
         }
-
-        marker = null
       })
 
       if (!unitSegments.length) {
@@ -4358,8 +4350,8 @@ function applyUnitSceneToEmptyShot(episode: Episode, shot: Shot, unitNumber: num
     return
   }
 
-  const sceneName = sceneDrafts[unitNumber - 1]?.name.trim()
-  const sceneAsset = sceneName ? episode.scenes.find((scene) => scene.name === sceneName) : null
+  const draft = sceneDrafts[unitNumber - 1]
+  const sceneAsset = draft?.name.trim() ? episode.scenes.find((scene) => sceneAssetKey(scene) === sceneAssetKey(draft)) : null
 
   if (!sceneAsset) {
     return
@@ -4378,9 +4370,7 @@ async function syncEpisodeShots(episode: Episode, segments: BatchShotSegment[], 
     const shot = episode.shots[index] ? JSON.parse(JSON.stringify(episode.shots[index])) as Shot : createShot(segment.unitNumber)
     shot.text = segment.text
     shot.remark = segment.remark
-    if (segment.thirtySecondMode) {
-      shot.thirtySecondMode = true
-    }
+    shot.thirtySecondMode = true
     shot.unitNumber = segment.unitNumber
     applyUnitSceneToEmptyShot(episode, shot, segment.unitNumber, sceneDrafts)
     return shot
@@ -4515,6 +4505,7 @@ function hasModifiedShots(episode: Episode) {
     ))
     || shot.firstFrameMode
     || shot.referenceShotNumber !== null
+    || shot.referenceEpisodeId !== null
     || shot.status !== 'incomplete'
     || !isReviewDefault(shot.review)
   ))
@@ -4586,7 +4577,7 @@ function addCharacterMaterials(episode: Episode, value: string): MaterialAddResu
 }
 
 function addSceneMaterials(episode: Episode, drafts: MaterialSceneDraft[]): MaterialAddResult {
-  const existingNames = new Set(episode.scenes.map((scene) => scene.name))
+  const existingNames = new Set(episode.scenes.map(sceneAssetKey))
   const draftNames = new Set<string>()
   let skipped = 0
 
@@ -4597,12 +4588,13 @@ function addSceneMaterials(episode: Episode, drafts: MaterialSceneDraft[]): Mate
         return false
       }
 
-      if (existingNames.has(draft.name) || draftNames.has(draft.name)) {
+      const key = sceneAssetKey(draft)
+      if (existingNames.has(key) || draftNames.has(key)) {
         skipped += 1
         return false
       }
 
-      draftNames.add(draft.name)
+      draftNames.add(key)
       return true
     })
 
@@ -4638,16 +4630,17 @@ function removeMaterial(kind: MaterialKind, value: string) {
     return
   }
 
-  episode.scenes = episode.scenes.filter((item) => item.name !== value)
+  episode.scenes = episode.scenes.filter((item) => sceneAssetKey(item) !== value)
 }
 
-function syncSceneFromAsset(scene: SceneConfig, episode = activeEpisode.value) {
-  const selected = episode?.scenes.find((item) => item.name === scene.name)
+function syncSceneFromAsset(scene: SceneConfig, key: string, episode = activeEpisode.value) {
+  const selected = episode?.scenes.find((item) => sceneAssetKey(item) === key)
 
   if (!selected) {
     return
   }
 
+  scene.name = selected.name
   scene.time = selected.time
   scene.space = selected.space
 }
@@ -4682,19 +4675,27 @@ function removeCharacterFromShot(shot: Shot, id: string) {
 function characterCloneSources(target: Shot) {
   const currentEpisode = episodeForShot(target)
   if (!currentEpisode) return []
-  const episodeNumber = parseEpisodeNumber(currentEpisode.title)
   const targetIndex = shotIndex(target)
-  return state.episodes
-    .filter((episode) => episode.shots.length && (episode.id === currentEpisode.id
-      || (episode.groupId === currentEpisode.groupId && episodeNumber > 0
-        && parseEpisodeNumber(episode.title) > 0 && Math.abs(parseEpisodeNumber(episode.title) - episodeNumber) === 1)))
-    .sort((a, b) => parseEpisodeNumber(a.title) - parseEpisodeNumber(b.title))
+  return continuousEpisodes(state.episodes, currentEpisode).filter(episode => episode.shots.length)
     .flatMap((episode, episodeIndex) => episode.shots.map((shot, index) => ({
       episode, shot, index, divided: episodeIndex > 0 && index === 0,
       adjacentLabel: episode.id === currentEpisode.id
         ? index === targetIndex - 1 ? '前' : index === targetIndex + 1 ? '后' : ''
         : '',
     })))
+}
+
+function referenceSelectionId(episode: Episode, index: number) {
+  const shot = episode.shots[index]
+  const source = shot.referenceEpisodeId ? state.episodes.find(item => item.id === shot.referenceEpisodeId)! : episode
+  return source.shots[(shot.referenceShotNumber ?? index + 1) - 1]?.id
+}
+
+function selectShotReference(shot: Shot, sourceShotId: string) {
+  const episode = episodeForShot(shot)
+  const source = continuousEpisodes(state.episodes, episode).find(item => item.shots.some(shot => shot.id === sourceShotId))!
+  shot.referenceEpisodeId = source.id === episode.id ? null : source.id
+  shot.referenceShotNumber = source.shots.findIndex(shot => shot.id === sourceShotId) + 1
 }
 
 async function cloneShotCharacters(target: Shot, sourceId: string) {
@@ -5491,7 +5492,6 @@ function updateGroupResultTier(value: number | undefined | '') {
 
 function openEpisodeScriptDialog(tab: EpisodeScriptTab) {
   episodeScriptActiveTab.value = tab
-  dialogueView.value = 'original'
   episodeScriptDraft.value = activeEpisode.value?.scriptText ?? ''
   splitScriptDraft.value = activeEpisode.value?.splitScriptText ?? ''
   refreshEpisodeScriptDerivedDrafts()
@@ -5499,23 +5499,34 @@ function openEpisodeScriptDialog(tab: EpisodeScriptTab) {
   episodeScriptDialogVisible.value = true
 }
 
+function openDialogueDialog() {
+  const episode = activeEpisode.value
+  if (!episode) return
+  const savedDialogue = episode.extractedDialogueText
+  dialogueView.value = 'original'
+  dialogueOriginalDraft.value = savedDialogue ?? extractDialogueText(episode.scriptText)
+  dialogueReplacedDraft.value = savedDialogue == null
+    ? extractDialogueText(episode.scriptText, state.globalConfig.dialogueExtraction.replacementRules)
+    : replaceDialogueText(savedDialogue, state.globalConfig.dialogueExtraction.replacementRules)
+  dialogueDialogVisible.value = true
+}
+
 function organizeEpisodeScriptDraft() {
   const isSplitScript = episodeScriptActiveTab.value === 'shots'
   const draft = isSplitScript ? splitScriptDraft.value : episodeScriptDraft.value
-  const protectedRemarks: Array<{ marker: '---' | '+++'; remark: string }> = []
+  const protectedRemarks: string[] = []
   const protectedDraft = draft
     .replace(/\r\n/g, '\n')
     .replace(/:/g, '：')
-    .replace(/[ \t　]*(---|\+\+\+)[ \t　]*#([^#\r\n]*)#[ \t　]*/g, (_match, marker: '---' | '+++', remark: string) => {
+    .replace(/[ \t　]*---[ \t　]*#([^#\r\n]*)#[ \t　]*/g, (_match, remark: string) => {
       const placeholder = `\n__SHOT_REMARK_${protectedRemarks.length}__\n`
-      protectedRemarks.push({ marker, remark })
+      protectedRemarks.push(remark)
       return placeholder
     })
 
   const organizedDraft = protectedDraft
     .replace(/[ \t　]*===[ \t　]*/g, '\n===\n')
     .replace(/[ \t　]*---[ \t　]*/g, '\n---\n')
-    .replace(/[ \t　]*\+\+\+[ \t　]*/g, '\n+++\n')
     .replace(/[△▲][ \t　]*/g, '')
     .replace(/[\t　]+/g, '')
     .replace(/\.{3,}/g, '…')
@@ -5524,8 +5535,7 @@ function organizeEpisodeScriptDraft() {
     .replace(/\n{2,}/g, '\n')
     .trim()
     .replace(/__SHOT_REMARK_(\d+)__/g, (_match, index: string) => {
-      const protectedRemark = protectedRemarks[Number(index)]
-      return `${protectedRemark.marker} #${protectedRemark.remark}#`
+      return `--- #${protectedRemarks[Number(index)]}#`
     })
   if (isSplitScript) {
     splitScriptDraft.value = organizedDraft
@@ -5540,12 +5550,6 @@ function organizeEpisodeScriptDraft() {
 function refreshEpisodeScriptDerivedDrafts() {
   batchShotSegments.value = splitBatchShotText(splitScriptDraft.value)
   syncMaterialSceneDraftCount()
-  const original = activeEpisode.value?.scriptText ?? ''
-  const savedDialogue = activeEpisode.value?.extractedDialogueText
-  dialogueOriginalDraft.value = savedDialogue ?? extractDialogueText(original)
-  dialogueReplacedDraft.value = savedDialogue == null
-    ? extractDialogueText(original, state.globalConfig.dialogueExtraction.replacementRules)
-    : replaceDialogueText(savedDialogue, state.globalConfig.dialogueExtraction.replacementRules)
 }
 
 function syncSplitScriptDraft() {
@@ -5559,7 +5563,7 @@ function syncSplitScriptDraft() {
 }
 
 function resetSplitScript() {
-  splitScriptDraft.value = activeEpisode.value?.scriptText ?? ''
+  splitScriptDraft.value = normalizeSplitScriptText(activeEpisode.value?.scriptText ?? '', []) ?? ''
   syncSplitScriptDraft()
 }
 
@@ -5585,10 +5589,13 @@ function resetEpisodeScriptDialog() {
   splitScriptDraft.value = ''
   batchShotSegments.value = []
   resetMaterialDrafts()
+  episodeScriptActiveTab.value = 'materials'
+}
+
+function resetDialogueDialog() {
   dialogueOriginalDraft.value = ''
   dialogueReplacedDraft.value = ''
   dialogueView.value = 'original'
-  episodeScriptActiveTab.value = 'materials'
 }
 
 function toggleDialogueReplacement() {
@@ -5603,14 +5610,14 @@ function toggleDialogueReplacement() {
 
 async function copyExtractedDialogue() {
   const episode = activeEpisode.value
-  if (!episode || episodeScriptSaving.value) return
+  if (!episode || dialogueSaving.value) return
 
   if (!dialogueOutputDraft.value.trim()) {
     notify.warning('暂无可复制的台词')
     return
   }
 
-  episodeScriptSaving.value = true
+  dialogueSaving.value = true
   try {
     const copied = await copyText(dialogueOutputDraft.value)
     if (!copied) {
@@ -5620,9 +5627,9 @@ async function copyExtractedDialogue() {
     episode.extractedDialogueText = dialogueOutputDraft.value
     if (!await saveNow()) return
     notify.success('已复制并保存台词')
-    episodeScriptDialogVisible.value = false
+    dialogueDialogVisible.value = false
   } finally {
-    episodeScriptSaving.value = false
+    dialogueSaving.value = false
   }
 }
 
@@ -5669,7 +5676,7 @@ function promptFor(shot: Shot, detailOnly = false) {
     shotTimingAnalysis(shot).totalSeconds,
   ] as const
   const characters = assetsFor(state, episodeForShot(shot))
-  const referenceName = formatShotReference(episodeForShot(shot), shotIndex(shot))
+  const referenceName = formatShotReference(episodeForShot(shot), shotIndex(shot), state.episodes)
   const referenceMode = group?.referenceMode ?? state.globalConfig.prompt.referenceMode
   const appearanceReferencePrefix = `${parseEpisodeNumber(episodeForShot(shot).title)}-${normalizeShotUnitNumber(shot.unitNumber)}`
   return detailOnly
@@ -5699,6 +5706,7 @@ function isShortcutBlocked() {
     || detectionDialogVisible.value
     || dataDialogVisible.value
     || episodeScriptDialogVisible.value
+    || dialogueDialogVisible.value
 }
 
 function handleShotNumberShortcut(event: KeyboardEvent) {
@@ -5742,6 +5750,12 @@ async function copyShotNumber(shot: Shot) {
   }
 
   notify.error('复制失败，请手动选择文本复制')
+}
+
+async function copyReferenceShotNumber(shot: Shot) {
+  const label = formatShotReference(episodeForShot(shot), shotIndex(shot), state.episodes)
+  if (await copyText(label)) notify.success(`已复制引用序号 ${label}`)
+  else notify.error('复制失败，请手动选择文本复制')
 }
 
 function isBlankShotCopyTarget(target: EventTarget | null) {
@@ -6088,6 +6102,13 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, stat
     const groupIdMap = new Map(importedGroups.map((group) => [group.sourceId, group.group.id]))
     const importedEpisodes = batch.episodes.map((episode) => normalizeImportedEpisode(episode, groupIdMap))
     const episodeIds = new Map(batch.episodes.map((episode, index) => [episode.id, importedEpisodes[index].id]))
+    for (const episode of importedEpisodes) for (const shot of episode.shots) {
+      if (shot.referenceEpisodeId) {
+        shot.referenceEpisodeId = episodeIds.get(shot.referenceEpisodeId) ?? null
+        if (!shot.referenceEpisodeId) shot.referenceShotNumber = null
+      }
+    }
+    reconcileShotReferences(importedEpisodes)
     const unitMaps = new Map(batch.episodes.map((episode, index) => [episode.id, new Map(episode.shots.map((shot, shotIndex) => [normalizeShotUnitNumber(shot.unitNumber), importedEpisodes[index].shots[shotIndex].unitNumber]))]))
     for (const asset of [...importedGroups.flatMap(item => item.group.characters ?? []), ...importedEpisodes.flatMap(item => item.characters)]) {
       mapCharacterUnitReferences(asset, units => units.filter(unit => unitMaps.get(unit.episodeId)?.has(unit.unitNumber)).map(unit => ({ episodeId: episodeIds.get(unit.episodeId)!, unitNumber: unitMaps.get(unit.episodeId)!.get(unit.unitNumber)! })))
@@ -6116,12 +6137,12 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, stat
   })
   const editableContactIds = contactEditableEpisodeIds(contactEpisodes)
   let importedCount = 0
-  const existingEpisodeSignatures = new Map(state.episodes.map((episode) => [episodeImportSignature(episode, state.episodeGroups, editableContactIds), episode.id]))
+  const existingEpisodeSignatures = new Map(state.episodes.map((episode) => [episodeImportSignature(episode, state.episodeGroups, editableContactIds, state.episodes), episode.id]))
 
   preparedBatches.forEach(({ batch, importedGroups, importedEpisodes }) => {
     const episodeIdMap = new Map<string, string>()
     const episodesToImport = importedEpisodes.filter((episode, index) => {
-      const signature = episodeImportSignature(episode, importedGroups.map((item) => item.group), editableContactIds)
+      const signature = episodeImportSignature(episode, importedGroups.map((item) => item.group), editableContactIds, importedEpisodes)
       const existingId = importMode === 'merge' ? existingEpisodeSignatures.get(signature) : undefined
       episodeIdMap.set(batch.episodes[index].id, existingId ?? episode.id)
       if (existingId) {
@@ -6132,8 +6153,11 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, stat
       existingEpisodeSignatures.set(signature, episode.id)
       return true
     })
+    const resolvedIds = new Map(importedEpisodes.map((episode, index) => [episode.id, episodeIdMap.get(batch.episodes[index].id)!]))
+    for (const episode of episodesToImport) for (const shot of episode.shots) {
+      if (shot.referenceEpisodeId) shot.referenceEpisodeId = resolvedIds.get(shot.referenceEpisodeId)!
+    }
     for (const asset of [...importedGroups.flatMap(item => item.group.characters ?? []), ...importedEpisodes.flatMap(item => item.characters)]) {
-      const resolvedIds = new Map(importedEpisodes.map((episode, index) => [episode.id, episodeIdMap.get(batch.episodes[index].id)!]))
       mapCharacterUnitReferences(asset, units => units.map(unit => ({ ...unit, episodeId: resolvedIds.get(unit.episodeId)! })))
     }
     const usedGroupIds = new Set(episodesToImport.map((episode) => episode.groupId).filter((id): id is string => Boolean(id)))
@@ -6197,6 +6221,7 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, stat
   }
 
   for (const episode of state.episodes) initializeCharacterScopes(state, episode, assetsFor(state, episode), false)
+  reconcileShotReferences(state.episodes)
   pruneCharacterScopes(state)
   clearInteriorEpisodeContacts(state.episodes)
   clearInteriorSplitEpisodeNumbers(state.episodes)
@@ -6269,10 +6294,10 @@ function normalizeSceneAssets(scenes: unknown): SceneAsset[] {
   }
 
   const normalized = scenes.map(normalizeSceneAsset).filter((scene): scene is SceneAsset => Boolean(scene))
-  return normalized.filter((scene, index, list) => list.findIndex((item) => item.name === scene.name) === index)
+  return normalized.filter((scene, index, list) => list.findIndex((item) => sceneAssetKey(item) === sceneAssetKey(scene)) === index)
 }
 
-function episodeComparableSignature(episode: Episode, contactPerson: string, splitEpisodeNumber: number | null, assets: CharacterAsset[]) {
+function episodeComparableSignature(episode: Episode, contactPerson: string, splitEpisodeNumber: number | null, assets: CharacterAsset[], episodes: Episode[]) {
   return JSON.stringify({
     title: episode.title,
     showPreviousEpisodeUnit: episode.showPreviousEpisodeUnit,
@@ -6296,6 +6321,7 @@ function episodeComparableSignature(episode: Episode, contactPerson: string, spl
       thirtySecondMode: shot.thirtySecondMode,
       unitNumber: normalizeShotUnitNumber(shot.unitNumber),
       referenceShotNumber: shot.referenceShotNumber,
+      referenceEpisodeNumber: shot.referenceEpisodeId ? parseEpisodeNumber(episodes.find(item => item.id === shot.referenceEpisodeId)!.title) : null,
       connectPrevious: shot.connectPrevious,
       connectPreviousCount: shot.connectPreviousCount,
       connectNext: shot.connectNext,
@@ -6333,11 +6359,11 @@ function episodeComparableSignature(episode: Episode, contactPerson: string, spl
   })
 }
 
-function episodeImportSignature(episode: Episode, groups: EpisodeGroup[], editableContactIds: Set<string>) {
+function episodeImportSignature(episode: Episode, groups: EpisodeGroup[], editableContactIds: Set<string>, episodes: Episode[]) {
   const group = groups.find((item) => item.id === episode.groupId)
   const contactPerson = editableContactIds.has(episode.id) ? episode.contactPerson : ''
   const splitEpisodeNumber = editableContactIds.has(episode.id) ? episode.splitEpisodeNumber : null
-  return JSON.stringify([group?.title ?? null, group?.archived ?? false, episodeComparableSignature(episode, contactPerson, splitEpisodeNumber, group?.characters ?? episode.characters)])
+  return JSON.stringify([group?.title ?? null, group?.archived ?? false, episodeComparableSignature(episode, contactPerson, splitEpisodeNumber, group?.characters ?? episode.characters, episodes)])
 }
 
 function normalizeImportedShotScene(scene: unknown, assets: SceneAsset[]): SceneConfig | null {
@@ -6353,7 +6379,7 @@ function normalizeImportedShotScene(scene: unknown, assets: SceneAsset[]): Scene
     return null
   }
 
-  const asset = assets.find((item) => item.name === name)
+  const asset = assets.find((item) => item.name === name && (value.time == null || item.time === value.time))
 
   return createSceneConfig(
     name,
@@ -6455,7 +6481,8 @@ function normalizeImportedEpisode(episode: Episode, groupIdMap = new Map<string,
       remark: typeof shot.remark === 'string' ? shot.remark : '',
       thirtySecondMode: typeof shot.thirtySecondMode === 'boolean' ? shot.thirtySecondMode : true,
       unitNumber: normalizeShotUnitNumber(shot.unitNumber),
-      referenceShotNumber: normalizeReferenceShotNumber(shot.referenceShotNumber, shots.length),
+      referenceShotNumber: shot.referenceShotNumber ?? null,
+      referenceEpisodeId: typeof shot.referenceEpisodeId === 'string' ? shot.referenceEpisodeId : null,
       usePositionReference: shot.usePositionReference !== false,
       useReverseAngle: false,
       firstFrameMode: Boolean(shot.firstFrameMode),
