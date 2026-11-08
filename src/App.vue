@@ -9,65 +9,89 @@
       <input ref="fileInputRef" class="file-input" type="file" accept="application/json,.json" multiple @change="importEpisode" />
 
       <div class="workspace">
-        <header class="workspace-header">
-          <section class="sidebar-brand">
-            <div class="brand-mark"><img :src="brandIconUrl" alt="Script2Prompt" /></div>
-            <div class="brand-text">
-              <strong>短剧提示词工作台</strong>
-              <el-tooltip v-if="pendingResults.total > 0" placement="bottom">
-                <template #content>
-                  <div v-for="description in pendingResults.descriptions" :key="description">{{ description }}</div>
+        <header class="workspace-header" :class="{ 'is-library': workspaceView === 'library' }">
+          <div class="workspace-header-left">
+            <section class="sidebar-brand">
+              <div class="brand-mark"><img :src="brandIconUrl" alt="Script2Prompt" /></div>
+              <div class="brand-text">
+                <strong>短剧工作台</strong>
+                <el-tooltip v-if="pendingResults.total > 0" placement="bottom">
+                  <template #content>
+                    <div v-for="description in pendingResults.descriptions" :key="description">{{ description }}</div>
+                  </template>
+                  <span>{{ pendingResults.total }}</span>
+                </el-tooltip>
+                <span v-else>Script2Prompt</span>
+              </div>
+            </section>
+            <nav v-if="workspaceView === 'editor' && activeEpisode" class="stage-page-title" aria-label="剧集导航">
+              <el-button :icon="HomeBackIcon" text aria-label="返回主页" title="返回主页" @click="returnToLibrary" />
+              <el-dropdown class="stage-group-switch" trigger="click" popper-class="stage-title-switch-dropdown" @command="switchActiveEpisodeGroup">
+                <button class="stage-title-switch-trigger" type="button" title="切换剧本" aria-label="切换剧本">
+                  <span>《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》</span>
+                </button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+                      v-for="group in sortedEpisodeGroups"
+                      :key="group.id"
+                      :command="group.id"
+                      :disabled="group.id === activeEpisode.groupId || !hasEpisodesInGroup(group.id)"
+                    >
+                      <span class="stage-title-switch-option">《{{ group.title }}》<small v-if="!hasEpisodesInGroup(group.id)">无单集</small></span>
+                      <el-icon v-if="group.id === activeEpisode.groupId" class="stage-title-switch-check"><Check /></el-icon>
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
                 </template>
-                <span>{{ pendingResults.total }}</span>
-              </el-tooltip>
-              <span v-else>Script2Prompt</span>
-            </div>
-          </section>
-          <nav v-if="activeEpisode" class="stage-header" aria-label="工作区菜单">
-              <span class="stage-page-title">
-                <el-dropdown trigger="click" popper-class="stage-title-switch-dropdown" @command="switchActiveEpisodeGroup">
-                  <button class="stage-title-switch-trigger" type="button" title="切换剧本" aria-label="切换剧本">
-                    <span>《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》</span>
-                  </button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item
-                        v-for="group in sortedEpisodeGroups"
-                        :key="group.id"
-                        :command="group.id"
-                        :disabled="group.id === activeEpisode.groupId || !hasEpisodesInGroup(group.id)"
-                      >
-                        <span class="stage-title-switch-option">《{{ group.title }}》<small v-if="!hasEpisodesInGroup(group.id)">无单集</small></span>
-                        <el-icon v-if="group.id === activeEpisode.groupId" class="stage-title-switch-check"><Check /></el-icon>
-                      </el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-                <button class="stage-title-switch-trigger stage-episode-nav" type="button" title="上一集" aria-label="上一集" :disabled="activeGroupEpisodeIndex <= 0" @click="switchRelativeEpisode(-1)"><el-icon><GoStart /></el-icon></button>
-                <el-dropdown trigger="click" popper-class="stage-title-switch-dropdown" @command="switchActiveEpisode">
-                  <button class="stage-title-switch-trigger" type="button" title="切换集数" aria-label="切换集数">
-                    <span>{{ activeEpisode.title }}</span>
-                  </button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item
-                        v-for="episode in activeGroupEpisodes"
-                        :key="episode.id"
-                        :command="episode.id"
-                        :disabled="episode.id === activeEpisode.id"
-                      >
-                        <span class="stage-title-switch-option">{{ episode.title }}{{ isEpisodeAutoStarred(episode) ? ' ⭐️' : '' }}</span>
-                        <el-icon v-if="episode.id === activeEpisode.id" class="stage-title-switch-check"><Check /></el-icon>
-                      </el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-                <button class="stage-title-switch-trigger stage-episode-nav" type="button" title="下一集" aria-label="下一集" :disabled="activeGroupEpisodeIndex < 0 || activeGroupEpisodeIndex >= activeGroupEpisodes.length - 1" @click="switchRelativeEpisode(1)"><el-icon><GoEnd /></el-icon></button>
+              </el-dropdown>
+              <button class="stage-title-switch-trigger stage-episode-nav" type="button" title="上一集" aria-label="上一集" :disabled="activeGroupEpisodeIndex <= 0" @click="switchRelativeEpisode(-1)"><el-icon><GoStart /></el-icon></button>
+              <el-dropdown ref="episodeSwitchDropdownRef" trigger="click" :hide-on-click="false" popper-class="episode-switch-dropdown" @command="switchActiveEpisode" @visible-change="handleEpisodeSwitchVisibleChange">
+                <button class="stage-title-switch-trigger" type="button" title="切换集数" aria-label="切换集数"><span>{{ activeEpisode.title }}</span></button>
+                <template #dropdown>
+                  <div class="episode-switch-panel">
+                    <form v-if="!isArchivedEpisodeGroupId(activeEpisode.groupId)" class="episode-switch-add" @submit.prevent="addEpisodesFromMenu(1)" @keydown.stop>
+                      <el-input ref="episodeStartInputRef" v-model="episodeStartNumber" inputmode="numeric" placeholder="输入起始集号" aria-label="起始集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.esc.stop="episodeSwitchDropdownRef?.handleClose()" />
+                      <div class="episode-add-actions">
+                        <el-button v-for="count in [5, 4, 3, 2, 1]" :key="count" type="primary" plain size="small" :disabled="!episodeStartNumber" @click="addEpisodesFromMenu(count)">+{{ count }}</el-button>
+                      </div>
+                    </form>
+                    <div class="episode-manager-list">
+                      <el-dropdown-menu>
+                        <el-dropdown-item v-for="episode in activeGroupEpisodes" :key="episode.id" :command="episode.id" class="episode-manager-row" :class="{ active: episode.id === activeEpisode.id }">
+                          <div v-if="editingEpisodeId === episode.id" class="rename-inline" data-rename-kind="episode" :data-rename-id="episode.id" @click.stop @keydown.stop>
+                            <el-input v-model="editingEpisodeNumber" inputmode="numeric" aria-label="集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keyup.enter="finishEpisodeRename(episode)" />
+                            <el-button :icon="Check" type="success" aria-label="确认命名" @click="finishEpisodeRename(episode)" />
+                            <el-button :icon="Close" type="danger" aria-label="取消命名" @click="cancelEpisodeRename(episode)" />
+                          </div>
+                          <template v-else>
+                            <span class="stage-title-switch-option">{{ episode.title }}{{ isEpisodeAutoStarred(episode) ? ' ⭐️' : '' }}</span>
+                            <el-icon v-if="episode.id === activeEpisode.id" class="stage-title-switch-check"><Check /></el-icon>
+                            <el-dropdown trigger="click" popper-class="episode-switch-actions" @command="handleEpisodeCommand($event, episode)" @click.stop>
+                              <el-button class="sidebar-row-action-button" :icon="MoreFilled" text aria-label="更多单集操作" @click.stop />
+                              <template #dropdown><el-dropdown-menu>
+                                <el-dropdown-item command="summary" :icon="DataAnalysis">数据</el-dropdown-item>
+                                <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
+                                <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
+                              </el-dropdown-menu></template>
+                            </el-dropdown>
+                          </template>
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </div>
+                  </div>
+                </template>
+              </el-dropdown>
+              <button class="stage-title-switch-trigger stage-episode-nav" type="button" title="下一集" aria-label="下一集" :disabled="activeGroupEpisodeIndex < 0 || activeGroupEpisodeIndex >= activeGroupEpisodes.length - 1" @click="switchRelativeEpisode(1)"><el-icon><GoEnd /></el-icon></button>
+            </nav>
+          </div>
+          <nav v-if="workspaceView === 'library'" class="project-section-menu" aria-label="项目分类">
+            <el-button v-for="section in projectSections" :key="section.id" text :icon="projectSection === section.id ? section.filledIcon : section.icon" :aria-pressed="projectSection === section.id" @click="selectProjectSection(section.id)">{{ section.title }}</el-button>
+          </nav>
+          <nav v-else-if="activeEpisode" class="stage-header" aria-label="工作区菜单">
                 <el-button-group class="stage-title-data-actions">
                   <el-button :icon="Notebook" text @click="openGroupSummary(activeEpisode.groupId ?? 'ungrouped')">全剧</el-button>
                   <el-button :icon="Document" text @click="openReviewSummary(activeEpisode)">分集</el-button>
                 </el-button-group>
-              </span>
               <el-divider direction="vertical" />
               <div class="stage-page-actions">
                 <el-button-group class="stage-action-group">
@@ -78,34 +102,9 @@
               </div>
           </nav>
           <div class="brand-tools" role="group" aria-label="积分与设置">
-            <div class="header-ledger-entry">
-              <el-tooltip :content="`剩余积分：${remainingPoints}；${isTodayMonday ? '右键选择周报（记得交周报）' : '右键选择并复制周报'}`" placement="bottom">
-                <el-button class="header-points-button" :icon="PointBalanceIcon" text :class="{ 'is-reminder': isTodayMonday }" aria-label="积分记录" @click="openPointLedger" @contextmenu.prevent.stop="weeklyReportPickerRef?.handleOpen()">{{ remainingPointsLabel }}</el-button>
-              </el-tooltip>
-              <el-date-picker
-                ref="weeklyReportPickerRef"
-                v-model="weeklyReportWeek"
-                class="header-week-picker"
-                type="week"
-                format="[第] ww [周]"
-                value-format="YYYY-MM-DD"
-                placeholder="选择周报"
-                :prefix-icon="Calendar"
-                :clearable="false"
-                aria-label="选择并复制周报"
-                :tabindex="-1"
-                @change="copyWeeklyReport"
-              >
-                <template #default="cell">
-                  <div class="el-date-table-cell weekly-report-date-cell" :class="{ 'has-production': hasProductionOnPickerCell(cell) }">
-                    <span class="el-date-table-cell__text">
-                      {{ cell.text }}
-                      <i v-if="hasProductionOnPickerCell(cell)" aria-hidden="true"></i>
-                    </span>
-                  </div>
-                </template>
-              </el-date-picker>
-            </div>
+            <el-tooltip :content="String(remainingPoints)" placement="bottom">
+              <el-button class="header-points-button" :icon="PointBalanceIcon" text aria-label="积分记录" @click="openPointLedger">{{ remainingPointsLabel }}</el-button>
+            </el-tooltip>
             <el-divider direction="vertical" />
             <el-button class="theme-switch" :icon="isDarkMode ? Moon : Sunny" text circle :title="isDarkMode ? '切换浅色模式' : '切换深色模式'" :aria-label="isDarkMode ? '切换浅色模式' : '切换深色模式'" @click="setDarkMode(!isDarkMode)" />
             <el-button
@@ -119,185 +118,66 @@
           </div>
         </header>
 
-        <div class="workspace-body">
-        <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
-          <template v-if="!sidebarCollapsed">
-            <section class="panel episode-panel">
-              <el-tabs v-model="sidebarManagementTab" class="sidebar-management-tabs" stretch>
-                <el-tab-pane label="剧本管理" name="scripts">
-                  <el-scrollbar class="episode-scrollbar">
-                <div class="episode-tree">
-                  <section class="episode-group-block root-group-block">
-                    <div class="episode-group-row root-group-row" role="button" tabindex="0" @contextmenu.prevent.stop @click="toggleGroup(myEpisodesTreeId)" @keyup.enter="toggleGroup(myEpisodesTreeId)">
-                      <span class="root-group-title">我的剧集</span>
-                      <el-icon class="root-group-caret" :class="{ expanded: isGroupExpanded(myEpisodesTreeId) }"><ArrowRight /></el-icon>
-                      <div class="group-row-actions" @click.stop @keydown.stop @keyup.stop>
-                        <el-button class="root-group-name-toggle sidebar-row-action-button" :icon="Switch" text size="small" aria-label="切换剧集简称和全称" :aria-pressed="showFullGroupNames" @click="showFullGroupNames = !showFullGroupNames" />
-                        <el-button class="root-group-add sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="新建剧集" @click="addEpisodeGroup" />
-                      </div>
-                    </div>
-                    <div v-if="isGroupExpanded(myEpisodesTreeId)" class="episode-children root-group-children">
-                      <div v-for="episode in episodeTreeUngroupedEpisodes" :key="episode.id" class="episode-tree-entry">
-                        <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @contextmenu.prevent.stop="openRowMoreMenu($event, '.episode-more-button')" @click="selectEpisode(episode)">
-                          <div v-if="editingEpisodeId === episode.id" class="rename-inline" data-rename-kind="episode" :data-rename-id="episode.id" @click.stop @keydown.stop>
-                            <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="输入集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
-                            <el-button class="rename-confirm" :icon="Check" size="small" type="success" aria-label="确认命名" @click="finishEpisodeRename(episode)" />
-                            <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelEpisodeRename(episode)" />
-                          </div>
-                          <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
-                          <el-dropdown v-if="editingEpisodeId !== episode.id" trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
-                            <el-button class="episode-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多单集操作" @click.stop />
-                            <template #dropdown>
-                              <el-dropdown-menu>
-                                <el-dropdown-item command="summary" :icon="DataAnalysis">数据</el-dropdown-item>
-                                <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
-                                <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
-                                <el-dropdown-item v-for="(group, groupIndex) in sortedEpisodeGroups" :key="group.id" :divided="groupIndex === 0" :command="{ action: 'move', groupId: group.id }">移至 {{ group.title }}</el-dropdown-item>
-                              </el-dropdown-menu>
-                            </template>
-                          </el-dropdown>
-                        </div>
-                      </div>
-
-                      <section v-for="group in episodeTreeGroups" :key="group.id" class="episode-group-block">
-                        <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @contextmenu.prevent.stop="openRowMoreMenu($event, '.group-more-button')" @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
-                          <GroupPlayMedal v-if="group.results.playCount >= 2000" class="episode-star group-leading-medal" :play-count="group.results.playCount" />
-                          <span v-else-if="isGroupEmpty(group.id)" class="group-dot">•</span>
-                          <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
-                          <div v-if="editingGroupId === group.id" class="rename-inline" data-rename-kind="group" :data-rename-id="group.id" @click.stop @keydown.stop>
-                            <el-input v-model="group.title" class="episode-title-input" placeholder="输入分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
-                            <el-button class="rename-confirm" :icon="Check" size="small" type="success" aria-label="确认命名" @click="finishGroupRename" />
-                            <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelGroupRename(group)" />
-                          </div>
-                          <template v-else>
-                            <span class="group-title-text" :title="sidebarGroupTitle(group)">{{ sidebarGroupTitle(group) }}</span>
-                            <div class="group-row-actions" @click.stop @keydown.stop>
-                              <el-dropdown trigger="click" @command="(count) => addEpisodeToGroup(group.id, count)">
-                                <el-button class="sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="新建单集" />
-                                <template #dropdown>
-                                  <el-dropdown-menu>
-                                    <el-dropdown-item v-for="count in [5, 4, 3, 2, 1]" :key="count" :command="count">添加 {{ count }} 集</el-dropdown-item>
-                                  </el-dropdown-menu>
-                                </template>
-                              </el-dropdown>
-                              <el-popover trigger="click" placement="right-start" :width="240" :title="group.fullName.trim() || group.title" popper-class="group-preview-popover">
-                                <template #reference>
-                                  <el-button class="sidebar-row-action-button" :icon="View" text size="small" aria-label="查看剧集信息" />
-                                </template>
-                                <EpisodeGroupPreview :episodes="episodesForGroup(group.id)" />
-                              </el-popover>
-                              <el-dropdown trigger="click" @command="(command) => handleGroupCommand(command, group.id)">
-                                <el-button class="group-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多剧集操作" />
-                                <template #dropdown>
-                                  <el-dropdown-menu>
-                                    <el-dropdown-item command="summary" :icon="DataLine">数据</el-dropdown-item>
-                                    <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
-                                    <el-dropdown-item command="archive" :icon="Files">归档</el-dropdown-item>
-                                    <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
-                                  </el-dropdown-menu>
-                                </template>
-                              </el-dropdown>
-                            </div>
-                          </template>
-                        </div>
-                        <div v-if="!isGroupEmpty(group.id) && isGroupExpanded(group.id)" class="episode-children episode-list">
-                          <div v-for="episode in episodeTreeEpisodesForGroup(group.id)" :key="episode.id" class="episode-tree-entry">
-                            <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @contextmenu.prevent.stop="openRowMoreMenu($event, '.episode-more-button')" @click="selectEpisode(episode)">
-                              <div v-if="editingEpisodeId === episode.id" class="rename-inline" data-rename-kind="episode" :data-rename-id="episode.id" @click.stop @keydown.stop>
-                                <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="输入集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
-                                <el-button class="rename-confirm" :icon="Check" size="small" type="success" aria-label="确认命名" @click="finishEpisodeRename(episode)" />
-                                <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelEpisodeRename(episode)" />
-                              </div>
-                              <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
-                              <el-dropdown v-if="editingEpisodeId !== episode.id" trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
-                                <el-button class="episode-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多单集操作" @click.stop />
-                                <template #dropdown>
-                                  <el-dropdown-menu>
-                                    <el-dropdown-item command="summary" :icon="DataAnalysis">数据</el-dropdown-item>
-                                    <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
-                                    <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
-                                    <el-dropdown-item divided :command="{ action: 'move', groupId: null }">移至我的剧集</el-dropdown-item>
-                                    <el-dropdown-item v-for="targetGroup in sortedEpisodeGroups" :key="targetGroup.id" :command="{ action: 'move', groupId: targetGroup.id }">移至 {{ targetGroup.title }}</el-dropdown-item>
-                                  </el-dropdown-menu>
-                                </template>
-                              </el-dropdown>
-                            </div>
-                          </div>
-                        </div>
-                      </section>
-                    </div>
-                  </section>
-
-                  <section v-for="section in archivedSections" :key="section.id" class="episode-group-block archive-group-block root-group-block">
-                    <div class="episode-group-row archive-group-row root-group-row" :class="{ empty: isGroupEmpty(section.id) }" role="button" tabindex="0" @contextmenu.prevent.stop @click="toggleGroupIfNotEmpty(section.id)" @keyup.enter="toggleGroupIfNotEmpty(section.id)">
-                      <span class="root-group-title">{{ section.title }}</span>
-                      <el-icon class="root-group-caret" :class="{ expanded: isGroupExpanded(section.id) }"><ArrowRight /></el-icon>
-                    </div>
-                    <div v-if="!isGroupEmpty(section.id) && isGroupExpanded(section.id)" class="episode-children archived-group-children">
-                      <section v-for="group in section.groups" :key="group.id" class="episode-group-block archived-nested-group">
-                        <div class="episode-group-row" :class="{ empty: isGroupEmpty(group.id) }" role="button" tabindex="0" @contextmenu.prevent.stop="openRowMoreMenu($event, '.group-more-button')" @click="selectGroupAndToggleIfNotEmpty(group.id)" @keyup.enter="selectGroupAndToggleIfNotEmpty(group.id)">
-                          <GroupPlayMedal v-if="group.results.playCount >= 2000" class="episode-star group-leading-medal" :play-count="group.results.playCount" />
-                          <span v-else-if="isGroupEmpty(group.id)" class="group-dot">•</span>
-                          <el-icon v-else class="group-caret" :class="{ expanded: isGroupExpanded(group.id) }"><ArrowRight /></el-icon>
-                          <div v-if="editingGroupId === group.id" class="rename-inline" data-rename-kind="group" :data-rename-id="group.id" @click.stop @keydown.stop>
-                            <el-input v-model="group.title" class="episode-title-input" placeholder="输入分组名称" @keydown.space.stop @keyup.enter.stop="finishGroupRename" />
-                            <el-button class="rename-confirm" :icon="Check" size="small" type="success" aria-label="确认命名" @click="finishGroupRename" />
-                            <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelGroupRename(group)" />
-                          </div>
-                          <template v-else>
-                            <span class="group-title-text" :title="sidebarGroupTitle(group)">{{ sidebarGroupTitle(group) }}</span>
-                            <div class="group-row-actions" @click.stop @keydown.stop>
-                              <el-popover trigger="click" placement="right-start" :width="240" :title="group.fullName.trim() || group.title" popper-class="group-preview-popover">
-                                <template #reference>
-                                  <el-button class="sidebar-row-action-button" :icon="View" text size="small" aria-label="查看剧集信息" />
-                                </template>
-                                <EpisodeGroupPreview :episodes="episodesForGroup(group.id)" />
-                              </el-popover>
-                              <el-dropdown trigger="click" @command="(command) => handleGroupCommand(command, group.id)">
-                                <el-button class="group-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多已归档剧集操作" />
-                                <template #dropdown>
-                                  <el-dropdown-menu>
-                                    <el-dropdown-item command="summary" :icon="DataLine">数据</el-dropdown-item>
-                                    <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
-                                    <el-dropdown-item command="archive" :icon="Files">取消归档</el-dropdown-item>
-                                    <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
-                                  </el-dropdown-menu>
-                                </template>
-                              </el-dropdown>
-                            </div>
-                          </template>
-                        </div>
-                        <div v-if="!isGroupEmpty(group.id) && isGroupExpanded(group.id)" class="episode-children episode-list">
-                          <div v-for="episode in episodesForGroup(group.id)" :key="episode.id" class="episode-tree-entry">
-                            <div class="episode-tree-item" :class="{ active: episode.id === state.activeEpisodeId }" @contextmenu.prevent.stop="openRowMoreMenu($event, '.episode-more-button')" @click="selectEpisode(episode)">
-                              <div v-if="editingEpisodeId === episode.id" class="rename-inline" data-rename-kind="episode" :data-rename-id="episode.id" @click.stop @keydown.stop>
-                                <el-input v-model="editingEpisodeNumber" class="episode-title-input" inputmode="numeric" placeholder="输入集号" :formatter="filterEpisodeNumberInput" :parser="filterEpisodeNumberInput" @keydown.space.stop @keyup.enter.stop="finishEpisodeRename(episode)" />
-                                <el-button class="rename-confirm" :icon="Check" size="small" type="success" aria-label="确认命名" @click="finishEpisodeRename(episode)" />
-                                <el-button class="rename-cancel" :icon="Close" size="small" type="danger" aria-label="取消命名" @click="cancelEpisodeRename(episode)" />
-                              </div>
-                              <span v-else class="episode-title-display"><span class="episode-title-text">{{ episode.title }}</span><span v-if="isEpisodeAutoStarred(episode)" class="episode-star">⭐️</span></span>
-                              <el-dropdown v-if="editingEpisodeId !== episode.id" trigger="click" @command="(command) => handleEpisodeCommand(command, episode)">
-                                <el-button class="episode-more-button sidebar-row-action-button" :icon="MoreFilled" text size="small" aria-label="更多单集操作" @click.stop />
-                                <template #dropdown>
-                                  <el-dropdown-menu>
-                                    <el-dropdown-item command="summary" :icon="DataAnalysis">数据</el-dropdown-item>
-                                    <el-dropdown-item command="edit" :icon="EditPen">命名</el-dropdown-item>
-                                    <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
-                                    <el-dropdown-item divided :command="{ action: 'move', groupId: null }">移至我的剧集</el-dropdown-item>
-                                    <el-dropdown-item v-for="targetGroup in sortedEpisodeGroups" :key="targetGroup.id" :command="{ action: 'move', groupId: targetGroup.id }">移至 {{ targetGroup.title }}</el-dropdown-item>
-                                  </el-dropdown-menu>
-                                </template>
-                              </el-dropdown>
-                            </div>
-                          </div>
-                        </div>
-                      </section>
-                    </div>
-                  </section>
+        <main v-if="workspaceView === 'library'" ref="projectLibraryRef" class="project-library" aria-label="剧本管理" @scroll="rememberProjectScroll">
+          <div class="project-library-content">
+            <div class="project-library-toolbar">
+              <h2>{{ projectSearchKeyword ? '搜索结果' : projectSections.find(section => section.id === projectSection)?.title }}</h2>
+              <div class="project-library-tools">
+                <el-tooltip content="从云端下载" placement="bottom"><el-button :icon="Download" text circle aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="requestWebDavTransfer('download')" /></el-tooltip>
+                <el-tooltip content="上传到云端" placement="bottom"><el-button :icon="Upload" text circle aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="requestWebDavTransfer('upload')" /></el-tooltip>
+                <el-input v-model="projectSearch" class="project-search-input" :prefix-icon="Search" clearable placeholder="搜索项目" aria-label="搜索项目" />
+              </div>
+            </div>
+            <div class="project-grid">
+              <button v-if="projectSection === 'projects' && !projectSearchKeyword" class="project-card project-create-card" type="button" @click="addEpisodeGroup">
+                <el-icon><AddIcon /></el-icon><span>新建剧集</span>
+              </button>
+              <article v-for="card in projectCards" :key="card.id" class="project-card" :data-project-id="card.id" role="button" tabindex="0" :aria-label="`进入${card.title}`" @click="openProjectCard(card, $event)" @keydown.enter.self="openProjectCard(card, $event)" @keydown.space.self.prevent="openProjectCard(card, $event)">
+                <span v-if="card.group && card.group.results.playCount >= 2000" class="project-card-medal" :class="{ 'is-warning': card.group.results.playCount < 20000 }">
+                  <GroupPlayMedal class="episode-star" :play-count="card.group.results.playCount" />
+                </span>
+                <header class="project-card-header">
+                  <div class="project-card-date">{{ card.dateRange }}</div>
+                  <div class="project-card-title" :class="{ 'has-full-name': card.fullName }" :title="[card.title, card.fullName].filter(Boolean).join(' · ')">
+                    <h3>{{ card.title }}</h3>
+                    <div v-if="card.fullName" class="project-card-full-name">{{ card.fullName }}</div>
+                  </div>
+                </header>
+                <div class="project-card-body">
+                  <p class="project-original-summary"><el-tooltip :disabled="!card.contacts.length" placement="left">
+                    <template #content><div v-for="contact in card.contacts" :key="contact">{{ contact }}</div></template>
+                    <span class="project-summary-label">{{ card.episodes.length ? `原始 ${card.episodes.length}集：` : '原始：' }}</span>
+                  </el-tooltip>{{ card.originalNumbers || '无' }}</p>
+                  <p class="project-split-summary"><span class="project-summary-label">{{ card.splitCount ? `拆分 ${card.splitCount}集：` : '拆分：' }}</span>{{ card.splitNumbers || '无' }}</p>
                 </div>
-                  </el-scrollbar>
-                </el-tab-pane>
-                <el-tab-pane label="素材管理" name="materials">
+                <footer class="project-card-footer">
+                  <div><span>整剧成本</span><strong>{{ card.totalCost }}</strong></div>
+                  <div><span>平均单集</span><strong>{{ card.averageEpisodeCost }}</strong></div>
+                  <el-dropdown trigger="click" popper-class="project-card-dropdown" @command="card.group ? handleGroupCommand($event, card.group.id) : handleEpisodeCommand($event, card.episodes[0])">
+                    <el-button class="project-card-more sidebar-row-action-button" :icon="MoreOneIcon" text aria-label="更多操作" @click.stop />
+                    <template #dropdown>
+                      <el-dropdown-menu v-if="card.group">
+                        <el-dropdown-item command="summary" :icon="DataLine">数据</el-dropdown-item>
+                        <el-dropdown-item command="archive" :icon="ArchiveFolder">{{ card.group.archived ? '取消归档' : '归档' }}</el-dropdown-item>
+                        <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                      <el-dropdown-menu v-else>
+                        <el-dropdown-item command="summary" :icon="DataAnalysis">数据</el-dropdown-item>
+                        <el-dropdown-item command="delete" :icon="Delete">删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </footer>
+              </article>
+            </div>
+            <el-empty v-if="!projectCards.length && (projectSearchKeyword || projectSection !== 'projects')" :description="projectSearchKeyword ? '未找到匹配的剧集' : projectSection === 'archived' ? '暂无归档剧集' : '暂无历史项目'" />
+          </div>
+        </main>
+
+        <div v-else class="workspace-body">
+        <aside class="sidebar">
+            <section class="panel episode-panel">
+              <h2 class="material-sidebar-title">素材管理</h2>
                   <el-scrollbar class="material-management-scrollbar">
                     <div class="material-management">
                       <h3 class="material-management-title">《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》{{ activeEpisode.title }}</h3>
@@ -393,16 +273,7 @@
                       </section>
                     </div>
                   </el-scrollbar>
-                </el-tab-pane>
-              </el-tabs>
             </section>
-
-            <nav class="sidebar-footer-actions" aria-label="剧本管理快捷操作">
-              <el-tooltip content="从云端下载" placement="top"><el-button :icon="Download" text aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="requestWebDavTransfer('download')" /></el-tooltip>
-              <el-tooltip content="上传到云端" placement="top"><el-button :icon="Upload" text aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="requestWebDavTransfer('upload')" /></el-tooltip>
-            </nav>
-
-          </template>
         </aside>
 
         <main v-if="activeEpisode" class="main-stage">
@@ -765,8 +636,10 @@
           </section>
           <nav class="shot-navigation-bar" aria-label="分镜导航">
             <div class="shot-view-controls">
-              <el-button text circle :icon="Expand" :bg="state.shotViewMode === 'single-expanded'" title="手风琴模式" aria-label="手风琴模式" :aria-pressed="state.shotViewMode === 'single-expanded'" @click="toggleShotAccordion" />
-              <el-button text circle :icon="PreviousEpisodeUnit" :bg="activeEpisode.showPreviousEpisodeUnit" :disabled="Boolean(previousEpisodeUnit.reason)" :title="previousEpisodeUnit.reason || '衔接上集单元'" aria-label="衔接上集单元" :aria-pressed="activeEpisode.showPreviousEpisodeUnit" @click="toggleNeighborUnit(-1)" />
+              <div class="shot-navigation-leading">
+                <el-button text circle :icon="Expand" :bg="state.shotViewMode === 'single-expanded'" title="手风琴模式" aria-label="手风琴模式" :aria-pressed="state.shotViewMode === 'single-expanded'" @click="toggleShotAccordion" />
+                <el-button text circle :icon="PreviousEpisodeUnit" :bg="activeEpisode.showPreviousEpisodeUnit" :disabled="Boolean(previousEpisodeUnit.reason)" :title="previousEpisodeUnit.reason || '衔接上集单元'" aria-label="衔接上集单元" :aria-pressed="activeEpisode.showPreviousEpisodeUnit" @click="toggleNeighborUnit(-1)" />
+              </div>
               <el-segmented
                 :model-value="activeShotViewSelection"
                 :options="shotViewModeOptions"
@@ -1033,6 +906,12 @@
           <div class="group-summary-flags">
             <el-checkbox v-model="groupProductionOptions.colorGrading" size="small">调色</el-checkbox>
             <el-checkbox v-model="groupProductionOptions.filter" size="small">滤镜</el-checkbox>
+            <el-dropdown trigger="click" @command="groupPromptProfileId = $event">
+              <el-link class="group-summary-profile" underline="never" aria-label="提示词方案">{{ promptProfileOptions.find(profile => profile.value === groupPromptProfileId)?.label }}</el-link>
+              <template #dropdown><el-dropdown-menu>
+                <el-dropdown-item v-for="profile in promptProfileOptions" :key="profile.value" :command="profile.value" :disabled="profile.value === groupPromptProfileId">{{ profile.label }}</el-dropdown-item>
+              </el-dropdown-menu></template>
+            </el-dropdown>
             <el-segmented
               v-model="groupProductionOptions.referenceMode"
               :options="referenceModeOptions"
@@ -1042,12 +921,8 @@
             />
           </div>
         </div>
-        <div class="group-summary-inputs">
-          <div class="group-summary-options" :class="{ 'is-ungrouped': !activeGroupSummary }">
-            <el-select v-model="groupPromptProfileId" class="group-summary-profile" size="default" aria-label="提示词方案">
-              <template #prefix><span class="group-summary-select-prefix">方案</span></template>
-              <el-option v-for="profile in promptProfileOptions" :key="profile.value" :label="profile.label" :value="profile.value" />
-            </el-select>
+        <div v-if="activeGroupSummary" class="group-summary-inputs">
+          <div class="group-summary-options">
             <div v-if="activeGroupSummary" class="group-summary-reward">
               <el-select :model-value="groupResultTier?.playCount" :placeholder="groupResultPlaceholder" size="default" clearable aria-label="播放与提成档位" @change="updateGroupResultTier">
                 <template #prefix><span class="group-summary-select-prefix">绩效</span></template>
@@ -1055,6 +930,9 @@
               </el-select>
               <el-button :type="activeGroupSummary.results.received ? 'primary' : 'default'" :icon="Coin" aria-label="到账" :title="activeGroupSummary.results.received ? '取消到账' : '到账'" :aria-pressed="activeGroupSummary.results.received" @click="activeGroupSummary.results.received = !activeGroupSummary.results.received" />
             </div>
+            <el-input v-model="activeGroupSummary.title" class="group-short-name" size="default" aria-label="简称">
+              <template #prepend>简称</template>
+            </el-input>
             <el-input v-if="activeGroupSummary" v-model="activeGroupSummary.fullName" class="group-full-name" size="default" aria-label="全称">
               <template #prepend>全称</template>
             </el-input>
@@ -1570,16 +1448,15 @@ import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import PointLedgerDialog from './components/PointLedgerDialog.vue'
 import GroupPlayMedal from './components/GroupPlayMedal.vue'
-import EpisodeGroupPreview from './components/EpisodeGroupPreview.vue'
 import { linkedSourceShotIds, neighboringEpisode, visibleShotCards } from './neighborUnits'
 import EpisodeSplitNumberCell from './components/EpisodeSplitNumberCell.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot, normalizeReferenceMode } from './config'
 import { ElDialog, ElDrawer, ElPopover, ElMessageBox, type DropdownInstance } from 'element-plus'
-import { AddIcon, ArrowDown, ArrowRight, Calendar, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, Files, FileMusic, Grape, ImageFiles, Location, MainCharacter, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, NextEpisodeUnit, Position, PositionReference, PreviousEpisodeUnit, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Switch, Upload, User, UserFilled, View, WarningFilled } from './icons'
+import { AddIcon, ArrowDown, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, FileMusic, Grape, ImageFiles, Location, MainCharacter, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, NextEpisodeUnit, Position, PositionReference, PreviousEpisodeUnit, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, WarningFilled } from './icons'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { normalizeSplitScriptText } from './episodeScript'
 import { clearInteriorEpisodeContacts, contactEditableEpisodeIds, renameEpisodeContacts } from './episodeContacts'
-import { clearInteriorSplitEpisodeNumbers, normalizeSplitEpisodeNumber } from './episodeSplits'
+import { clearInteriorSplitEpisodeNumbers, episodePreviewRanges, normalizeSplitEpisodeNumber } from './episodeSplits'
 import { effectiveProductionData, invoiceUsedPoints, mergePointInvoices, normalizePointInvoices, remapPointInvoices } from './pointLedger'
 import { normalizeGroupResults, pendingGroupResults } from './groupResults'
 import { isHistoricalEpisodeGroup, latestGroupProductionDate as groupProductionDate } from './groupHistory'
@@ -1629,7 +1506,8 @@ import { characterAssetsFor as assetsFor, initializeSharedCharacters, characterA
 import { characterAvailableInUnit, compareCharacterAssets, episodeCharacterUnits, extendCharacterScopes, initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes, referencedCharacterNames } from './characterScopes'
 import { formatPromptReferences } from './prompt'
 import { FileRemovalFilled, GrapeFilled, LinkInterrupt, MainCharacterFilled } from './icons'
-import { GoStart, GoEnd, PointBalanceIcon, SceneStatus } from './icons'
+import { HomeBackIcon, GoStart, GoEnd, PointBalanceIcon, SceneStatus } from './icons'
+import { ProjectFolder, ProjectFolderFilled, ArchiveFolder, ArchiveFolderFilled, HistoryFolder, HistoryFolderFilled, MoreOneIcon } from './icons'
 import MaterialReferenceIcon from './components/MaterialReferenceIcon.vue'
 import { normalizeMaterialConfirmations } from './defaults'
 import CharacterOutfitEditor from './components/CharacterOutfitEditor.vue'
@@ -1690,7 +1568,7 @@ type CharacterDescriptionImport = {
   voiceDescription?: string
 }
 type MaterialDialogMode = 'add' | 'edit'
-type SidebarManagementTab = 'scripts' | 'materials'
+type ProjectSection = 'projects' | 'archived' | 'history'
 type EpisodeScriptTab = 'materials' | 'shots'
 type DialogueView = 'original' | 'replaced'
 type BatchShotSegment = {
@@ -1711,22 +1589,6 @@ type ImportBatch = {
 }
 const reviewDrawCountOptions = [1, 1.5, 2, 2.5, 3, 3.5, 4] as const
 type ReviewDrawCountMode = '' | typeof reviewDrawCountOptions[number]
-type WeeklyReportPickerCell = {
-  dayjs?: {
-    format: (pattern: string) => string
-  }
-}
-type WeeklyReportEntry = {
-  date: string
-  dateLabel: string
-  groupId: string | null
-  groupTitle: string
-  episodeNumber: string
-}
-type WeeklyReportRange = {
-  start: string
-  end: string
-}
 
 const props = defineProps<{
   initialGlobalConfig: GlobalConfig
@@ -1813,7 +1675,6 @@ async function applyShotCharacters(shot: Shot, characters: CharacterConfig[]) {
 }
 const globalDialogVisible = ref(false)
 const pointLedgerVisible = ref(false)
-const weeklyReportPickerRef = ref<{ handleOpen: () => void; handleClose: () => void } | null>(null)
 const webDavSettings = ref<WebDavSettings>(loadWebDavSettings())
 const webDavAction = ref<WebDavAction | null>(null)
 const webDavAuthVisible = ref(false)
@@ -1825,9 +1686,22 @@ const webDavAuthSubmitting = ref(false)
 const webDavAuthError = ref('')
 const detectionDialogVisible = ref(false)
 const detectionConflictShotId = ref<string | null>(null)
-const sidebarCollapsed = ref(false)
-const sidebarManagementTab = ref<SidebarManagementTab>('scripts')
-const showFullGroupNames = ref(false)
+const workspaceView = ref<'library' | 'editor'>('library')
+const projectSections: { id: ProjectSection; title: string; icon: Component; filledIcon: Component }[] = [
+  { id: 'projects', title: '项目', icon: ProjectFolder, filledIcon: ProjectFolderFilled },
+  { id: 'archived', title: '归档', icon: ArchiveFolder, filledIcon: ArchiveFolderFilled },
+  { id: 'history', title: '历史', icon: HistoryFolder, filledIcon: HistoryFolderFilled },
+]
+const projectSection = ref<ProjectSection>('projects')
+const projectSearch = ref('')
+const projectSearchKeyword = computed(() => projectSearch.value.trim().toLocaleLowerCase())
+const projectLibraryRef = ref<HTMLElement | null>(null)
+const projectScrollPositions: Record<ProjectSection, number> = { projects: 0, archived: 0, history: 0 }
+const lastGroupEpisodes = new Map<string, string>()
+const episodeSwitchDropdownRef = ref<DropdownInstance | null>(null)
+const episodeSwitchVisible = ref(false)
+const episodeStartNumber = ref('')
+const episodeStartInputRef = ref<{ focus: () => void } | null>(null)
 const isDarkMode = ref(document.documentElement.classList.contains('dark'))
 const materialDialogMode = ref<MaterialDialogMode>('add')
 const materialDialogKind = ref<MaterialKind>('characters')
@@ -1877,16 +1751,9 @@ const episodeScriptActiveTab = ref<EpisodeScriptTab>('shots')
 const dialogueView = ref<DialogueView>('original')
 const dialogueOriginalDraft = ref('')
 const dialogueReplacedDraft = ref('')
-const selectedEpisodeGroupId = ref<string | null>(activeEpisode.value?.groupId ?? null)
-const pendingEpisode = ref<Episode | null>(null)
-const pendingEpisodeGroup = ref<EpisodeGroup | null>(null)
 const editingEpisodeId = ref<string | null>(null)
 const editingEpisodeOriginalTitle = ref('')
 const editingEpisodeNumber = ref('')
-const editingGroupId = ref<string | null>(null)
-const editingGroupOriginalTitle = ref('')
-const myEpisodesTreeId = 'my-episodes'
-const expandedGroupIds = ref<string[]>([myEpisodesTreeId])
 const materialSceneTimeOptions: MaterialSegmentedOption<SceneTime>[] = [
   { label: '白天', value: '白天', icon: Sunny },
   { label: '深夜', value: '深夜', icon: Moon },
@@ -1971,16 +1838,12 @@ const episodeScriptDraft = ref('')
 const splitScriptDraft = ref('')
 const episodeScriptSaving = ref(false)
 const dialogueSaving = ref(false)
-const weeklyReportWeek = ref<Date | string | null>(null)
 const remainingPoints = computed(() => state.pointInvoices.reduce((total, invoice) => total + invoice.initialPoints + invoice.receivedPoints - invoiceUsedPoints(invoice), 0))
 const remainingPointsLabel = computed(() => remainingPoints.value >= 1000 ? `${(remainingPoints.value / 1000).toFixed(1)}k` : String(remainingPoints.value))
-const archivedTreeId = 'archived'
-const historicalTreeId = 'historical'
 const historyToday = ref(new Date())
 let historyDateTimer: number | undefined
 const reviewRateTexts = ['拉完了', 'NPC', '人上人', '顶级', '夯']
 const reviewNoteCascaderProps = { expandTrigger: 'hover' as const }
-const isTodayMonday = new Date().getDay() === 1
 const shotConnectionMarks = {
   [-8]: '',
   [-4]: '',
@@ -2142,8 +2005,7 @@ const sidebarMaterials = computed(() => {
 const sidebarCharacterGroups = computed(() => groupCharactersByType(sidebarMaterials.value.characters))
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
 const isEpisodeShotUpdateMode = computed(() => Boolean(activeEpisode.value && hasExistingShotConfiguration(activeEpisode.value)))
-const sortedEpisodeGroups = computed(() => state.episodeGroups.filter((group) => !group.archived).sort((a, b) => groupSortTitle(a).localeCompare(groupSortTitle(b), 'zh-CN', { numeric: true })))
-const episodeTreeGroups = computed(() => pendingEpisodeGroup.value ? [...sortedEpisodeGroups.value, pendingEpisodeGroup.value] : sortedEpisodeGroups.value)
+const sortedEpisodeGroups = computed(() => state.episodeGroups.filter((group) => !group.archived).sort((a, b) => a.title.localeCompare(b.title, 'zh-CN', { numeric: true })))
 const sortedArchivedEpisodeGroups = computed(() => state.episodeGroups
   .filter((group) => group.archived)
   .sort((a, b) => {
@@ -2153,23 +2015,36 @@ const sortedArchivedEpisodeGroups = computed(() => state.episodeGroups
 const historicalGroupIds = computed(() => new Set(sortedArchivedEpisodeGroups.value
   .filter((group) => isHistoricalEpisodeGroup(group, latestGroupProductionDate(group.id), historyToday.value))
   .map((group) => group.id)))
-const archivedSections = computed(() => [
-  { id: archivedTreeId, title: '已归档', groups: sortedArchivedEpisodeGroups.value.filter((group) => !historicalGroupIds.value.has(group.id)) },
-  { id: historicalTreeId, title: '历史项目', groups: sortedArchivedEpisodeGroups.value.filter((group) => historicalGroupIds.value.has(group.id)) },
-])
 const sortedUngroupedEpisodes = computed(() => sortEpisodesForDisplay(state.episodes.filter((episode) => !episode.groupId)))
 const activeGroupEpisodes = computed(() => activeEpisode.value
   ? sortEpisodesForDisplay(state.episodes.filter((episode) => episode.groupId === activeEpisode.value?.groupId))
   : [])
 const activeGroupEpisodeIndex = computed(() => activeGroupEpisodes.value.findIndex(episode => episode.id === activeEpisode.value?.id))
-const episodeTreeUngroupedEpisodes = computed(() => {
-  const episodes = [...sortedUngroupedEpisodes.value]
-
-  if (pendingEpisode.value && !pendingEpisode.value.groupId) {
-    episodes.push(pendingEpisode.value)
-  }
-
-  return sortEpisodesForDisplay(episodes)
+const projectCards = computed(() => {
+  const groups = projectSection.value === 'projects' ? sortedEpisodeGroups.value : sortedArchivedEpisodeGroups.value.filter(group => historicalGroupIds.value.has(group.id) === (projectSection.value === 'history'))
+  const entries: { id: string; group: EpisodeGroup | null; episodes: Episode[] }[] = [
+    ...groups.map(group => ({ id: group.id, group, episodes: episodesForGroup(group.id) })),
+    ...(projectSection.value === 'projects' ? sortedUngroupedEpisodes.value.map(episode => ({ id: episode.id, group: null, episodes: [episode] })) : []),
+  ]
+  return entries.map(entry => {
+    const production = summarizeProductionData(entry.episodes)
+    const splits = [...new Set(episodePreviewRanges(entry.episodes).flatMap(range => range.splitNumbers))].sort((a, b) => a - b)
+    return {
+      ...entry,
+      title: entry.group?.title ?? entry.episodes[0].title,
+      fullName: entry.group ? entry.group.fullName.trim() : '未分组',
+      dateRange: production.dates.length ? `${production.dates[0].slice(2)} ~ ${production.dates[production.dates.length - 1].slice(2)}` : '未设置制作日期',
+      originalNumbers: entry.episodes.map(formatEpisodeSummaryNumber).join(' / '),
+      contacts: entry.episodes.filter(episode => episode.contactPerson).map(episode => `${formatEpisodeSummaryNumber(episode)} · ${episode.contactPerson}`),
+      splitNumbers: splits.map(number => String(number).padStart(2, '0')).join(' / '),
+      splitCount: splits.length,
+      totalCost: production.totalCost,
+      averageEpisodeCost: production.averageEpisodeCost,
+    }
+  }).filter(card => projectSearchKeyword.value === '绩效'
+    ? Boolean(card.group && (card.group.results.playCount > 0 || card.group.results.commission > 0))
+    : !projectSearchKeyword.value || [card.title, card.fullName, card.originalNumbers, card.splitNumbers]
+      .some(value => value.toLocaleLowerCase().includes(projectSearchKeyword.value)))
 })
 const materialCloneSourceEpisodes = computed(() => {
   const targetEpisode = activeEpisode.value
@@ -2183,7 +2058,6 @@ const materialCloneSourceEpisodes = computed(() => {
     && (episode.groupId ?? null) === (targetEpisode.groupId ?? null)
   )))
 })
-const productionDateSet = computed(() => new Set(state.episodes.map((episode) => normalizeDateString(productionDataFor(episode).productionDate)).filter((date): date is string => Boolean(date))))
 const detectionConflictShot = computed(() => state.episodes.flatMap(episode => episode.shots).find(shot => shot.id === detectionConflictShotId.value) ?? null)
 const dialogueOutputDraft = computed({
   get: () => dialogueView.value === 'replaced' ? dialogueReplacedDraft.value : dialogueOriginalDraft.value,
@@ -2399,6 +2273,7 @@ function summarizeProductionData(episodes: Episode[]) {
     .sort()
 
   return {
+    dates,
     episodeCount: episodes.length,
     averageEpisodeCost: formatPointCost(episodes.length ? totalCost / episodes.length : 0),
     totalCostValue: totalCost,
@@ -2496,7 +2371,6 @@ function handleContactDropdownEscape(event: KeyboardEvent) {
 }
 
 function openPointLedger() {
-  weeklyReportPickerRef.value?.handleClose()
   pointLedgerVisible.value = true
 }
 
@@ -2635,7 +2509,6 @@ async function downloadFromWebDav(settings: WebDavSettings) {
       identity: webDavTargetIdentity(normalized),
       update: (target) => acceptDownloadedFiles(target, downloaded.files, downloaded.remote),
     })
-    selectedEpisodeGroupId.value = activeEpisode.value?.groupId ?? null
     await persistWebDavSettings(normalized)
     notify.success(`WebDAV 下载完成：已保存 ${downloaded.files.size} 个文件，分组及单集 ID 已保留`)
   } catch (error) { notifyWebDavError(error) }
@@ -2685,68 +2558,56 @@ function setDarkMode(value: boolean) {
   document.documentElement.classList.toggle('dark', value)
 }
 
-function isGroupExpanded(id: string) {
-  return expandedGroupIds.value.includes(id)
-}
-
-function toggleGroup(id: string) {
-  expandedGroupIds.value = isGroupExpanded(id)
-    ? expandedGroupIds.value.filter((item) => item !== id)
-    : [...expandedGroupIds.value, id]
-}
-
-function groupEpisodeCount(id: string) {
-  const section = archivedSections.value.find((section) => section.id === id)
-  if (section) return section.groups.length
-
-  return id === 'ungrouped' ? sortedUngroupedEpisodes.value.length : episodesForGroup(id).length
-}
-
-function isGroupEmpty(id: string) {
-  if (groupEpisodeCount(id) > 0) {
-    return false
-  }
-
-  if (id === archivedTreeId || id === historicalTreeId || !pendingEpisode.value) {
-    return true
-  }
-
-  return pendingEpisode.value.groupId !== normalizeEpisodeGroupId(id)
-}
-
-function normalizeEpisodeGroupId(id: string | null) {
-  return id === 'ungrouped' ? null : id
-}
-
-function isExistingEpisodeGroupId(id: string | null) {
-  return id === null || state.episodeGroups.some((group) => group.id === id)
-}
-
 function isArchivedEpisodeGroupId(id: string | null) {
   return Boolean(id && state.episodeGroups.some((group) => group.id === id && group.archived))
 }
 
-function getSelectedEpisodeGroupId() {
-  if (isExistingEpisodeGroupId(selectedEpisodeGroupId.value) && !isArchivedEpisodeGroupId(selectedEpisodeGroupId.value)) {
-    return selectedEpisodeGroupId.value
-  }
+function rememberProjectScroll() {
+  projectScrollPositions[projectSection.value] = projectLibraryRef.value?.scrollTop ?? 0
+}
 
-  const activeGroupId = activeEpisode.value?.groupId ?? null
-  return isArchivedEpisodeGroupId(activeGroupId) ? null : activeGroupId
+function selectProjectSection(section: ProjectSection) {
+  projectSection.value = section
+  void nextTick(() => { if (projectLibraryRef.value) projectLibraryRef.value.scrollTop = projectScrollPositions[section] })
+}
+
+function returnToLibrary() {
+  handleEpisodeSwitchVisibleChange(false)
+  cancelAnimationFrame(shotScrollAnimation)
+  workspaceView.value = 'library'
+  closeTimingPopover()
+  void nextTick(() => { if (projectLibraryRef.value) projectLibraryRef.value.scrollTop = projectScrollPositions[projectSection.value] })
+}
+
+function enterEpisodeWorkspace(episode: Episode) {
+  selectEpisode(episode)
+  workspaceView.value = 'editor'
+  void nextTick(scrollToCurrentEpisodeStart)
+}
+
+function openProjectCard(card: { group: EpisodeGroup | null; episodes: Episode[] }, event?: Event) {
+  if (event?.target instanceof Element) {
+    if (event.target.closest('button, .el-dropdown, .rename-inline')) return
+  }
+  if (!card.episodes.length && card.group) {
+    const episode = createEpisode(1)
+    episode.groupId = card.group.id
+    state.episodes.push(episode)
+    enterEpisodeWorkspace(episode)
+    return
+  }
+  const episode = card.episodes.find(episode => episode.id === lastGroupEpisodes.get(card.group?.id ?? '')) ?? card.episodes[0]
+  if (episode) enterEpisodeWorkspace(episode)
 }
 
 function selectEpisode(episode: Episode) {
-  if (pendingEpisode.value?.id === episode.id) {
-    return
-  }
-
   state.activeEpisodeId = episode.id
-  selectedEpisodeGroupId.value = episode.groupId ?? null
 }
 
 function switchActiveEpisode(episodeId: string) {
   const episode = activeGroupEpisodes.value.find((item) => item.id === episodeId)
   if (episode) selectEpisode(episode)
+  episodeSwitchDropdownRef.value?.handleClose()
 }
 function switchRelativeEpisode(offset: -1 | 1) {
   const episode = activeGroupEpisodes.value[activeGroupEpisodeIndex.value + offset]
@@ -2760,35 +2621,6 @@ function hasEpisodesInGroup(groupId: string) {
 function switchActiveEpisodeGroup(groupId: string) {
   const episode = episodesForGroup(groupId)[0]
   if (episode) selectEpisode(episode)
-}
-
-function selectGroup(id: string | null) {
-  selectedEpisodeGroupId.value = normalizeEpisodeGroupId(id)
-}
-
-function selectGroupAndToggleIfNotEmpty(id: string) {
-  selectGroup(id)
-  toggleGroupIfNotEmpty(id)
-}
-
-function groupTreeRootId(group: EpisodeGroup) {
-  if (!group.archived) return myEpisodesTreeId
-  return historicalGroupIds.value.has(group.id) ? historicalTreeId : archivedTreeId
-}
-
-function toggleGroupIfNotEmpty(id: string) {
-  if (!isGroupEmpty(id)) {
-    toggleGroup(id)
-  }
-}
-
-
-function sidebarGroupTitle(group: EpisodeGroup) {
-  return showFullGroupNames.value ? group.fullName.trim() || group.title : group.title
-}
-
-function groupSortTitle(group: EpisodeGroup) {
-  return editingGroupId.value === group.id ? editingGroupOriginalTitle.value : group.title
 }
 
 function latestGroupProductionDate(groupId: string) {
@@ -2819,16 +2651,6 @@ function episodesForGroup(groupId: string) {
   return sortEpisodesForDisplay(state.episodes.filter((episode) => episode.groupId === groupId))
 }
 
-function episodeTreeEpisodesForGroup(groupId: string) {
-  const episodes = episodesForGroup(groupId)
-
-  if (pendingEpisode.value?.groupId === groupId) {
-    episodes.push(pendingEpisode.value)
-  }
-
-  return sortEpisodesForDisplay(episodes)
-}
-
 function normalizeDateString(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return null
@@ -2849,107 +2671,14 @@ function formatDateString(date: Date) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
 }
 
-function formatMonthDay(value: string) {
-  const [, month, day] = value.split('-')
-  return `${month}${day}`
-}
-
 function pad2(value: number) {
   return String(value).padStart(2, '0')
-}
-
-function getMonday(value: Date) {
-  const date = new Date(value.getFullYear(), value.getMonth(), value.getDate())
-  const day = date.getDay()
-  const offset = day === 0 ? -6 : 1 - day
-  date.setDate(date.getDate() + offset)
-  return date
-}
-
-function addDays(value: Date, days: number) {
-  const date = new Date(value.getFullYear(), value.getMonth(), value.getDate())
-  date.setDate(date.getDate() + days)
-  return date
-}
-
-function getIsoWeekMonday(year: number, week: number) {
-  const januaryFourth = new Date(year, 0, 4)
-  const weekOneMonday = getMonday(januaryFourth)
-  return addDays(weekOneMonday, (week - 1) * 7)
-}
-
-function normalizeWeekValue(value: Date | string | null) {
-  if (value instanceof Date) {
-    return Number.isFinite(value.getTime()) ? value : null
-  }
-
-  if (typeof value === 'string') {
-    const date = parseDateString(value)
-
-    if (date) {
-      return date
-    }
-
-    const weekMatch = value.match(/^(\d{4})\s*w\s*(\d{1,2})$/i)
-
-    if (weekMatch) {
-      const year = Number(weekMatch[1])
-      const week = Number(weekMatch[2])
-      return Number.isFinite(year) && Number.isFinite(week) && week >= 1 && week <= 53 ? getIsoWeekMonday(year, week) : null
-    }
-  }
-
-  return null
-}
-
-function createWeeklyReportRange(selectedDate: Date): WeeklyReportRange {
-  const start = getMonday(selectedDate)
-  const end = addDays(start, 6)
-
-  return {
-    start: formatDateString(start),
-    end: formatDateString(end),
-  }
-}
-
-function createWeeklyReportRangeFromStart(start: Date): WeeklyReportRange {
-  return {
-    start: formatDateString(start),
-    end: formatDateString(addDays(start, 6)),
-  }
-}
-
-function getWeeklyReportRanges(value: Date | string | null) {
-  if (typeof value === 'string') {
-    const date = parseDateString(value)
-
-    if (date) {
-      return [createWeeklyReportRangeFromStart(date)]
-    }
-  }
-
-  const selectedDate = normalizeWeekValue(value)
-
-  if (!selectedDate) {
-    return []
-  }
-
-  return [createWeeklyReportRange(selectedDate)]
-}
-
-function hasProductionOnPickerCell(cell: WeeklyReportPickerCell | undefined) {
-  const date = cell?.dayjs?.format('YYYY-MM-DD')
-  return typeof date === 'string' && productionDateSet.value.has(date)
 }
 
 function parseEpisodeNumber(title: string) {
   const match = title.match(/\d+/)
   const value = match ? Number(match[0]) : 0
   return Number.isFinite(value) && value > 0 ? value : 0
-}
-
-function getEpisodeNumber(title: string) {
-  return pad2(parseEpisodeNumber(title))
 }
 
 function getEpisodeGroupTitle(groupId: string | null) {
@@ -2966,83 +2695,6 @@ function sceneAssetLabel(scene: SceneAsset) {
 
 function formatUnitLabel(unitNumber: number) {
   return `单元${unitNumber}`
-}
-
-function collectWeeklyReportEntries(range: WeeklyReportRange) {
-  return state.episodes
-    .map((episode): WeeklyReportEntry | null => {
-      const date = normalizeDateString(productionDataFor(episode).productionDate)
-
-      if (!date || date < range.start || date > range.end) {
-        return null
-      }
-
-      const groupId = episode.groupId ?? null
-      return {
-        date,
-        dateLabel: formatMonthDay(date),
-        groupId,
-        groupTitle: getEpisodeGroupTitle(groupId),
-        episodeNumber: getEpisodeNumber(episode.title),
-      }
-    })
-    .filter((entry): entry is WeeklyReportEntry => Boolean(entry))
-    .sort((a, b) => {
-      const dateDiff = a.date.localeCompare(b.date)
-
-      if (dateDiff !== 0) {
-        return dateDiff
-      }
-
-      const groupDiff = a.groupTitle.localeCompare(b.groupTitle, 'zh-CN', { numeric: true })
-      return groupDiff !== 0 ? groupDiff : a.episodeNumber.localeCompare(b.episodeNumber, 'zh-CN', { numeric: true })
-    })
-}
-
-function buildWeeklyReportEntries(value: Date | string | null) {
-  const ranges = getWeeklyReportRanges(value)
-
-  for (const range of ranges) {
-    const entries = collectWeeklyReportEntries(range)
-
-    if (entries.length) {
-      return entries
-    }
-  }
-
-  return []
-}
-
-function buildWeeklyReport(value: Date | string | null) {
-  const entries = buildWeeklyReportEntries(value)
-
-  if (!entries.length) {
-    return ''
-  }
-
-  const lines = [`${entries[0].dateLabel} - ${entries[entries.length - 1].dateLabel}`]
-  const entriesByDate = new Map<string, WeeklyReportEntry[]>()
-
-  entries.forEach((entry) => {
-    entriesByDate.set(entry.date, [...(entriesByDate.get(entry.date) ?? []), entry])
-  })
-
-  Array.from(entriesByDate.entries()).forEach(([date, dateEntries]) => {
-    const groups = new Map<string, WeeklyReportEntry[]>()
-    dateEntries.forEach((entry) => {
-      groups.set(entry.groupId ?? 'ungrouped', [...(groups.get(entry.groupId ?? 'ungrouped') ?? []), entry])
-    })
-
-    const segments = Array.from(groups.values()).map((groupEntries) => {
-      const firstEntry = groupEntries[0]
-      const episodeNumbers = Array.from(new Set(groupEntries.map((entry) => entry.episodeNumber))).join('/')
-      return `制作《${firstEntry.groupTitle}》${episodeNumbers}集`
-    })
-
-    lines.push(`${formatMonthDay(date)} ${segments.join('、')}`)
-  })
-
-  return lines.join('\n')
 }
 
 function filterEpisodeNumberInput(value: string) {
@@ -3063,7 +2715,6 @@ function isEpisodeNumberUsed(groupId: string | null, episodeNumber: number, excl
 
 function finishEpisodeRename(episode: Episode) {
   const episodeNumber = Number(editingEpisodeNumber.value)
-  const isPendingEpisode = pendingEpisode.value?.id === episode.id
 
   if (!editingEpisodeNumber.value || !Number.isSafeInteger(episodeNumber) || episodeNumber <= 0) {
     notify.warning('请输入正整数集号')
@@ -3077,82 +2728,38 @@ function finishEpisodeRename(episode: Episode) {
 
   episode.title = formatEpisodeTitle(episodeNumber)
 
-  if (isPendingEpisode) {
-    state.episodes.push(episode)
-    state.activeEpisodeId = episode.id
-    selectedEpisodeGroupId.value = episode.groupId
-    pendingEpisode.value = null
-  }
-
   editingEpisodeId.value = null
   editingEpisodeOriginalTitle.value = ''
   editingEpisodeNumber.value = ''
 }
 
 function cancelEpisodeRename(episode: Episode) {
-  if (pendingEpisode.value?.id === episode.id) {
-    pendingEpisode.value = null
-  } else {
-    episode.title = editingEpisodeOriginalTitle.value || episode.title
-  }
+  episode.title = editingEpisodeOriginalTitle.value || episode.title
 
   editingEpisodeId.value = null
   editingEpisodeOriginalTitle.value = ''
   editingEpisodeNumber.value = ''
 }
 
-function finishGroupRename() {
-  if (pendingEpisodeGroup.value) {
-    const group = pendingEpisodeGroup.value
-    state.episodeGroups.push(group)
-    selectedEpisodeGroupId.value = group.id
-    expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, group.id]))
-    pendingEpisodeGroup.value = null
-  }
-  editingGroupId.value = null
-  editingGroupOriginalTitle.value = ''
-}
-
-function cancelGroupRename(group: EpisodeGroup) {
-  if (pendingEpisodeGroup.value?.id === group.id) {
-    pendingEpisodeGroup.value = null
-  } else {
-    group.title = editingGroupOriginalTitle.value || group.title
-  }
-  finishGroupRename()
-}
-
-function focusRenameInput(kind: 'episode' | 'group', id: string, selectText: boolean) {
-  void nextTick(() => {
-    requestAnimationFrame(() => {
-      const container = Array.from(document.querySelectorAll<HTMLElement>('.rename-inline')).find(
-        (element) => element.dataset.renameKind === kind && element.dataset.renameId === id,
-      )
-      const input = container?.querySelector<HTMLInputElement>('.el-input__inner')
-
-      input?.focus()
-
-      if (selectText) {
-        input?.select()
-      }
-    })
-  })
-}
-
-function startGroupRename(group: EpisodeGroup) {
-  pendingEpisodeGroup.value = null
-  editingGroupOriginalTitle.value = group.title
-  editingGroupId.value = group.id
-  focusRenameInput('group', group.id, true)
-}
-
 function addEpisodeGroup() {
   const group = createEpisodeGroup(state.globalConfig.prompt.activeProfileId)
-  pendingEpisodeGroup.value = group
-  expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, myEpisodesTreeId]))
-  editingGroupOriginalTitle.value = group.title
-  editingGroupId.value = group.id
-  focusRenameInput('group', group.id, true)
+  group.title = '未命名项目'
+  const episode = createEpisode(1)
+  episode.groupId = group.id
+  state.episodeGroups.push(group)
+  state.episodes.push(episode)
+  enterEpisodeWorkspace(episode)
+}
+
+function handleEpisodeSwitchVisibleChange(visible: boolean) {
+  episodeSwitchVisible.value = visible
+  if (visible) {
+    void nextTick(() => episodeStartInputRef.value?.focus())
+    return
+  }
+  episodeStartNumber.value = ''
+  const editing = activeGroupEpisodes.value.find(episode => episode.id === editingEpisodeId.value)
+  if (editing) cancelEpisodeRename(editing)
 }
 
 function setScriptHighlightRef(id: string, element: unknown) {
@@ -3383,7 +2990,11 @@ watch(
 
 watch(
   () => activeEpisode.value,
-  (episode) => { if (episode) initializeSharedCharacters(state, episode) },
+  (episode) => {
+    if (!episode) return
+    initializeSharedCharacters(state, episode)
+    if (episode.groupId) lastGroupEpisodes.set(episode.groupId, episode.id)
+  },
   { immediate: true },
 )
 
@@ -3472,47 +3083,22 @@ function resetMaterialSceneTransition() {
   })
 }
 
-function openRowMoreMenu(event: MouseEvent, buttonSelector: string) {
-  if (!(event.currentTarget instanceof HTMLElement)) {
-    return
-  }
-
-  event.currentTarget.querySelector<HTMLButtonElement>(buttonSelector)?.click()
-}
-
-async function handleEpisodeCommand(command: string | { action: 'move'; groupId: string | null }, episode: Episode) {
-  if (typeof command !== 'string') {
-    if (command.action === 'move') {
-      if (isArchivedEpisodeGroupId(command.groupId)) {
-        return
-      }
-
-      const usedNames = new Set(episode.shots.flatMap(shot => shot.characters.map(character => character.name)))
-      const sourceAssets = assetsFor(state, episode).filter(asset => !episode.groupId || usedNames.has(asset.name))
-      const targetGroup = state.episodeGroups.find(group => group.id === command.groupId)
-      const targetEpisode = state.episodes.find(item => item.groupId === command.groupId)
-      if (targetGroup && targetEpisode) initializeSharedCharacters(state, targetEpisode)
-      const nextAssets: CharacterAsset[] = JSON.parse(JSON.stringify(targetGroup?.characters ?? []))
-      sourceAssets.forEach(asset => { if (!nextAssets.some(item => item.name === asset.name)) nextAssets.push(JSON.parse(JSON.stringify(asset))) })
-      const candidate: Episode = { ...episode, groupId: command.groupId, characters: targetGroup ? [] : nextAssets, shots: JSON.parse(JSON.stringify(episode.shots)) }
-      if (!await approveEpisodeCharacters(candidate, nextAssets)) return
-      if (targetGroup) targetGroup.characters = nextAssets
-      Object.assign(episode, candidate)
-      initializeSharedCharacters(state, episode)
-      if (episode.id === state.activeEpisodeId) {
-        selectedEpisodeGroupId.value = command.groupId
-      }
-      expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, command.groupId ?? 'ungrouped']))
-    }
-    return
-  }
+function handleEpisodeCommand(command: string, episode: Episode) {
+  if (workspaceView.value === 'editor' && command !== 'edit') episodeSwitchDropdownRef.value?.handleClose()
 
   if (command === 'edit') {
-    pendingEpisode.value = null
     editingEpisodeOriginalTitle.value = episode.title
     editingEpisodeNumber.value = getEpisodeNumberDraft(episode.title)
     editingEpisodeId.value = episode.id
-    focusRenameInput('episode', episode.id, true)
+    if (workspaceView.value === 'editor') episodeSwitchDropdownRef.value?.handleOpen()
+    void nextTick(() => {
+      requestAnimationFrame(() => {
+        const container = Array.from(document.querySelectorAll<HTMLElement>('.rename-inline')).find(element => element.dataset.renameId === episode.id)
+        const input = container?.querySelector<HTMLInputElement>('.el-input__inner')
+        input?.focus()
+        input?.select()
+      })
+    })
     return
   }
 
@@ -3533,12 +3119,6 @@ async function handleGroupCommand(command: string, groupId: string) {
     return
   }
 
-  if (command === 'edit') {
-    const group = state.episodeGroups.find((item) => item.id === groupId)
-    if (group) startGroupRename(group)
-    return
-  }
-
   if (command === 'archive') {
     const group = state.episodeGroups.find((item) => item.id === groupId)
 
@@ -3547,16 +3127,6 @@ async function handleGroupCommand(command: string, groupId: string) {
     }
 
     group.archived = !group.archived
-    expandedGroupIds.value = expandedGroupIds.value.filter(id => id !== group.id)
-    expandedGroupIds.value = Array.from(new Set([
-      ...expandedGroupIds.value,
-      groupTreeRootId(group),
-      ...(!group.archived ? [group.id] : []),
-    ]))
-
-    if (group.archived && selectedEpisodeGroupId.value === groupId) {
-      selectedEpisodeGroupId.value = null
-    }
 
     return
   }
@@ -3587,11 +3157,7 @@ async function handleGroupCommand(command: string, groupId: string) {
       episode.groupId = null
     }
   })
-  if (selectedEpisodeGroupId.value === groupId) {
-    selectedEpisodeGroupId.value = null
-  }
   state.episodeGroups = state.episodeGroups.filter((item) => item.id !== groupId)
-  expandedGroupIds.value = expandedGroupIds.value.filter((id) => id !== groupId)
 }
 
 function cloneEpisodeMaterials(sourceEpisodeId: string) {
@@ -4180,65 +3746,25 @@ function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: S
   notify.success(scope === 'unit' ? `已同步本单元角色状态，共 ${count} 项` : `已同步全篇角色状态，共 ${count} 项`)
 }
 
-function addEpisode() {
-  const targetGroupId = getSelectedEpisodeGroupId()
-  const targetTreeId = targetGroupId ?? 'ungrouped'
-  const episode = createEpisode(1)
-  episode.title = ''
-  episode.groupId = targetGroupId
-  pendingEpisode.value = episode
-  selectedEpisodeGroupId.value = targetGroupId
-  expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, targetTreeId]))
-  editingEpisodeOriginalTitle.value = ''
-  editingEpisodeNumber.value = ''
-  editingEpisodeId.value = episode.id
-  focusRenameInput('episode', episode.id, false)
-}
-
-async function addEpisodeToGroup(groupId: string, count = 1) {
-  const group = state.episodeGroups.find((item) => item.id === groupId)
-  if (!group || group.archived) {
+function addEpisodesFromMenu(count: number) {
+  const groupId = activeEpisode.value!.groupId
+  const start = Number(episodeStartNumber.value)
+  if (!Number.isSafeInteger(start) || start <= 0 || !Number.isSafeInteger(start + count - 1)) {
+    notify.warning('请输入有效的正整数集号')
     return
   }
-
-  if (count === 1) {
-    selectedEpisodeGroupId.value = groupId
-    addEpisode()
-    return
+  for (let offset = 0; offset < count; offset += 1) {
+    if (isEpisodeNumberUsed(groupId, start + offset)) {
+      notify.warning(`当前分组已存在${formatEpisodeTitle(start + offset)}`)
+      return
+    }
   }
-
-  let startNumber: number
-  try {
-    const { value } = await ElMessageBox.prompt(`输入起始集号，将连续添加 ${count} 集。`, `添加 ${count} 集`, {
-      confirmButtonText: '添加',
-      cancelButtonText: '取消',
-      inputPlaceholder: '输入起始集号',
-      inputValidator: (value) => {
-        const input = value.trim()
-        const start = Number(input)
-        if (!/^\d+$/.test(input) || start <= 0 || !Number.isSafeInteger(start) || !Number.isSafeInteger(start + count - 1)) {
-          return '请输入有效的正整数集号'
-        }
-        for (let offset = 0; offset < count; offset += 1) {
-          if (isEpisodeNumberUsed(groupId, start + offset)) {
-            return `当前分组已存在${formatEpisodeTitle(start + offset)}`
-          }
-        }
-        return true
-      },
-    })
-    startNumber = Number(value.trim())
-  } catch {
-    return
-  }
-
-  const episodes = Array.from({ length: count }, (_, index) => ({ ...createEpisode(startNumber + index), groupId }))
+  const episodes = Array.from({ length: count }, (_, index) => ({ ...createEpisode(start + index), groupId }))
   state.episodes.push(...episodes)
   selectEpisode(episodes[0])
-  expandedGroupIds.value = Array.from(new Set([...expandedGroupIds.value, myEpisodesTreeId, groupId]))
+  episodeSwitchDropdownRef.value?.handleClose()
   notify.success(`已添加 ${count} 集`)
 }
-
 
 async function deleteEpisodeById(id: string) {
   if (state.episodes.length === 1) {
@@ -4397,6 +3923,7 @@ function shotScrollContainer() {
 async function scrollShotListTo(shotId: string, mode: 'smooth' | 'instant' | 'preserve' = 'smooth', offset = 0) {
   cancelAnimationFrame(shotScrollAnimation)
   await nextTick()
+  if (workspaceView.value !== 'editor') return
   const list = shotScrollContainer()
   const row = document.getElementById(shotRowElementId(shotId))!
   const lastRow = shotListRef.value!.querySelector<HTMLElement>('.shot-row:last-of-type')
@@ -5690,7 +5217,7 @@ function isEditableShortcutTarget(target: EventTarget | null) {
 }
 
 function isShortcutBlocked() {
-  return outfitAssignmentVisible.value || materialDialogVisible.value
+  return workspaceView.value === 'library' || episodeSwitchVisible.value || outfitAssignmentVisible.value || materialDialogVisible.value
     || characterPasteDialogVisible.value
     || globalDialogVisible.value
     || webDavAuthVisible.value
@@ -5808,24 +5335,6 @@ async function copyPrompt(shot: Shot) {
   notify.error('复制失败，请手动选择文本复制')
 }
 
-async function copyWeeklyReport(value: Date | string | null = weeklyReportWeek.value) {
-  const report = buildWeeklyReport(value ?? weeklyReportWeek.value)
-
-  if (!report) {
-    notify.info('所选周暂无制作记录')
-    return
-  }
-
-  const copied = await copyText(report)
-
-  if (copied) {
-    notify.success('已复制周报')
-    return
-  }
-
-  notify.error('复制失败，请手动选择文本复制')
-}
-
 async function copyShotDetail(shot: Shot) {
   const copied = await copyText(promptFor(shot, true))
 
@@ -5868,7 +5377,6 @@ function handleDrawerOutsideClick(event: MouseEvent) {
 }
 
 onMounted(() => {
-  void nextTick(scrollToCurrentEpisodeStart)
   refreshHistoryDate()
   window.addEventListener('focus', refreshHistoryDate)
   document.addEventListener('visibilitychange', handleHistoryVisibilityChange)
@@ -6081,8 +5589,6 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, stat
     state.episodes = []
     state.pointInvoices = []
     state.activeEpisodeId = ''
-    selectedEpisodeGroupId.value = null
-    expandedGroupIds.value = [myEpisodesTreeId]
   }
 
   const preparedBatches = batches.map((batch) => {
@@ -6187,10 +5693,6 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, stat
         }
 
         state.episodeGroups.push(group)
-        expandedGroupIds.value = Array.from(new Set([
-          ...expandedGroupIds.value,
-          group.id,
-        ]))
       })
 
     episodesToImport.forEach((episode) => {
@@ -6200,11 +5702,6 @@ function applyImportBatches(batches: ImportBatch[], importMode: ImportMode, stat
     })
     state.pointInvoices = mergePointInvoices(state.pointInvoices, remapPointInvoices(batch.pointInvoices, episodeIdMap), new Set(state.episodes.map((episode) => episode.id)))
   })
-
-  expandedGroupIds.value = Array.from(new Set([
-    ...expandedGroupIds.value,
-    ...state.episodeGroups.filter((group) => isGroupExpanded(group.id)).map(groupTreeRootId),
-  ]))
 
   if (!state.episodes.length) {
     const episode = createEpisode(1)

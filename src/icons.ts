@@ -1,9 +1,9 @@
 import { defineComponent, h, type Component } from 'vue'
 import {
-  AddFour, Attention, BeachUmbrella, Box, CardTwo, CarouselVideo, CategoryManagement, CheckOne, CheckSmall, CircleRightUp,
+  AddFour, Attention, Back, BeachUmbrella, CardTwo, CarouselVideo, CategoryManagement, CheckOne, CheckSmall, CircleRightUp,
   CloseSmall, Copy, Crown, DataArrival, Delete as ParkDelete, Down, DownloadTwo,
-  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, GoStart as ParkGoStart, GoEnd as ParkGoEnd, ImageFiles as ParkImageFiles, Lightning, LinkInterrupt as ParkLinkInterrupt, Local, Message, Moon as ParkMoon, More, Order,
-  Peoples, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, RightUser, Search as ParkSearch, SettingTwo,
+  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, FolderMinus, FolderSuccess, GoStart as ParkGoStart, GoEnd as ParkGoEnd, ImageFiles as ParkImageFiles, Lightning, LinkInterrupt as ParkLinkInterrupt, Local, Message, Moon as ParkMoon, More, MoreOne,
+  Peoples, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, RightUser, Search as ParkSearch, SeoFolder, SettingTwo,
   Slide, SlideTwo, SortTwo, SplitTurnDownRight as ParkSplitTurnDownRight, Star as ParkStar, SubtractSelection, SubtractSelectionOne, SunOne, Switch as ParkSwitch, Sync,
   UploadTwo, User as ParkUser, VipOne, Voice, VoiceOff, Wallet, WritingFluently,
 } from '@icon-park/vue-next'
@@ -20,7 +20,7 @@ function icon(component: Component, theme: 'outline' | 'filled' = 'outline') {
 export const AddIcon = icon(ParkPlus)
 export const ArrowDown = icon(Down)
 export const ArrowRight = icon(Right)
-export const Calendar = icon(Order)
+export const HomeBackIcon = icon(Back, 'filled')
 export const PointBalanceIcon = icon(Lightning, 'filled')
 export const CategoryManagementIcon = icon(CategoryManagement)
 export const SceneStatus = icon(WritingFluently)
@@ -41,7 +41,12 @@ export const DialogueTabIcon = icon(Message)
 export const Download = icon(DownloadTwo)
 export const EditPen = icon(Edit)
 export const Expand = icon(ExpandDown)
-export const Files = icon(Box)
+export const ProjectFolder = icon(SeoFolder)
+export const ProjectFolderFilled = icon(SeoFolder, 'filled')
+export const ArchiveFolder = icon(FolderSuccess)
+export const ArchiveFolderFilled = icon(FolderSuccess, 'filled')
+export const HistoryFolder = icon(FolderMinus)
+export const HistoryFolderFilled = icon(FolderMinus, 'filled')
 export const FileMusic = icon(ParkFileMusic)
 export const FileMusicFilled = icon(ParkFileMusic, 'filled')
 export const FileRemovalFilled = icon(FileRemoval, 'filled')
@@ -62,6 +67,7 @@ export const MaterialTabIcon = icon(CarouselVideo)
 export const Microphone = icon(Voice)
 export const Moon = icon(ParkMoon)
 export const MoreFilled = icon(More, 'filled')
+export const MoreOneIcon = icon(MoreOne)
 export const Mute = icon(VoiceOff)
 export const Notebook = icon(Slide)
 export const Plus = icon(AddFour)
