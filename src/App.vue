@@ -9,7 +9,7 @@
       <input ref="fileInputRef" class="file-input" type="file" accept="application/json,.json" multiple @change="importEpisode" />
 
       <div class="workspace">
-        <header v-if="activeEpisode" class="workspace-header">
+        <header class="workspace-header">
           <section class="sidebar-brand">
             <div class="brand-mark"><img :src="brandIconUrl" alt="Script2Prompt" /></div>
             <div class="brand-text">
@@ -22,26 +22,8 @@
               </el-tooltip>
               <span v-else>Script2Prompt</span>
             </div>
-            <div class="brand-tools">
-              <el-segmented v-model="isDarkMode" :options="themeModeOptions" class="theme-switch" aria-label="主题切换" @change="setDarkMode">
-                <template #default="{ item }">
-                  <el-icon :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
-                    <component :is="segmentedOptionIcon(item)" />
-                  </el-icon>
-                </template>
-              </el-segmented>
-              <el-button
-                class="global-config-icon"
-                :icon="Setting"
-                circle
-                title="全局配置"
-                aria-label="全局配置"
-                @click="openGlobalDialog"
-              />
-            </div>
           </section>
-          <el-page-header class="stage-header" :icon="EmptyPageHeaderIcon">
-            <template #title>
+          <nav v-if="activeEpisode" class="stage-header" aria-label="工作区菜单">
               <span class="stage-page-title">
                 <el-dropdown trigger="click" popper-class="stage-title-switch-dropdown" @command="switchActiveEpisodeGroup">
                   <button class="stage-title-switch-trigger" type="button" title="切换剧本" aria-label="切换剧本">
@@ -86,39 +68,58 @@
                   <el-button :icon="Document" text @click="openReviewSummary(activeEpisode)">分集</el-button>
                 </el-button-group>
               </span>
-            </template>
-            <template #content>
+              <el-divider direction="vertical" />
               <div class="stage-page-actions">
                 <el-button-group class="stage-action-group">
                   <el-button :icon="MaterialTabIcon" text @click="openEpisodeScriptDialog('materials')">素材</el-button>
                   <el-button :icon="ShotTabIcon" text @click="openEpisodeScriptDialog('shots')">分镜</el-button>
                   <el-button :icon="DialogueTabIcon" text @click="openDialogueDialog">台词</el-button>
                 </el-button-group>
-                <el-divider direction="vertical" />
-                <div class="shot-view-controls">
-                  <el-button text circle :icon="Expand" :bg="state.shotViewMode === 'single-expanded'" title="手风琴模式" aria-label="手风琴模式" :aria-pressed="state.shotViewMode === 'single-expanded'" @click="toggleShotAccordion" />
-                  <el-button text circle :icon="PreviousEpisodeUnit" :bg="activeEpisode.showPreviousEpisodeUnit" :disabled="Boolean(previousEpisodeUnit.reason)" :title="previousEpisodeUnit.reason || '衔接上集单元'" aria-label="衔接上集单元" :aria-pressed="activeEpisode.showPreviousEpisodeUnit" @click="toggleNeighborUnit(-1)" />
-                  <el-segmented
-                    :model-value="activeShotViewSelection"
-                    :options="shotViewModeOptions"
-                    size="small"
-                    class="shot-view-segmented"
-                    aria-label="分镜展开模式"
-                    @change="handleShotViewModeChange"
-                  >
-                    <template #default="{ item }">
-                      <span class="shot-view-index" :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
-                        {{ segmentedOptionNumber(item) }}
-                      </span>
-                    </template>
-                  </el-segmented>
-                  <el-button text circle :icon="NextEpisodeUnit" :bg="activeEpisode.showNextEpisodeUnit" :disabled="Boolean(nextEpisodeUnit.reason)" :title="nextEpisodeUnit.reason || '衔接下集单元'" aria-label="衔接下集单元" :aria-pressed="activeEpisode.showNextEpisodeUnit" @click="toggleNeighborUnit(1)" />
-                </div>
               </div>
-            </template>
-          </el-page-header>
+          </nav>
+          <div class="brand-tools" role="group" aria-label="积分与设置">
+            <div class="header-ledger-entry">
+              <el-tooltip :content="`剩余积分：${remainingPoints}；${isTodayMonday ? '右键选择周报（记得交周报）' : '右键选择并复制周报'}`" placement="bottom">
+                <el-button class="header-points-button" :icon="PointBalanceIcon" text :class="{ 'is-reminder': isTodayMonday }" aria-label="积分记录" @click="openPointLedger" @contextmenu.prevent.stop="weeklyReportPickerRef?.handleOpen()">{{ remainingPointsLabel }}</el-button>
+              </el-tooltip>
+              <el-date-picker
+                ref="weeklyReportPickerRef"
+                v-model="weeklyReportWeek"
+                class="header-week-picker"
+                type="week"
+                format="[第] ww [周]"
+                value-format="YYYY-MM-DD"
+                placeholder="选择周报"
+                :prefix-icon="Calendar"
+                :clearable="false"
+                aria-label="选择并复制周报"
+                :tabindex="-1"
+                @change="copyWeeklyReport"
+              >
+                <template #default="cell">
+                  <div class="el-date-table-cell weekly-report-date-cell" :class="{ 'has-production': hasProductionOnPickerCell(cell) }">
+                    <span class="el-date-table-cell__text">
+                      {{ cell.text }}
+                      <i v-if="hasProductionOnPickerCell(cell)" aria-hidden="true"></i>
+                    </span>
+                  </div>
+                </template>
+              </el-date-picker>
+            </div>
+            <el-divider direction="vertical" />
+            <el-button class="theme-switch" :icon="isDarkMode ? Moon : Sunny" text circle :title="isDarkMode ? '切换浅色模式' : '切换深色模式'" :aria-label="isDarkMode ? '切换浅色模式' : '切换深色模式'" @click="setDarkMode(!isDarkMode)" />
+            <el-button
+              class="global-config-icon"
+              :icon="Setting"
+              circle
+              title="全局配置"
+              aria-label="全局配置"
+              @click="openGlobalDialog"
+            />
+          </div>
         </header>
 
+        <div class="workspace-body">
         <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
           <template v-if="!sidebarCollapsed">
             <section class="panel episode-panel">
@@ -399,34 +400,6 @@
             <nav class="sidebar-footer-actions" aria-label="剧本管理快捷操作">
               <el-tooltip content="从云端下载" placement="top"><el-button :icon="Download" text aria-label="从云端下载" :loading="webDavAction === 'download'" :disabled="Boolean(webDavAction)" @click="requestWebDavTransfer('download')" /></el-tooltip>
               <el-tooltip content="上传到云端" placement="top"><el-button :icon="Upload" text aria-label="上传到云端" :loading="webDavAction === 'upload'" :disabled="Boolean(webDavAction)" @click="requestWebDavTransfer('upload')" /></el-tooltip>
-              <div class="sidebar-footer-ledger-entry">
-                <el-tooltip :content="isTodayMonday ? '积分记录；右键选择周报（记得交周报）' : '积分记录；右键选择并复制周报'" placement="top">
-                  <el-button :icon="Calendar" text :class="{ 'is-reminder': isTodayMonday }" aria-label="积分记录" @click="openPointLedger" @contextmenu.prevent.stop="weeklyReportPickerRef?.handleOpen()" />
-                </el-tooltip>
-                <el-date-picker
-                  ref="weeklyReportPickerRef"
-                  v-model="weeklyReportWeek"
-                  class="sidebar-footer-week-picker"
-                  type="week"
-                  format="[第] ww [周]"
-                  value-format="YYYY-MM-DD"
-                  placeholder="选择周报"
-                  :prefix-icon="Calendar"
-                  :clearable="false"
-                  aria-label="选择并复制周报"
-                  :tabindex="-1"
-                  @change="copyWeeklyReport"
-                >
-                  <template #default="cell">
-                    <div class="el-date-table-cell weekly-report-date-cell" :class="{ 'has-production': hasProductionOnPickerCell(cell) }">
-                      <span class="el-date-table-cell__text">
-                        {{ cell.text }}
-                        <i v-if="hasProductionOnPickerCell(cell)" aria-hidden="true"></i>
-                      </span>
-                    </div>
-                  </template>
-                </el-date-picker>
-              </div>
             </nav>
 
           </template>
@@ -790,6 +763,27 @@
             </article>
             <div v-if="neighborScrollPadding" class="neighbor-scroll-spacer" :style="{ flex: `0 0 ${neighborScrollPadding}px` }" aria-hidden="true"></div>
           </section>
+          <nav class="shot-navigation-bar" aria-label="分镜导航">
+            <div class="shot-view-controls">
+              <el-button text circle :icon="Expand" :bg="state.shotViewMode === 'single-expanded'" title="手风琴模式" aria-label="手风琴模式" :aria-pressed="state.shotViewMode === 'single-expanded'" @click="toggleShotAccordion" />
+              <el-button text circle :icon="PreviousEpisodeUnit" :bg="activeEpisode.showPreviousEpisodeUnit" :disabled="Boolean(previousEpisodeUnit.reason)" :title="previousEpisodeUnit.reason || '衔接上集单元'" aria-label="衔接上集单元" :aria-pressed="activeEpisode.showPreviousEpisodeUnit" @click="toggleNeighborUnit(-1)" />
+              <el-segmented
+                :model-value="activeShotViewSelection"
+                :options="shotViewModeOptions"
+                size="small"
+                class="shot-view-segmented"
+                aria-label="分镜展开模式"
+                @change="handleShotViewModeChange"
+              >
+                <template #default="{ item }">
+                  <span class="shot-view-index" :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
+                    {{ segmentedOptionNumber(item) }}
+                  </span>
+                </template>
+              </el-segmented>
+              <el-button text circle :icon="NextEpisodeUnit" :bg="activeEpisode.showNextEpisodeUnit" :disabled="Boolean(nextEpisodeUnit.reason)" :title="nextEpisodeUnit.reason || '衔接下集单元'" aria-label="衔接下集单元" :aria-pressed="activeEpisode.showNextEpisodeUnit" @click="toggleNeighborUnit(1)" />
+            </div>
+          </nav>
           <span ref="timingPopoverAnchorRef" class="timing-popover-anchor" :style="timingPopoverAnchorStyle" aria-hidden="true"></span>
           <el-popover
             :visible="timingPopoverVisible"
@@ -846,6 +840,7 @@
             </div>
           </el-popover>
         </main>
+        </div>
       </div>
     </div>
 
@@ -1585,7 +1580,7 @@ import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { normalizeSplitScriptText } from './episodeScript'
 import { clearInteriorEpisodeContacts, contactEditableEpisodeIds, renameEpisodeContacts } from './episodeContacts'
 import { clearInteriorSplitEpisodeNumbers, normalizeSplitEpisodeNumber } from './episodeSplits'
-import { effectiveProductionData, mergePointInvoices, normalizePointInvoices, remapPointInvoices } from './pointLedger'
+import { effectiveProductionData, invoiceUsedPoints, mergePointInvoices, normalizePointInvoices, remapPointInvoices } from './pointLedger'
 import { normalizeGroupResults, pendingGroupResults } from './groupResults'
 import { isHistoricalEpisodeGroup, latestGroupProductionDate as groupProductionDate } from './groupHistory'
 import type { PointInvoice } from './types'
@@ -1634,7 +1629,7 @@ import { characterAssetsFor as assetsFor, initializeSharedCharacters, characterA
 import { characterAvailableInUnit, compareCharacterAssets, episodeCharacterUnits, extendCharacterScopes, initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes, referencedCharacterNames } from './characterScopes'
 import { formatPromptReferences } from './prompt'
 import { FileRemovalFilled, GrapeFilled, LinkInterrupt, MainCharacterFilled } from './icons'
-import { GoStart, GoEnd, SceneStatus } from './icons'
+import { GoStart, GoEnd, PointBalanceIcon, SceneStatus } from './icons'
 import MaterialReferenceIcon from './components/MaterialReferenceIcon.vue'
 import { normalizeMaterialConfirmations } from './defaults'
 import CharacterOutfitEditor from './components/CharacterOutfitEditor.vue'
@@ -1739,7 +1734,6 @@ const props = defineProps<{
   repository: LocalRepository
 }>()
 
-const EmptyPageHeaderIcon: Component = () => null
 const { state, activeEpisode, saveError, saveNow, replaceState, isReplacing } = useAppState(props.initialState, props.repository)
 const activeCharacterAssets = computed(() => activeEpisode.value ? assetsFor(state, activeEpisode.value) : [])
 const shotOwners = computed(() => new Map(state.episodes.flatMap(episode => episode.shots.map(shot => [shot.id, episode] as const))))
@@ -1902,10 +1896,6 @@ const materialSceneSpaceOptions: MaterialSegmentedOption<SceneSpace>[] = [
   { label: '室外', value: '室外', icon: Position },
   { label: '无', value: '无', icon: CloseBold },
 ]
-const themeModeOptions = [
-  { label: '浅色模式', value: false, icon: Sunny },
-  { label: '深色模式', value: true, icon: Moon },
-]
 const characterTypeGroups = [
   { value: 'main', label: '主角', icon: MainCharacter },
   { value: 'ordinary', label: '普通', icon: User },
@@ -1982,6 +1972,8 @@ const splitScriptDraft = ref('')
 const episodeScriptSaving = ref(false)
 const dialogueSaving = ref(false)
 const weeklyReportWeek = ref<Date | string | null>(null)
+const remainingPoints = computed(() => state.pointInvoices.reduce((total, invoice) => total + invoice.initialPoints + invoice.receivedPoints - invoiceUsedPoints(invoice), 0))
+const remainingPointsLabel = computed(() => remainingPoints.value >= 1000 ? `${(remainingPoints.value / 1000).toFixed(1)}k` : String(remainingPoints.value))
 const archivedTreeId = 'archived'
 const historicalTreeId = 'historical'
 const historyToday = ref(new Date())

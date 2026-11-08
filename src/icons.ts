@@ -2,7 +2,7 @@ import { defineComponent, h, type Component } from 'vue'
 import {
   AddFour, Attention, BeachUmbrella, Box, CardTwo, CarouselVideo, CategoryManagement, CheckOne, CheckSmall, CircleRightUp,
   CloseSmall, Copy, Crown, DataArrival, Delete as ParkDelete, Down, DownloadTwo,
-  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, GoStart as ParkGoStart, GoEnd as ParkGoEnd, ImageFiles as ParkImageFiles, LinkInterrupt as ParkLinkInterrupt, Local, Message, Moon as ParkMoon, More, Order,
+  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, GoStart as ParkGoStart, GoEnd as ParkGoEnd, ImageFiles as ParkImageFiles, Lightning, LinkInterrupt as ParkLinkInterrupt, Local, Message, Moon as ParkMoon, More, Order,
   Peoples, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, RightUser, Search as ParkSearch, SettingTwo,
   Slide, SlideTwo, SortTwo, SplitTurnDownRight as ParkSplitTurnDownRight, Star as ParkStar, SubtractSelection, SubtractSelectionOne, SunOne, Switch as ParkSwitch, Sync,
   UploadTwo, User as ParkUser, VipOne, Voice, VoiceOff, Wallet, WritingFluently,
@@ -21,6 +21,7 @@ export const AddIcon = icon(ParkPlus)
 export const ArrowDown = icon(Down)
 export const ArrowRight = icon(Right)
 export const Calendar = icon(Order)
+export const PointBalanceIcon = icon(Lightning, 'filled')
 export const CategoryManagementIcon = icon(CategoryManagement)
 export const SceneStatus = icon(WritingFluently)
 export const Check = icon(CheckSmall)
