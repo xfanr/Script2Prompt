@@ -632,7 +632,7 @@
                 </section>
               </div>
             </article>
-            <div v-if="neighborScrollPadding" class="neighbor-scroll-spacer" :style="{ flex: `0 0 ${neighborScrollPadding}px` }" aria-hidden="true"></div>
+            <div ref="neighborScrollSpacerRef" class="neighbor-scroll-spacer" style="flex: 0 0 0px" aria-hidden="true"></div>
           </section>
           <nav class="shot-navigation-bar" aria-label="分镜导航">
             <div class="shot-view-controls">
@@ -640,20 +640,11 @@
                 <el-button text circle :icon="Expand" :bg="state.shotViewMode === 'single-expanded'" title="手风琴模式" aria-label="手风琴模式" :aria-pressed="state.shotViewMode === 'single-expanded'" @click="toggleShotAccordion" />
                 <el-button text circle :icon="PreviousEpisodeUnit" :bg="activeEpisode.showPreviousEpisodeUnit" :disabled="Boolean(previousEpisodeUnit.reason)" :title="previousEpisodeUnit.reason || '衔接上集单元'" aria-label="衔接上集单元" :aria-pressed="activeEpisode.showPreviousEpisodeUnit" @click="toggleNeighborUnit(-1)" />
               </div>
-              <el-segmented
-                :model-value="activeShotViewSelection"
+              <ShotViewSelector
+                :state="state"
                 :options="shotViewModeOptions"
-                size="small"
-                class="shot-view-segmented"
-                aria-label="分镜展开模式"
                 @change="handleShotViewModeChange"
-              >
-                <template #default="{ item }">
-                  <span class="shot-view-index" :title="segmentedOptionLabel(item)" :aria-label="segmentedOptionLabel(item)">
-                    {{ segmentedOptionNumber(item) }}
-                  </span>
-                </template>
-              </el-segmented>
+              />
               <el-button text circle :icon="NextEpisodeUnit" :bg="activeEpisode.showNextEpisodeUnit" :disabled="Boolean(nextEpisodeUnit.reason)" :title="nextEpisodeUnit.reason || '衔接下集单元'" aria-label="衔接下集单元" :aria-pressed="activeEpisode.showNextEpisodeUnit" @click="toggleNeighborUnit(1)" />
             </div>
           </nav>
@@ -1447,6 +1438,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import PointLedgerDialog from './components/PointLedgerDialog.vue'
+import ShotViewSelector from './components/ShotViewSelector.vue'
 import GroupPlayMedal from './components/GroupPlayMedal.vue'
 import { linkedSourceShotIds, neighboringEpisode, visibleShotCards } from './neighborUnits'
 import EpisodeSplitNumberCell from './components/EpisodeSplitNumberCell.vue'
@@ -1608,7 +1600,8 @@ const linkedCurrentShotIds = computed(() => {
   return new Set(displayedShotCards.value.filter(card => card.region === 'current' && linked.has(card.shot.id)).map(card => card.shot.id))
 })
 const selectableShotCards = computed(() => displayedShotCards.value.filter(card => !linkedCurrentShotIds.value.has(card.shot.id)))
-const neighborScrollPadding = ref(0)
+const neighborScrollSpacerRef = ref<HTMLElement | null>(null)
+let neighborScrollPadding = 0
 let shotScrollAnimation = 0
 const previousEpisodeUnit = computed(() => activeEpisode.value ? neighboringEpisode(state, activeEpisode.value, -1) : { episode: null, reason: '' })
 const nextEpisodeUnit = computed(() => activeEpisode.value ? neighboringEpisode(state, activeEpisode.value, 1) : { episode: null, reason: '' })
@@ -1774,7 +1767,6 @@ const shotViewModeOptions = computed(() => displayedShotCards.value.map(({ shot,
   number: order,
   disabled: linkedCurrentShotIds.value.has(shot.id),
 })))
-const activeShotViewSelection = computed(() => state.singleExpandedShotId ?? undefined)
 const speechRateOptions = [
   { label: '慢 · 5', value: 'slow' },
   { label: '中 · 6', value: 'medium' },
@@ -3003,7 +2995,7 @@ watch(
   (episodeId, previousEpisodeId) => {
     if (episodeId !== previousEpisodeId) {
       cancelAnimationFrame(shotScrollAnimation)
-      neighborScrollPadding.value = 0
+      setNeighborScrollPadding(0)
       resetSingleExpandedView()
       void nextTick(() => {
         if (shotListRef.value) {
@@ -3300,14 +3292,6 @@ function segmentedOptionIcon(item: unknown) {
   }
 
   return Sunny
-}
-
-function segmentedOptionNumber(item: unknown) {
-  if (item && typeof item === 'object' && 'number' in item) {
-    return String((item as { number?: unknown }).number ?? '')
-  }
-
-  return ''
 }
 
 function openMaterialAddDialog(kind: MaterialKind, event?: MouseEvent) {
@@ -3920,6 +3904,11 @@ function shotScrollContainer() {
   const list = shotListRef.value!
   return getComputedStyle(list).overflowY === 'visible' ? document.scrollingElement as HTMLElement : list
 }
+function setNeighborScrollPadding(value: number) {
+  neighborScrollPadding = value
+  // Animation-only space must not trigger a render of every shot card.
+  if (neighborScrollSpacerRef.value) neighborScrollSpacerRef.value.style.flexBasis = `${value}px`
+}
 async function scrollShotListTo(shotId: string, mode: 'smooth' | 'instant' | 'preserve' = 'smooth', offset = 0) {
   cancelAnimationFrame(shotScrollAnimation)
   await nextTick()
@@ -3937,7 +3926,7 @@ async function scrollShotListTo(shotId: string, mode: 'smooth' | 'instant' | 'pr
     const destination = Math.max(0, list.scrollTop + row.getBoundingClientRect().top - top - offset)
     const nextTop = mode === 'smooth' ? start + (destination - start) * (1 - (1 - progress) ** 3) : destination
     // Shrink the spacer with the scroll, so removing it cannot abruptly clamp the current position.
-    neighborScrollPadding.value = Math.max(destination - naturalEnd, nextTop > 0 ? nextTop - naturalEnd : 0, 0)
+    setNeighborScrollPadding(Math.max(destination - naturalEnd, nextTop > 0 ? nextTop - naturalEnd : 0, 0))
     list.scrollTop = nextTop
     if (progress < 1) shotScrollAnimation = requestAnimationFrame(frame)
   }
@@ -3959,16 +3948,16 @@ async function toggleNeighborUnit(direction: -1 | 1) {
       .map(card => ({ shotId: card.shot.id, row: document.getElementById(shotRowElementId(card.shot.id))! }))
     const anchor = remaining.find(item => item.row.getBoundingClientRect().bottom > top) ?? remaining.at(-1)
     if (anchor) retainedPosition = { shotId: anchor.shotId, offset: anchor.row.getBoundingClientRect().bottom > top ? anchor.row.getBoundingClientRect().top - top : 0 }
-    neighborScrollPadding.value += displayedShotCards.value
+    setNeighborScrollPadding(neighborScrollPadding + displayedShotCards.value
       .filter(card => card.region === (direction < 0 ? 'previous' : 'next'))
-      .reduce((height, card) => height + document.getElementById(shotRowElementId(card.shot.id))!.getBoundingClientRect().height, 0)
+      .reduce((height, card) => height + document.getElementById(shotRowElementId(card.shot.id))!.getBoundingClientRect().height, 0))
   }
   if (direction < 0) episode.showPreviousEpisodeUnit = !episode.showPreviousEpisodeUnit
   else episode.showNextEpisodeUnit = !episode.showNextEpisodeUnit
   await nextTick()
   if (removing) {
     if (retainedPosition) void scrollShotListTo(retainedPosition.shotId, 'preserve', retainedPosition.offset)
-    else neighborScrollPadding.value = 0
+    else setNeighborScrollPadding(0)
     return
   }
   const enabled = direction < 0 ? episode.showPreviousEpisodeUnit : episode.showNextEpisodeUnit
@@ -3978,7 +3967,7 @@ async function toggleNeighborUnit(direction: -1 | 1) {
   const target = useLast ? candidates.at(-1) : candidates[0]
   state.singleExpandedShotId = target?.shot.id ?? selectableShotCards.value.find(card => card.region === 'current')?.shot.id ?? null
   if (state.singleExpandedShotId) void scrollShotListTo(state.singleExpandedShotId)
-  else neighborScrollPadding.value = 0
+  else setNeighborScrollPadding(0)
 }
 function toggleShotAccordion() {
   state.shotViewMode = state.shotViewMode === 'single-expanded' ? 'expanded' : 'single-expanded'
