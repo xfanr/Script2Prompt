@@ -97,7 +97,14 @@
                 <el-button-group class="stage-action-group">
                   <el-button :icon="MaterialTabIcon" text @click="openEpisodeScriptDialog('materials')">素材</el-button>
                   <el-button :icon="ShotTabIcon" text @click="openEpisodeScriptDialog('shots')">分镜</el-button>
-                  <el-button :icon="DialogueTabIcon" text @click="openDialogueDialog">台词</el-button>
+                  <el-dropdown class="dialogue-episode-dropdown" split-button trigger="hover" :button-props="{ text: true }" @click="openDialogueDialog(activeEpisode)" @command="openDialogueDialog">
+                    <el-icon><DialogueTabIcon /></el-icon><span>台词</span>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item v-for="episode in activeGroupEpisodes" :key="episode.id" :command="episode">{{ episode.title }}</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
                 </el-button-group>
               </div>
           </nav>
@@ -140,7 +147,10 @@
                   <div class="project-card-date">{{ card.dateRange }}</div>
                   <div class="project-card-title" :class="{ 'has-full-name': card.fullName }" :title="[card.title, card.fullName].filter(Boolean).join(' · ')">
                     <h3>{{ card.title }}</h3>
-                    <div v-if="card.fullName" class="project-card-full-name">{{ card.fullName }}</div>
+                    <template v-if="card.fullName">
+                      <el-button class="project-full-name-copy" :icon="CopyDocument" text size="small" title="复制全称" aria-label="复制全称" @click.stop="copyProjectFullName(card.fullName)" />
+                      <div class="project-card-full-name">{{ card.fullName }}</div>
+                    </template>
                   </div>
                 </header>
                 <div class="project-card-body">
@@ -150,7 +160,7 @@
                   </el-tooltip>{{ card.originalNumbers || '无' }}</p>
                   <p class="project-split-summary"><span class="project-summary-label">{{ card.splitCount ? `拆分 ${card.splitCount}集：` : '拆分：' }}</span>{{ card.splitNumbers || '无' }}</p>
                 </div>
-                <footer class="project-card-footer">
+                <footer class="project-card-footer" @click.stop>
                   <div><span>整剧成本</span><strong>{{ card.totalCost }}</strong></div>
                   <div><span>平均单集</span><strong>{{ card.averageEpisodeCost }}</strong></div>
                   <el-dropdown trigger="click" popper-class="project-card-dropdown" @command="card.group ? handleGroupCommand($event, card.group.id) : handleEpisodeCommand($event, card.episodes[0])">
@@ -176,36 +186,74 @@
 
         <div v-else class="workspace-body">
         <aside class="sidebar">
-            <section class="panel episode-panel">
-              <h2 class="material-sidebar-title">素材管理</h2>
-                  <el-scrollbar class="material-management-scrollbar">
-                    <div class="material-management">
-                      <h3 class="material-management-title">《{{ getEpisodeGroupTitle(activeEpisode.groupId) }}》{{ activeEpisode.title }}</h3>
+            <section class="panel episode-panel material-library-panel" aria-label="素材库">
+              <div class="material-library-header">
+                <h2 class="material-sidebar-title">素材库</h2>
+                <el-button :icon="FolderConversion" text>管理</el-button>
+              </div>
+              <div class="material-library-search-row">
+                <el-input v-model="materialLibrarySearch" :prefix-icon="Search" clearable :placeholder="materialLibraryEpisode ? '在文件夹中搜索' : '搜索素材'" aria-label="搜索素材库" />
+                <span ref="materialLibraryAddAnchorRef">
+                  <el-dropdown trigger="click" :disabled="!materialLibraryEpisode" @command="openMaterialAddDialog($event, undefined, materialLibraryEpisode)">
+                    <el-button :icon="AddIcon" text :disabled="!materialLibraryEpisode" aria-label="新增素材" />
+                    <template #dropdown><el-dropdown-menu>
+                      <el-dropdown-item command="scenes">添加场景</el-dropdown-item>
+                      <el-dropdown-item command="characters">添加角色</el-dropdown-item>
+                    </el-dropdown-menu></template>
+                  </el-dropdown>
+                </span>
+              </div>
+              <el-breadcrumb class="material-library-breadcrumb" separator="/">
+                <el-breadcrumb-item><button type="button" :disabled="!materialLibraryEpisode && !materialLibrarySearch.trim()" @click="openMaterialLibraryFolder(null)">全部</button></el-breadcrumb-item>
+                <el-breadcrumb-item v-if="materialLibraryEpisode">{{ materialLibraryEpisode.title }}</el-breadcrumb-item>
+              </el-breadcrumb>
+                  <el-scrollbar :key="materialLibraryEpisodeId ?? 'all'" class="material-management-scrollbar">
+                    <div v-if="!materialLibraryEpisode && !materialLibrarySearch.trim()" class="material-library-folders">
+                      <button v-for="episode in activeGroupEpisodes" :key="episode.id" class="material-library-folder" type="button" @click="openMaterialLibraryFolder(episode.id)">
+                        <span class="material-folder-icon" aria-hidden="true"><img :src="materialFolderIconUrl" alt="" draggable="false" /></span>
+                        <span>{{ episode.title }}</span>
+                      </button>
+                      <div v-if="!activeGroupEpisodes.length" class="material-management-empty">暂无分集</div>
+                    </div>
+                    <div v-else-if="!materialLibraryEpisode" class="material-library-search-results">
+                      <section v-for="result in materialLibrarySearchResults" :key="result.episode.id" class="material-library-search-section" :aria-label="`${result.episode.title}素材搜索结果`">
+                        <button class="material-library-search-heading" type="button" @click="openMaterialLibraryFolder(result.episode.id)">{{ result.episode.title }}</button>
+                        <button v-for="name in result.names" :key="name" class="material-library-search-result" type="button" :title="`${name}\n${result.episode.title}`" @click="openMaterialLibraryFolder(result.episode.id)">
+                          <el-icon aria-hidden="true"><component :is="/\.mp3$/i.test(name) ? FileMusic : /\.png$/i.test(name) ? FilePdf : FileRemovalFilled" /></el-icon>
+                          <span>{{ name }}</span>
+                        </button>
+                      </section>
+                      <div v-if="!materialLibrarySearchResults.length" class="material-management-empty">未找到素材</div>
+                    </div>
+                    <div v-else class="material-management">
                       <section class="material-management-section">
                         <div class="material-management-heading-row">
                           <h4 class="material-management-heading">场景配置</h4>
                           <div class="material-management-heading-actions">
-                            <el-button class="sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="添加场景素材" @click="openMaterialAddDialog('scenes', $event)" />
+                            <el-button class="sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="添加场景素材" @click="openMaterialAddDialog('scenes', $event, materialLibraryEpisode)" />
                           </div>
                         </div>
-                        <div class="material-management-list">
-                          <div v-for="item in sidebarMaterials.scenes" :key="sceneAssetKey(item)" class="material-management-entry">
-                            <div class="material-management-item">
-                              <span class="material-management-name" :class="{ 'is-used': item.used }" :title="sceneAssetLabel(item)">{{ sceneAssetLabel(item) }}</span>
-                              <div class="material-management-actions">
-                                <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改场景素材" @click="openMaterialEditDialog('scenes', sceneAssetKey(item), $event)" />
-                                <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除场景素材" @click="confirmRemoveMaterial('scenes', sceneAssetKey(item))" />
+                        <div class="material-scene-cards">
+                          <article v-for="item in sidebarSceneCards" :key="sceneAssetKey(item)" class="material-card material-scene-card" :class="{ 'is-unrecognized': !item.used }" :aria-label="`${sceneAssetLabel(item)}场景素材`">
+                            <div class="material-card-header">
+                              <el-tag class="material-card-tag" size="small" disable-transitions type="info">{{ [item.time, item.space === '无' ? '' : item.space].filter(Boolean).join('·') }}</el-tag>
+                              <div class="material-card-name-area">
+                                <el-icon v-if="!item.used" class="material-unreferenced-icon" aria-label="未引用"><LinkInterrupt /></el-icon>
+                                <span class="material-card-name" :title="item.name">{{ item.name }}</span>
+                              </div>
+                              <div class="material-management-actions material-card-actions">
+                                <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改场景素材" @click="openMaterialEditDialog('scenes', sceneAssetKey(item), $event, materialLibraryEpisode)" />
+                                <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除场景素材" @click="confirmRemoveMaterial('scenes', sceneAssetKey(item), materialLibraryEpisode)" />
                               </div>
                             </div>
-                            <ul v-if="item.references.length" class="material-unit-list" :aria-label="`${item.name}引用名称`">
-                              <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name)" @dblclick="copyMaterialReferenceName(reference.name)">
-                                <MaterialReferenceIcon v-if="item.used && /\.(mp3|png)$/i.test(reference.name)" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
-                                <el-icon v-else-if="/\.(mp3|png)$/i.test(reference.name)" aria-hidden="true"><component :is="/\.mp3$/i.test(reference.name) ? FileMusic : ImageFiles" /></el-icon>
-                                <span>{{ reference.name }}</span>
-                              </li>
-                            </ul>
-                          </div>
-                          <div v-if="!activeEpisode.scenes.length" class="material-management-empty">暂无场景素材</div>
+                            <div v-if="item.referenceBlocks.length" class="material-scene-references" :aria-label="`${item.name}引用名称`">
+                              <div v-for="reference in item.referenceBlocks" :key="reference.name" class="material-reference-block" :class="{ 'is-confirmed': confirmedMaterialReferences.includes(reference.name) }" :title="materialReferenceTitle(reference.name)" @dblclick="copyMaterialReferenceName(reference.name)">
+                                <MaterialReferenceIcon corner v-if="item.used" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
+                                <span>{{ reference.label }}</span>
+                              </div>
+                            </div>
+                          </article>
+                          <div v-if="!filteredSidebarMaterials.scenes.length" class="material-management-empty">{{ materialLibrarySearch.trim() ? '未找到场景素材' : '暂无场景素材' }}</div>
                         </div>
                       </section>
                       <section class="material-management-section">
@@ -219,36 +267,38 @@
                                 text
                                 size="small"
                                 aria-label="智能识别"
-                                @click="recognizeCharacterDescriptionsFromClipboard"
+                                @click="recognizeCharacterDescriptionsFromClipboard(materialLibraryEpisode)"
                               />
                             </el-tooltip>
-                            <el-button class="sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="添加角色" @click="openMaterialAddDialog('characters')" />
+                            <el-button class="sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="添加角色" @click="openMaterialAddDialog('characters', undefined, materialLibraryEpisode)" />
                           </div>
                         </div>
-                        <div class="material-management-list">
-                          <section v-for="group in sidebarCharacterGroups" :key="group.value" class="material-character-group" :aria-label="`${group.label}角色`">
-                            <div class="material-management-item material-character-group-title">
-                              <el-icon aria-hidden="true"><component :is="group.icon" /></el-icon>
-                              <span class="material-management-name is-used">{{ group.label }}</span>
-                            </div>
-                            <div class="material-management-list">
-                              <div v-for="item in group.items" :key="`character-${item.name}`" class="material-management-entry has-reference-list">
-                                <ul class="material-unit-list" :class="{ 'is-unrecognized': !item.used }" :aria-label="`${item.name}引用名称`">
-                                  <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name)" @dblclick="copyMaterialReferenceName(reference.name)">
-                                    <el-icon v-if="!item.used" aria-label="未识别"><LinkInterrupt /></el-icon>
-                                    <MaterialReferenceIcon v-else-if="/\.(mp3|png)$/i.test(reference.name)" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
-                                    <el-icon v-else-if="item.isEnsemble" aria-hidden="true"><FileRemovalFilled /></el-icon>
-                                    <span>{{ reference.name }}</span>
-                                  </li>
-                                </ul>
-                                <div class="material-management-actions">
-                                  <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" :aria-label="`修改角色${item.name}`" @click="openMaterialEditDialog('characters', item.name)" />
-                                  <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" :aria-label="`删除角色${item.name}`" @click="confirmRemoveMaterial('characters', item.name)" />
+                        <div class="material-character-cards">
+                          <article v-for="item in sidebarCharacterCards" :key="item.id" class="material-card material-character-card" :class="{ 'is-unrecognized': !item.used }" :aria-label="`${item.name}角色素材`">
+                            <div class="material-card-header material-character-card-header">
+                              <el-tag class="material-card-tag material-character-type" size="small" disable-transitions :type="item.isMain ? 'primary' : 'info'">{{ item.type.label }}</el-tag>
+                              <div class="material-card-name-area material-character-name-area">
+                                <el-icon v-if="!item.used && !item.isEnsemble" class="material-unreferenced-icon" aria-label="未引用"><LinkInterrupt /></el-icon>
+                                <span class="material-card-name material-character-name" :title="item.name">{{ item.name }}</span>
+                                <div class="material-character-voice" :class="{ 'is-disabled': !item.used || !item.voiceReference }" :title="item.voiceReference?.name ?? (item.isEnsemble ? '群像不使用音色' : '暂无音色引用')" @dblclick="item.voiceReference && copyMaterialReferenceName(item.voiceReference.name)">
+                                  <MaterialReferenceIcon v-if="item.used && item.voiceReference" :name="item.voiceReference.name" kind="audio" :confirmed="confirmedMaterialReferences.includes(item.voiceReference.name)" @toggle="toggleMaterialConfirmation(item.voiceReference.name)" />
+                                  <el-icon v-else-if="!item.isEnsemble" aria-hidden="true"><FileMusic /></el-icon>
+                                  <span>音色</span>
                                 </div>
                               </div>
+                              <div class="material-management-actions material-card-actions material-character-card-actions">
+                                <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" :aria-label="`修改角色${item.name}`" @click="openMaterialEditDialog('characters', item.name, undefined, materialLibraryEpisode)" />
+                                <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" :aria-label="`删除角色${item.name}`" @click="confirmRemoveMaterial('characters', item.name, materialLibraryEpisode)" />
+                              </div>
                             </div>
-                          </section>
-                          <div v-if="!sidebarCharacterGroups.length" class="material-management-empty">暂无角色</div>
+                            <div v-if="item.outfitReferences.length" class="material-character-outfits" :aria-label="`${item.name}服装`">
+                              <div v-for="outfit in item.outfitReferences" :key="outfit.name" class="material-reference-block material-character-outfit" :class="{ 'is-confirmed': item.used && !item.isEnsemble && confirmedMaterialReferences.includes(outfit.name) }" :title="materialReferenceTitle(outfit.name)" @dblclick="copyMaterialReferenceName(outfit.name)">
+                                <MaterialReferenceIcon corner v-if="item.used && !item.isEnsemble" :name="outfit.name" kind="image" :confirmed="confirmedMaterialReferences.includes(outfit.name)" @toggle="toggleMaterialConfirmation(outfit.name)" />
+                                <span>{{ outfit.label }}</span>
+                              </div>
+                            </div>
+                          </article>
+                          <div v-if="!sidebarCharacterCards.length" class="material-management-empty">{{ materialLibrarySearch.trim() ? '未找到角色' : '暂无角色' }}</div>
                         </div>
                       </section>
                       <section class="material-management-section" aria-label="自定义配置">
@@ -256,19 +306,19 @@
                           <h4 class="material-management-heading">自定义配置</h4>
                         </div>
                         <div class="material-management-list">
-                          <div v-for="item in sidebarMaterials.custom" :key="item.name" class="material-management-entry">
+                          <div v-for="item in filteredSidebarMaterials.custom" :key="item.name" class="material-management-entry">
                             <div v-if="!item.references.length" class="material-management-item">
                               <span class="material-management-name is-used" :title="item.name">{{ item.name }}</span>
                             </div>
                             <ul class="material-unit-list" :aria-label="`${item.name}引用名称`">
-                              <li v-for="reference in item.references" :key="reference.name" :title="materialReferenceTitle(reference.name)" @dblclick="copyMaterialReferenceName(reference.name)">
-                                <MaterialReferenceIcon v-if="item.used && /\.(mp3|png)$/i.test(reference.name)" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
-                                <el-icon v-else-if="/\.(mp3|png)$/i.test(reference.name)" aria-hidden="true"><component :is="/\.mp3$/i.test(reference.name) ? FileMusic : ImageFiles" /></el-icon>
+                              <li v-for="reference in item.references" :key="reference.name" :class="{ 'is-confirmed': !/\.mp3$/i.test(reference.name) && confirmedMaterialReferences.includes(reference.name) }" :title="materialReferenceTitle(reference.name)" @dblclick="copyMaterialReferenceName(reference.name)">
+                                <MaterialReferenceIcon corner v-if="item.used && /\.(mp3|png)$/i.test(reference.name)" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
+                                <el-icon v-else-if="/\.(mp3|png)$/i.test(reference.name)" aria-hidden="true"><component :is="/\.mp3$/i.test(reference.name) ? FileMusic : FilePdf" /></el-icon>
                                 <span>{{ reference.name }}</span>
                               </li>
                             </ul>
                           </div>
-                          <div v-if="!sidebarMaterials.custom.length" class="material-management-empty">暂无自定义配置</div>
+                          <div v-if="!filteredSidebarMaterials.custom.length" class="material-management-empty">{{ materialLibrarySearch.trim() ? '未找到自定义配置' : '暂无自定义配置' }}</div>
                         </div>
                       </section>
                     </div>
@@ -496,12 +546,13 @@
                         <el-button :icon="PositionReference" :type="shot.usePositionReference ? 'primary' : undefined" :aria-pressed="shot.usePositionReference" aria-label="多角色位置参考" :title="shot.usePositionReference ? '关闭多角色位置参考' : '开启多角色位置参考'" @click="shot.usePositionReference = !shot.usePositionReference" />
                       </div>
                       <div class="scene-selection-controls scene-reference-controls">
-                        <el-select popper-class="shot-reference-dropdown" :model-value="referenceSelectionId(episode, index)" :aria-label="`分镜${index + 1}引用序号`" @update:model-value="selectShotReference(shot, $event)">
+                        <el-select v-if="shot.usePositionReference" popper-class="shot-reference-dropdown" :model-value="referenceSelectionId(episode, index)" :aria-label="`分镜${index + 1}引用序号`" @update:model-value="selectShotReference(shot, $event)">
                           <el-option-group v-for="source in continuousEpisodes(state.episodes, episode)" :key="source.id" label="">
                             <el-option v-for="(sourceShot, sourceIndex) in source.shots" :key="sourceShot.id" :label="formatShotNumber(source, sourceIndex)" :value="sourceShot.id" />
                           </el-option-group>
                         </el-select>
-                        <el-button :icon="CopyDocument" title="复制引用序号" aria-label="复制引用序号" @click="copyReferenceShotNumber(shot)" />
+                        <el-input v-else :model-value="scene.name ? sceneReferenceName(scene) : ''" readonly aria-label="场景引用名称" :title="scene.name ? sceneReferenceName(scene) : ''" />
+                        <el-button :icon="CopyDocument" :title="shot.usePositionReference ? '复制引用序号' : '复制场景引用'" :aria-label="shot.usePositionReference ? '复制引用序号' : '复制场景引用'" :disabled="!shot.usePositionReference && !scene.name" @click="copySceneReference(shot, scene)" />
                       </div>
                       <el-popover trigger="click" placement="bottom-end" :width="280" popper-class="scene-status-popover">
                         <template #reference>
@@ -1216,7 +1267,7 @@
               <span>原始剧本</span>
             </div>
             <el-input
-              :model-value="activeEpisode?.scriptText ?? ''"
+              :model-value="dialogueEpisode?.scriptText ?? ''"
               class="episode-script-source-input"
               type="textarea"
               :rows="16"
@@ -1397,7 +1448,7 @@
         @closed="resetCharacterPasteDialog"
       >
         <p class="character-paste-hint">浏览器无法自动读取剪切板，请在下方填写CSV或JSON数据。<br />CSV：角色名,形象描述,音色描述；JSON：name、appearanceDescription、voiceDescription、isEnsemble（选填）</p>
-        <p v-if="activeCharacterAssets.some(asset => asset.outfits.length > 1)" class="character-paste-hint">多套服装请使用 JSON，并用 outfitNote 指定服装备注。</p>
+        <p v-if="characterRecognitionAssets.some(asset => asset.outfits.length > 1)" class="character-paste-hint">多套服装请使用 JSON，并用 outfitNote 指定服装备注。</p>
         <el-input
           ref="characterPasteInputRef"
           v-model="characterPasteDraft"
@@ -1436,6 +1487,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Component } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import brandIconUrl from './assets/angry-cat-brand.jpg'
+import materialFolderIconUrl from '../folder.png'
 import GlobalConfigDialog from './components/GlobalConfigDialog.vue'
 import PointLedgerDialog from './components/PointLedgerDialog.vue'
 import ShotViewSelector from './components/ShotViewSelector.vue'
@@ -1444,7 +1496,7 @@ import { linkedSourceShotIds, neighboringEpisode, visibleShotCards } from './nei
 import EpisodeSplitNumberCell from './components/EpisodeSplitNumberCell.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot, normalizeReferenceMode } from './config'
 import { ElDialog, ElDrawer, ElPopover, ElMessageBox, type DropdownInstance } from 'element-plus'
-import { AddIcon, ArrowDown, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, FileMusic, Grape, ImageFiles, Location, MainCharacter, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, NextEpisodeUnit, Position, PositionReference, PreviousEpisodeUnit, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, WarningFilled } from './icons'
+import { AddIcon, ArrowDown, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, FileMusic, Grape, FilePdf, Location, MainCharacter, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, NextEpisodeUnit, Position, PositionReference, PreviousEpisodeUnit, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, WarningFilled } from './icons'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { normalizeSplitScriptText } from './episodeScript'
 import { clearInteriorEpisodeContacts, contactEditableEpisodeIds, renameEpisodeContacts } from './episodeContacts'
@@ -1499,7 +1551,7 @@ import { characterAvailableInUnit, compareCharacterAssets, episodeCharacterUnits
 import { formatPromptReferences } from './prompt'
 import { FileRemovalFilled, GrapeFilled, LinkInterrupt, MainCharacterFilled } from './icons'
 import { HomeBackIcon, GoStart, GoEnd, PointBalanceIcon, SceneStatus } from './icons'
-import { ProjectFolder, ProjectFolderFilled, ArchiveFolder, ArchiveFolderFilled, HistoryFolder, HistoryFolderFilled, MoreOneIcon } from './icons'
+import { ProjectFolder, ProjectFolderFilled, ArchiveFolder, ArchiveFolderFilled, HistoryFolder, HistoryFolderFilled, MoreOneIcon, FolderConversion } from './icons'
 import MaterialReferenceIcon from './components/MaterialReferenceIcon.vue'
 import { normalizeMaterialConfirmations } from './defaults'
 import CharacterOutfitEditor from './components/CharacterOutfitEditor.vue'
@@ -1590,6 +1642,10 @@ const props = defineProps<{
 
 const { state, activeEpisode, saveError, saveNow, replaceState, isReplacing } = useAppState(props.initialState, props.repository)
 const activeCharacterAssets = computed(() => activeEpisode.value ? assetsFor(state, activeEpisode.value) : [])
+const materialLibraryEpisodeId = ref<string | null>(null)
+const materialLibraryEpisode = computed(() => state.episodes.find(episode => episode.id === materialLibraryEpisodeId.value))
+const materialLibrarySearch = ref('')
+const materialLibraryAddAnchorRef = ref<HTMLElement | null>(null)
 const shotOwners = computed(() => new Map(state.episodes.flatMap(episode => episode.shots.map(shot => [shot.id, episode] as const))))
 function episodeForShot(shot: Shot) { return shotOwners.value.get(shot.id)! }
 const displayedShotCards = computed(() => activeEpisode.value ? visibleShotCards(state, activeEpisode.value) : [])
@@ -1735,6 +1791,8 @@ const materialCharacterUnits = computed(() => {
   return episode && asset ? characterUnits(state, episode, asset) : []
 })
 const characterPasteDialogVisible = ref(false)
+const characterRecognitionEpisode = ref<Episode | null>(null)
+const characterRecognitionAssets = computed(() => characterRecognitionEpisode.value ? assetsFor(state, characterRecognitionEpisode.value) : [])
 const characterPasteDraft = ref('')
 const characterPasteInputRef = ref<{ focus: () => void } | null>(null)
 const materialSceneDrafts = ref<MaterialSceneDraft[]>(createMaterialSceneDrafts())
@@ -1795,6 +1853,8 @@ const dataDialogVisible = ref(false)
 const dataDialogView = ref<'group' | 'episode' | 'shot'>('group')
 const episodeScriptDialogVisible = ref(false)
 const dialogueDialogVisible = ref(false)
+const dialogueEpisodeId = ref<string | null>(null)
+const dialogueEpisode = computed(() => state.episodes.find(episode => episode.id === dialogueEpisodeId.value))
 const activeReviewShot = ref<Shot | null>(null)
 const activeReviewEpisodeId = ref<string | null>(null)
 const reviewOpenedFromSummary = ref(false)
@@ -1845,11 +1905,11 @@ const shotConnectionMarks = {
 }
 
 const confirmedMaterialReferences = computed(() => {
-  const episode = activeEpisode.value
+  const episode = materialLibraryEpisode.value
   return episode ? state.episodeGroups.find(group => group.id === episode.groupId)?.confirmedMaterialReferences ?? episode.confirmedMaterialReferences : []
 })
 const materialReferenceUnits = computed(() => {
-  const current = activeEpisode.value
+  const current = materialLibraryEpisode.value
   const references = new Map<string, Set<string>>()
   if (!current) return references
   const group = state.episodeGroups.find(group => group.id === current.groupId)
@@ -1901,19 +1961,18 @@ async function copyMaterialReferenceName(name: string) {
   else notify.error('复制失败')
 }
 function toggleMaterialConfirmation(name: string) {
-  const episode = activeEpisode.value!
+  const episode = materialLibraryEpisode.value!
   const owner = state.episodeGroups.find(group => group.id === episode.groupId) ?? episode
   const index = owner.confirmedMaterialReferences.indexOf(name)
   if (index < 0) owner.confirmedMaterialReferences.push(name)
   else owner.confirmedMaterialReferences.splice(index, 1)
 }
-const sidebarMaterials = computed(() => {
-  const episode = activeEpisode.value
-  if (!episode) return { scenes: [], characters: [], custom: [] }
+function collectEpisodeMaterials(episode: Episode) {
   type Usage = { used: boolean; references: Map<number, Set<string>> }
   const scenes = new Map<string, Usage>(episode.scenes.map((asset) => [sceneAssetKey(asset), { used: false, references: new Map() }]))
   const characters = new Map<string, Usage>(assetsFor(state, episode).map((asset) => [asset.name.trim(), { used: false, references: new Map() }]))
   const custom = new Map<string, Usage>()
+  const voicedCharacters = new Set<string>()
   const group = state.episodeGroups.find((group) => group.id === episode.groupId)
   const mode = group?.referenceMode ?? state.globalConfig.prompt.referenceMode
   const addReference = (usage: Usage, unit: number, reference?: string) => {
@@ -1963,7 +2022,10 @@ const sidebarMaterials = computed(() => {
       }
       const appearance = asset ? characterAppearance(asset, episode.id, shot).referenceName ?? name : name
       addReference(usage, unit, mode === 'basic' ? `${name}@` : formatPromptReferenceName(appearance))
-      if (character.includeVoice) addReference(usage, unit, mode === 'basic' ? `${name}@` : formatPromptReferenceName(`${name}.`))
+      if (character.includeVoice) {
+        voicedCharacters.add(name)
+        addReference(usage, unit, mode === 'basic' ? `${name}@` : formatPromptReferenceName(`${name}.`))
+      }
     })
     collectBracketReferences(shot.text, unit)
   })
@@ -1977,6 +2039,7 @@ const sidebarMaterials = computed(() => {
       .sort((a, b) => Number(/\.mp3$/i.test(b)) - Number(/\.mp3$/i.test(a)))
       .map(name => ({ name })),
   })
+  const referenced = referencedCharacterNames(episode)
   return {
     scenes: episode.scenes.map((asset) => ({ ...asset, ...referenceNames(scenes.get(sceneAssetKey(asset))!) })),
     characters: assetsFor(state, episode).map((asset) => {
@@ -1988,13 +2051,39 @@ const sidebarMaterials = computed(() => {
       }
       const item = { ...asset, ...referenceNames(usage) }
       if (!item.references.length) item.references.push({ name: asset.name })
-      return item
+      return { ...item, voiceReference: asset.isEnsemble ? null : item.references.find(reference => /\.mp3$/i.test(reference.name)) ?? (voicedCharacters.has(asset.name) ? { name: `${asset.name}@` } : null) }
     }).filter(asset => asset.isMain || !asset.availableUnits?.length || asset.availableUnits.some(unit => unit.episodeId === episode.id))
-      .sort((a, b) => compareCharacterAssets(a, b, referencedCharactersByEpisode.value.get(episode.id))),
+      .sort((a, b) => compareCharacterAssets(a, b, referenced)),
     custom: [...custom].map(([name, usage]) => ({ name, ...referenceNames(usage) })),
   }
+}
+const sidebarMaterials = computed(() => materialLibraryEpisode.value ? collectEpisodeMaterials(materialLibraryEpisode.value) : { scenes: [], characters: [], custom: [] })
+const filteredSidebarMaterials = computed(() => {
+  const query = materialLibrarySearch.value.trim().toLocaleLowerCase()
+  const matches = (item: { name: string; references: { name: string }[] }) => !query || [item.name, ...item.references.map(reference => reference.name)].some(name => name.toLocaleLowerCase().includes(query))
+  return {
+    scenes: sidebarMaterials.value.scenes.filter(item => matches(item) || sceneAssetLabel(item).toLocaleLowerCase().includes(query)),
+    characters: sidebarMaterials.value.characters.filter(matches),
+    custom: sidebarMaterials.value.custom.filter(matches),
+  }
 })
-const sidebarCharacterGroups = computed(() => groupCharactersByType(sidebarMaterials.value.characters))
+const sidebarCharacterCards = computed(() => filteredSidebarMaterials.value.characters.map(asset => ({
+  ...asset,
+  type: characterTypeGroups.find(type => type.value === (asset.isMain ? 'main' : asset.isEnsemble ? 'ensemble' : 'ordinary'))!,
+  outfitReferences: asset.references.filter(reference => !/\.mp3$/i.test(reference.name)).map(reference => {
+    const name = reference.name.replace(/\.[a-z\d]+$/i, '').replace(/[@.]$/u, '')
+    const label = name.startsWith(`${asset.name}（`) && name.endsWith('）') ? name.slice(asset.name.length + 1, -1) : name === asset.name ? asset.note || '默认' : name
+    return { ...reference, label }
+  }),
+})))
+const sidebarSceneCards = computed(() => filteredSidebarMaterials.value.scenes.map(scene => ({
+  ...scene,
+  referenceBlocks: scene.references.map(reference => {
+    const label = reference.name.replace(/\.[a-z\d]+$/i, '')
+    const isNumber = /^\d+(?:-\d+)+$/.test(label)
+    return { ...reference, label: isNumber ? label : '原场景', isNumber }
+  }).sort((a, b) => Number(a.isNumber) - Number(b.isNumber)),
+})))
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
 const isEpisodeShotUpdateMode = computed(() => Boolean(activeEpisode.value && hasExistingShotConfiguration(activeEpisode.value)))
 const sortedEpisodeGroups = computed(() => state.episodeGroups.filter((group) => !group.archived).sort((a, b) => a.title.localeCompare(b.title, 'zh-CN', { numeric: true })))
@@ -2012,6 +2101,19 @@ const activeGroupEpisodes = computed(() => activeEpisode.value
   ? sortEpisodesForDisplay(state.episodes.filter((episode) => episode.groupId === activeEpisode.value?.groupId))
   : [])
 const activeGroupEpisodeIndex = computed(() => activeGroupEpisodes.value.findIndex(episode => episode.id === activeEpisode.value?.id))
+const materialLibrarySearchResults = computed(() => {
+  const query = materialLibrarySearch.value.trim().toLocaleLowerCase()
+  if (materialLibraryEpisode.value || !query) return []
+  return activeGroupEpisodes.value.map(episode => {
+    const materials = collectEpisodeMaterials(episode)
+    const names = Object.values(materials).flat().flatMap(item => {
+      const matchesAsset = item.name.toLocaleLowerCase().includes(query) || 'time' in item && sceneAssetLabel(item).toLocaleLowerCase().includes(query)
+      const references = item.references.length ? item.references : [{ name: item.name }]
+      return references.filter(reference => matchesAsset || reference.name.toLocaleLowerCase().includes(query)).map(reference => reference.name)
+    })
+    return { episode, names: [...new Set(names)] }
+  }).filter(result => result.names.length)
+})
 const projectCards = computed(() => {
   const groups = projectSection.value === 'projects' ? sortedEpisodeGroups.value : sortedArchivedEpisodeGroups.value.filter(group => historicalGroupIds.value.has(group.id) === (projectSection.value === 'history'))
   const entries: { id: string; group: EpisodeGroup | null; episodes: Episode[] }[] = [
@@ -2026,9 +2128,9 @@ const projectCards = computed(() => {
       title: entry.group?.title ?? entry.episodes[0].title,
       fullName: entry.group ? entry.group.fullName.trim() : '未分组',
       dateRange: production.dates.length ? `${production.dates[0].slice(2)} ~ ${production.dates[production.dates.length - 1].slice(2)}` : '未设置制作日期',
-      originalNumbers: entry.episodes.map(formatEpisodeSummaryNumber).join(' / '),
+      originalNumbers: entry.episodes.map(formatEpisodeSummaryNumber).join(', '),
       contacts: entry.episodes.filter(episode => episode.contactPerson).map(episode => `${formatEpisodeSummaryNumber(episode)} · ${episode.contactPerson}`),
-      splitNumbers: splits.map(number => String(number).padStart(2, '0')).join(' / '),
+      splitNumbers: splits.map(number => String(number).padStart(2, '0')).join(', '),
       splitCount: splits.length,
       totalCost: production.totalCost,
       averageEpisodeCost: production.averageEpisodeCost,
@@ -2558,6 +2660,11 @@ function rememberProjectScroll() {
   projectScrollPositions[projectSection.value] = projectLibraryRef.value?.scrollTop ?? 0
 }
 
+function openMaterialLibraryFolder(episodeId: string | null) {
+  materialLibraryEpisodeId.value = episodeId
+  materialLibrarySearch.value = ''
+}
+
 function selectProjectSection(section: ProjectSection) {
   projectSection.value = section
   void nextTick(() => { if (projectLibraryRef.value) projectLibraryRef.value.scrollTop = projectScrollPositions[section] })
@@ -2575,6 +2682,11 @@ function enterEpisodeWorkspace(episode: Episode) {
   selectEpisode(episode)
   workspaceView.value = 'editor'
   void nextTick(scrollToCurrentEpisodeStart)
+}
+
+async function copyProjectFullName(name: string) {
+  if (await copyText(name)) notify.success('已复制全称')
+  else notify.error('复制失败')
 }
 
 function openProjectCard(card: { group: EpisodeGroup | null; episodes: Episode[] }, event?: Event) {
@@ -3006,6 +3118,8 @@ watch(
   },
 )
 
+watch(() => activeEpisode.value?.groupId, () => openMaterialLibraryFolder(null))
+
 watch(
   () => JSON.stringify(state.episodes.map(({ id, groupId, title }) => ({ id, groupId, title }))),
   () => {
@@ -3294,10 +3408,10 @@ function segmentedOptionIcon(item: unknown) {
   return Sunny
 }
 
-function openMaterialAddDialog(kind: MaterialKind, event?: MouseEvent) {
-  if (!activeEpisode.value) return
-  if (kind === 'scenes') scenePopoverReference.value = event!.currentTarget as HTMLElement
-  materialEditingEpisodeId.value = activeEpisode.value.id
+function openMaterialAddDialog(kind: MaterialKind, event?: MouseEvent, episode = activeEpisode.value) {
+  if (!episode) return
+  if (kind === 'scenes') scenePopoverReference.value = event ? event.currentTarget as HTMLElement : materialLibraryAddAnchorRef.value
+  materialEditingEpisodeId.value = episode.id
   materialDialogMode.value = 'add'
   materialDialogKind.value = kind
   editingMaterial.value = null
@@ -3312,6 +3426,7 @@ function openMaterialEditDialog(kind: MaterialKind, value: string, event?: Mouse
     return
   }
 
+  materialEditingEpisodeId.value = episode.id
   if (kind === 'characters') {
     const character = assetsFor(state, episode).find((item) => item.name === value)
 
@@ -3344,7 +3459,6 @@ function openMaterialEditDialog(kind: MaterialKind, value: string, event?: Mouse
     materialSceneDrafts.value = [{ name: scene.name, time: scene.time, space: scene.space }]
   }
 
-  materialEditingEpisodeId.value = episode.id
   materialDialogKind.value = kind
   if (kind === 'scenes') scenePopoverReference.value = event!.currentTarget as HTMLElement
   materialDialogVisible.value = true
@@ -3536,7 +3650,7 @@ function formatRecognitionNames(names: string[]) {
 }
 
 async function applyCharacterDescriptionText(text: string) {
-  const episode = activeEpisode.value
+  const episode = characterRecognitionEpisode.value
 
   if (!episode || !assetsFor(state, episode).length) {
     notify.info('本集暂无角色')
@@ -3610,7 +3724,7 @@ async function applyCharacterDescriptionText(text: string) {
 }
 
 function openCharacterPasteDialog() {
-  characterPasteDraft.value = JSON.stringify(activeCharacterAssets.value.flatMap(({ name, appearanceDescription, voiceDescription, isEnsemble, outfits }) => outfits.length > 1
+  characterPasteDraft.value = JSON.stringify(characterRecognitionAssets.value.flatMap(({ name, appearanceDescription, voiceDescription, isEnsemble, outfits }) => outfits.length > 1
     ? outfits.map(outfit => ({ name, outfitNote: outfit.note, appearanceDescription: outfit.appearanceDescription, voiceDescription, isEnsemble }))
     : [{ name, appearanceDescription, voiceDescription, isEnsemble }]), null, 2)
   characterPasteDialogVisible.value = true
@@ -3624,6 +3738,7 @@ function focusCharacterPasteInput() {
 
 function resetCharacterPasteDialog() {
   characterPasteDraft.value = ''
+  characterRecognitionEpisode.value = null
 }
 
 async function handleCharacterDescriptionPaste(event: ClipboardEvent) {
@@ -3647,12 +3762,13 @@ async function confirmCharacterPaste() {
   }
 }
 
-async function recognizeCharacterDescriptionsFromClipboard() {
-  if (!activeCharacterAssets.value.length) {
+async function recognizeCharacterDescriptionsFromClipboard(episode = activeEpisode.value) {
+  if (!episode || !assetsFor(state, episode).length) {
     notify.info('本集暂无角色')
     return
   }
 
+  characterRecognitionEpisode.value = episode
   if (window.isSecureContext && navigator.clipboard?.readText) {
     try {
       const clipboardText = await navigator.clipboard.readText()
@@ -3688,10 +3804,10 @@ function renameSceneMaterial(oldKey: string, nextScene: MaterialSceneDraft) {
   })
 }
 
-async function confirmRemoveMaterial(kind: MaterialKind, value: string) {
+async function confirmRemoveMaterial(kind: MaterialKind, value: string, episode = activeEpisode.value) {
   try {
     await ElMessageBox.confirm(
-      kind === 'characters' ? (activeEpisode.value?.groupId ? '确认删除此角色及本剧分镜中的角色配置？' : '确认删除此角色？') : '确认删除这条场景素材？',
+      kind === 'characters' ? (episode?.groupId ? '确认删除此角色及本剧分镜中的角色配置？' : '确认删除此角色？') : '确认删除这条场景素材？',
       kind === 'characters' ? '删除角色' : '删除场景素材',
       {
         type: 'warning',
@@ -3703,7 +3819,7 @@ async function confirmRemoveMaterial(kind: MaterialKind, value: string) {
     return
   }
 
-  removeMaterial(kind, value)
+  removeMaterial(kind, value, episode)
 }
 
 function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: StatusSyncScope) {
@@ -4125,9 +4241,7 @@ function splitMaterialInput(value: string) {
   )
 }
 
-function removeMaterial(kind: MaterialKind, value: string) {
-  const episode = activeEpisode.value
-
+function removeMaterial(kind: MaterialKind, value: string, episode = activeEpisode.value) {
   if (!episode) {
     return
   }
@@ -5007,9 +5121,8 @@ function openEpisodeScriptDialog(tab: EpisodeScriptTab) {
   episodeScriptDialogVisible.value = true
 }
 
-function openDialogueDialog() {
-  const episode = activeEpisode.value
-  if (!episode) return
+function openDialogueDialog(episode: Episode) {
+  dialogueEpisodeId.value = episode.id
   const savedDialogue = episode.extractedDialogueText
   dialogueView.value = 'original'
   dialogueOriginalDraft.value = savedDialogue ?? extractDialogueText(episode.scriptText)
@@ -5076,7 +5189,7 @@ function resetSplitScript() {
 }
 
 function resetDialogueExtraction() {
-  const original = activeEpisode.value?.scriptText ?? ''
+  const original = dialogueEpisode.value?.scriptText ?? ''
   dialogueOriginalDraft.value = extractDialogueText(original)
   dialogueReplacedDraft.value = extractDialogueText(original, state.globalConfig.dialogueExtraction.replacementRules)
 }
@@ -5101,6 +5214,7 @@ function resetEpisodeScriptDialog() {
 }
 
 function resetDialogueDialog() {
+  dialogueEpisodeId.value = null
   dialogueOriginalDraft.value = ''
   dialogueReplacedDraft.value = ''
   dialogueView.value = 'original'
@@ -5117,7 +5231,7 @@ function toggleDialogueReplacement() {
 }
 
 async function copyExtractedDialogue() {
-  const episode = activeEpisode.value
+  const episode = dialogueEpisode.value
   if (!episode || dialogueSaving.value) return
 
   if (!dialogueOutputDraft.value.trim()) {
@@ -5260,9 +5374,9 @@ async function copyShotNumber(shot: Shot) {
   notify.error('复制失败，请手动选择文本复制')
 }
 
-async function copyReferenceShotNumber(shot: Shot) {
-  const label = formatShotReference(episodeForShot(shot), shotIndex(shot), state.episodes)
-  if (await copyText(label)) notify.success(`已复制引用序号 ${label}`)
+async function copySceneReference(shot: Shot, scene: SceneConfig) {
+  const label = shot.usePositionReference ? formatShotReference(episodeForShot(shot), shotIndex(shot), state.episodes) : sceneReferenceName(scene)
+  if (await copyText(label)) notify.success(`已复制${shot.usePositionReference ? '引用序号' : '场景引用'} ${label}`)
   else notify.error('复制失败，请手动选择文本复制')
 }
 

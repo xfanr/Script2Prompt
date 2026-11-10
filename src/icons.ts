@@ -2,8 +2,8 @@ import { defineComponent, h, type Component } from 'vue'
 import {
   AddFour, Attention, Back, BeachUmbrella, CardTwo, CarouselVideo, CategoryManagement, CheckOne, CheckSmall, CircleRightUp,
   CloseSmall, Copy, Crown, DataArrival, Delete as ParkDelete, Down, DownloadTwo,
-  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, FolderMinus, FolderSuccess, GoStart as ParkGoStart, GoEnd as ParkGoEnd, ImageFiles as ParkImageFiles, Lightning, LinkInterrupt as ParkLinkInterrupt, Local, Message, Moon as ParkMoon, More, MoreOne,
-  Peoples, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, RightUser, Search as ParkSearch, SeoFolder, SettingTwo,
+  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, FolderMinus, FolderSuccess, GoStart as ParkGoStart, GoEnd as ParkGoEnd, FilePdf as ParkFilePdf, Lightning, LinkInterrupt as ParkLinkInterrupt, Local, Message, Moon as ParkMoon, More, MoreOne,
+  FolderConversion as ParkFolderConversion, Peoples, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, RightUser, Search as ParkSearch, SeoFolder, SettingTwo,
   Slide, SlideTwo, SortTwo, SplitTurnDownRight as ParkSplitTurnDownRight, Star as ParkStar, SubtractSelection, SubtractSelectionOne, SunOne, Switch as ParkSwitch, Sync,
   UploadTwo, User as ParkUser, VipOne, Voice, VoiceOff, Wallet, WritingFluently,
 } from '@icon-park/vue-next'
@@ -42,6 +42,7 @@ export const Download = icon(DownloadTwo)
 export const EditPen = icon(Edit)
 export const Expand = icon(ExpandDown)
 export const ProjectFolder = icon(SeoFolder)
+export const FolderConversion = icon(ParkFolderConversion)
 export const ProjectFolderFilled = icon(SeoFolder, 'filled')
 export const ArchiveFolder = icon(FolderSuccess)
 export const ArchiveFolderFilled = icon(FolderSuccess, 'filled')
@@ -51,8 +52,8 @@ export const FileMusic = icon(ParkFileMusic)
 export const FileMusicFilled = icon(ParkFileMusic, 'filled')
 export const FileRemovalFilled = icon(FileRemoval, 'filled')
 export const FileSuccessFilled = icon(ParkFileSuccess, 'filled')
-export const ImageFiles = icon(ParkImageFiles)
-export const ImageFilesFilled = icon(ParkImageFiles, 'filled')
+export const FilePdf = icon(ParkFilePdf)
+export const FilePdfFilled = icon(ParkFilePdf, 'filled')
 export const LinkInterrupt = icon(ParkLinkInterrupt)
 export const Flag = icon(ParkFlag, 'filled')
 export const GoStart = icon(ParkGoStart)

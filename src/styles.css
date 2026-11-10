@@ -343,6 +343,15 @@ h3,
   font-size: var(--el-font-size-small);
 }
 
+.project-full-name-copy.el-button {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 22px;
+  margin-right: -6px;
+  padding: 0;
+  color: var(--el-text-color-secondary);
+}
+
 .project-card-body {
   display: flex;
   min-height: 0;
@@ -374,6 +383,7 @@ h3,
   align-items: flex-end;
   gap: 20px;
   border-top: 1px solid var(--el-border-color-lighter);
+  cursor: default;
 }
 
 .project-card-footer > div:not(.el-dropdown) {
@@ -544,17 +554,16 @@ html.dark .script-context-line {
   flex-direction: column;
   gap: 0;
   overflow: hidden;
-  padding: 14px;
+  padding: 10px;
   border: 0;
-  border-right: 1px solid var(--el-border-color);
   border-radius: 0;
-  background: var(--el-bg-color-page);
+  background: var(--el-bg-color);
   box-shadow: none;
 }
 
 html.dark .sidebar {
   border-right-color: var(--el-border-color);
-  background: var(--el-bg-color-page);
+  background: var(--el-bg-color);
   box-shadow: none;
 }
 
@@ -917,6 +926,10 @@ html.dark .episode-panel {
   flex: 0 0 auto;
 }
 
+.dialogue-episode-dropdown .el-dropdown__caret-button.el-button::before {
+  display: none;
+}
+
 .shot-navigation-bar {
   display: flex;
   flex: 0 0 56px;
@@ -1005,19 +1018,379 @@ html.dark .episode-panel {
   flex: 1 1 auto;
 }
 
+.material-library-panel.episode-panel {
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 24px;
+  background: var(--el-bg-color);
+}
+
+.material-library-header {
+  display: flex;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 0 6px;
+}
+
+.material-library-header .material-sidebar-title {
+  margin: 0;
+  font-size: var(--el-font-size-base);
+  font-weight: 700;
+}
+
+.material-library-header .el-button {
+  padding: 0 4px;
+  color: var(--el-text-color-secondary);
+  font-size: var(--el-font-size-small);
+}
+
+.material-library-search-row {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.material-library-search-row .el-input__wrapper {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--el-fill-color-light);
+  box-shadow: 0 0 0 1px var(--el-border-color-lighter) inset;
+  font-size: var(--el-font-size-small);
+}
+
+.material-library-search-row .el-button {
+  width: 28px;
+  padding: 0;
+  color: var(--el-text-color-secondary);
+}
+
+.material-library-breadcrumb {
+  flex: 0 0 auto;
+  min-height: 24px;
+  margin-bottom: 6px;
+  padding: 0 8px;
+  line-height: 24px;
+  font-size: var(--el-font-size-small);
+}
+
+.material-library-breadcrumb button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.material-library-breadcrumb button:disabled {
+  color: var(--el-text-color-primary);
+  cursor: default;
+  font-weight: 600;
+}
+
+.material-library-breadcrumb button:focus-visible,
+.material-library-folder:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+
+.material-library-folders {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.material-library-folder {
+  display: flex;
+  min-width: 0;
+  width: 100%;
+  height: 56px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--el-text-color-primary);
+  font: inherit;
+  font-size: var(--el-font-size-small);
+  text-align: left;
+  cursor: pointer;
+}
+
+.material-library-folder:hover {
+  background: var(--el-fill-color-light);
+}
+
+.material-library-folder > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-folder-icon {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  align-items: center;
+}
+
+.material-folder-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.material-library-search-section + .material-library-search-section {
+  margin-top: 12px;
+}
+
+.material-library-search-heading {
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  font: inherit;
+  font-size: var(--el-font-size-small);
+  cursor: pointer;
+}
+
+.material-library-search-result {
+  display: flex;
+  width: 100%;
+  min-height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--el-text-color-regular);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.material-library-search-result:hover {
+  background: var(--el-fill-color-light);
+}
+
+.material-library-search-result .el-icon {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 5px;
+  background: var(--el-fill-color-light);
+  font-size: 15px;
+}
+
+.material-library-search-result > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-library-panel .material-management-heading-row {
+  padding: 4px;
+}
+
+.material-library-panel .material-unit-list {
+  padding: 0 4px 8px 12px;
+  color: var(--el-text-color-regular);
+}
+
+.material-library-panel .material-unit-list li {
+  position: relative;
+  min-height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 20px 4px 4px;
+  border-radius: 8px;
+}
+
+.material-library-panel .material-unit-list li:hover {
+  background: var(--el-fill-color-light);
+}
+
+.material-reference-block.is-confirmed,
+.material-library-panel .material-unit-list li.is-confirmed {
+  background: var(--el-color-success-light-9);
+}
+
+.material-library-panel .material-unit-list li > .el-icon,
+.material-library-panel .material-confirm-button {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  margin: 0;
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+  font-size: 15px;
+}
+
+.material-library-panel .material-unit-list.is-unrecognized {
+  color: var(--el-color-warning);
+}
+
+.material-character-cards,
+.material-scene-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.material-card {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 10px;
+  background: var(--el-bg-color);
+}
+
+.material-card-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.material-card .material-card-tag.el-tag {
+  display: inline-flex;
+  height: 20px;
+  margin: 0;
+  align-items: center;
+  align-self: center;
+  line-height: 18px;
+  transition: none;
+}
+
+.material-card-tag .el-tag__content {
+  transform: translateY(0.5px);
+}
+
+.material-card-name-area {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  min-height: 20px;
+  gap: 4px;
+  line-height: 20px;
+}
+
+.material-card-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  font-size: var(--el-font-size-base);
+  font-weight: 600;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-card .material-unreferenced-icon {
+  flex: 0 0 14px;
+  color: var(--el-color-warning);
+  font-size: 14px;
+}
+
+.material-character-voice {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--el-text-color-regular);
+  font-size: var(--el-font-size-small);
+  user-select: none;
+}
+
+.material-library-panel .material-character-voice .material-confirm-button {
+  width: 18px;
+  height: 20px;
+  flex: 0 0 18px;
+  border-radius: 0;
+  background: transparent;
+  font-size: 14px;
+}
+
+.material-character-voice.is-disabled {
+  color: var(--el-text-color-disabled);
+}
+
+.material-character-outfits,
+.material-scene-references {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.material-scene-references {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.material-reference-block {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-regular);
+  font-size: var(--el-font-size-small);
+  line-height: 20px;
+  user-select: none;
+}
+
+.material-reference-block > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-card.is-unrecognized .material-card-name {
+  color: var(--el-color-warning);
+}
+
+.material-card .material-card-actions {
+  height: 20px;
+  gap: 2px;
+}
+
+.material-card-actions .sidebar-row-action-button.el-button {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+}
+
+.material-card:hover .material-card-actions,
+.material-card:focus-within .material-card-actions {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .material-management {
   display: flex;
   min-width: 0;
   flex-direction: column;
   padding-right: 4px;
-}
-
-.material-management-title {
-  margin: 0;
-  color: var(--el-text-color-primary);
-  font-size: var(--el-font-size-base);
-  font-weight: 700;
-  line-height: 24px;
 }
 
 .material-management-section {
@@ -1097,17 +1470,6 @@ html.dark .episode-panel {
   min-width: 0;
 }
 
-.material-management-entry.has-reference-list {
-  position: relative;
-}
-
-.material-management-entry.has-reference-list > .material-management-actions {
-  position: absolute;
-  top: 0;
-  right: 8px;
-  border-radius: var(--el-border-radius-small);
-}
-
 .material-unit-list {
   margin: 0;
   padding: 0 8px 4px 28px;
@@ -1160,6 +1522,50 @@ html.dark .episode-panel {
   color: var(--el-color-success);
 }
 
+.material-library-panel .material-confirm-button.is-corner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 0 6px 0 0;
+  background: transparent;
+  font-size: 14px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.material-reference-block:hover .material-confirm-button.is-corner,
+.material-library-panel .material-unit-list li:hover .material-confirm-button.is-corner,
+.material-confirm-button.is-corner:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.material-confirm-button.is-corner::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--el-fill-color-darker);
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+  content: '';
+}
+
+.material-confirm-button.is-corner.is-confirmed::before {
+  background: var(--el-color-success-light-8);
+}
+
+.material-confirm-button.is-corner .el-icon {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  font-size: 14px;
+}
+
 .material-management-item {
   display: flex;
   min-width: 0;
@@ -1171,7 +1577,7 @@ html.dark .episode-panel {
   border-radius: 6px;
 }
 
-.material-management-item:not(.material-character-group-title):hover {
+.material-management-item:hover {
   background: var(--el-fill-color-dark);
 }
 
@@ -1190,10 +1596,6 @@ html.dark .episode-panel {
   color: var(--el-text-color-regular);
 }
 
-.material-character-group-title {
-  color: var(--el-text-color-regular);
-}
-
 .material-management-actions {
   display: flex;
   flex: 0 0 auto;
@@ -1207,9 +1609,7 @@ html.dark .episode-panel {
 }
 
 .material-management-item:hover .material-management-actions,
-.material-management-item:focus-within .material-management-actions,
-.material-management-entry.has-reference-list:hover > .material-management-actions,
-.material-management-entry.has-reference-list:focus-within > .material-management-actions {
+.material-management-item:focus-within .material-management-actions {
   visibility: visible;
   opacity: 1;
   pointer-events: auto;
@@ -2143,11 +2543,13 @@ html.dark .episode-panel {
   box-shadow: 0 0 0 1px var(--el-color-primary) inset;
 }
 
-.scene-selection-controls .el-select {
+.scene-selection-controls .el-select,
+.scene-reference-controls .el-input {
   min-width: 0;
 }
 
-.scene-selection-controls .el-select__wrapper {
+.scene-selection-controls .el-select__wrapper,
+.scene-reference-controls .el-input__wrapper {
   background: transparent;
   box-shadow: none !important;
   border-radius: var(--el-border-radius-base) 0 0 var(--el-border-radius-base);
