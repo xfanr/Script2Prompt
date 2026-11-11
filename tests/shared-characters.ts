@@ -1,5 +1,5 @@
 import { normalizeGlobalConfig } from '../src/config'
-import { createCharacterAsset, createCharacterConfig, createEpisode, createEpisodeGroup, createInitialState, createShot } from '../src/defaults'
+import { createCharacterAsset, createCharacterConfig, createEpisode, createEpisodeGroup, createInitialState, createShot, normalizeCharacterAssets } from '../src/defaults'
 import { characterAssetsFor, initializeSharedCharacters, characterAppearance, characterUnits, validateCharacterOutfits } from '../src/sharedCharacters'
 import { normalizeAppState } from '../src/stateNormalization'
 import { buildDataFiles, assembleDataFiles, parseDataFile } from '../src/dataFiles'
@@ -27,6 +27,31 @@ export async function runSharedCharacterTests() {
   state.activeEpisodeId = second.id
   initializeSharedCharacters(state, second)
   const asset = characterAssetsFor(state, second)[0]
+  test('single-outfit main characters default to original skin without replacing custom notes', () => {
+    const assets = normalizeCharacterAssets([
+      { ...createCharacterAsset('林晚'), isMain: true },
+      { ...createCharacterAsset('自定主角'), isMain: true, note: '红色礼服' },
+      createCharacterAsset('配角'),
+    ])
+    assert(assets[0].note === '原皮', 'main character default note missing')
+    assert(assets[1].note === '红色礼服' && assets[2].note === '', 'custom or supporting note replaced')
+    assert(characterAppearance(assets[0], first.id, first.shots[0]).referenceName === '林晚（原皮）', 'appearance reference missing default note')
+    const detailed = composePrompt(config, first.shots[0], undefined, 8, assets, '11-1', 'detailed', '11-1', first.id)
+    assert(detailed.includes('[林晚（原皮）.png]') && detailed.includes('[林晚.mp3]'), 'default note changed appearance or voice references incorrectly')
+  })
+  test('legacy outfit notes become original skin and multiple outfits keep explicit assignment', () => {
+    const assets = normalizeCharacterAssets([
+      { ...createCharacterAsset('单套'), note: ' 常服 ' },
+      { ...createCharacterAsset('多套'), isMain: true, outfits: [
+        { id: 'original', note: '常服', appearanceDescription: '', units: [] },
+        { id: 'formal', note: '礼服', appearanceDescription: '', units: [] },
+      ] },
+      { ...createCharacterAsset('保留原文'), note: '日常服装' },
+    ])
+    assert(assets[0].note === '原皮' && assets[1].outfits[0].note === '原皮', 'legacy note not renamed')
+    assert(assets[1].note === '' && assets[1].outfits[1].note === '礼服', 'multiple-outfit notes changed')
+    assert(assets[2].note === '日常服装', 'partial text was replaced')
+  })
   test('single appearance is opt-in without clearing text or changing references', () => {
     assert(!asset.appearanceDescriptionEnabled, 'description enabled by default')
     for (const mode of ['basic', 'detailed'] as const) {

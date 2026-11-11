@@ -2,7 +2,7 @@ import { defineComponent, h, type Component } from 'vue'
 import {
   AddFour, Attention, Back, BeachUmbrella, CardTwo, CarouselVideo, CategoryManagement, CheckOne, CheckSmall, CircleRightUp,
   CloseSmall, Copy, Crown, DataArrival, Delete as ParkDelete, Down, DownloadTwo,
-  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, FolderMinus, FolderSuccess, GoStart as ParkGoStart, GoEnd as ParkGoEnd, FilePdf as ParkFilePdf, Lightning, LinkInterrupt as ParkLinkInterrupt, Local, Message, Moon as ParkMoon, More, MoreOne,
+  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, FolderMinus, FolderSuccess, GoStart as ParkGoStart, GoEnd as ParkGoEnd, FilePdf as ParkFilePdf, Lightning, Local, Message, Moon as ParkMoon, More, MoreOne,
   FolderConversion as ParkFolderConversion, Peoples, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, RightUser, Search as ParkSearch, SeoFolder, SettingTwo,
   Slide, SlideTwo, SortTwo, SplitTurnDownRight as ParkSplitTurnDownRight, Star as ParkStar, SubtractSelection, SubtractSelectionOne, SunOne, Switch as ParkSwitch, Sync,
   UploadTwo, User as ParkUser, VipOne, Voice, VoiceOff, Wallet, WritingFluently,
@@ -25,6 +25,7 @@ export const PointBalanceIcon = icon(Lightning, 'filled')
 export const CategoryManagementIcon = icon(CategoryManagement)
 export const SceneStatus = icon(WritingFluently)
 export const Check = icon(CheckSmall)
+export const CircleCheck = icon(CheckOne)
 export const CircleCheckFilled = icon(CheckOne, 'filled')
 export const Close = icon(CloseSmall)
 export const CloseBold = icon(CloseSmall)
@@ -45,7 +46,6 @@ export const ProjectFolder = icon(SeoFolder)
 export const FolderConversion = icon(ParkFolderConversion)
 export const ProjectFolderFilled = icon(SeoFolder, 'filled')
 export const ArchiveFolder = icon(FolderSuccess)
-export const ArchiveFolderFilled = icon(FolderSuccess, 'filled')
 export const HistoryFolder = icon(FolderMinus)
 export const HistoryFolderFilled = icon(FolderMinus, 'filled')
 export const FileMusic = icon(ParkFileMusic)
@@ -54,7 +54,6 @@ export const FileRemovalFilled = icon(FileRemoval, 'filled')
 export const FileSuccessFilled = icon(ParkFileSuccess, 'filled')
 export const FilePdf = icon(ParkFilePdf)
 export const FilePdfFilled = icon(ParkFilePdf, 'filled')
-export const LinkInterrupt = icon(ParkLinkInterrupt)
 export const Flag = icon(ParkFlag, 'filled')
 export const GoStart = icon(ParkGoStart)
 export const GoEnd = icon(ParkGoEnd)

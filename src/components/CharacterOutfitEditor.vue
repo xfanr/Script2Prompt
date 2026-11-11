@@ -68,7 +68,7 @@ const sameUnit = (a: { episodeId: string; unitNumber: number }, b: { episodeId: 
 function add(split = false) {
   const next = [...outfits.value]
   if (!next.length) {
-    next.push({ id: createId('outfit'), note: note.value.trim() || (split ? '常服' : ''), appearanceDescription: description.value, appearanceDescriptionEnabled: descriptionEnabled.value, units: singleUnits.value.map(unit => ({ ...unit })) })
+    next.push({ id: createId('outfit'), note: note.value.trim() || (split ? '原皮' : ''), appearanceDescription: description.value, appearanceDescriptionEnabled: descriptionEnabled.value, units: singleUnits.value.map(unit => ({ ...unit })) })
     description.value = ''
     descriptionEnabled.value = false
     note.value = ''

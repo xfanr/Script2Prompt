@@ -19,7 +19,7 @@
                   <template #content>
                     <div v-for="description in pendingResults.descriptions" :key="description">{{ description }}</div>
                   </template>
-                  <span>{{ pendingResults.total }}</span>
+                  <span class="brand-pending-results">{{ pendingResults.total }}</span>
                 </el-tooltip>
                 <span v-else>Script2Prompt</span>
               </div>
@@ -139,7 +139,9 @@
               <button v-if="projectSection === 'projects' && !projectSearchKeyword" class="project-card project-create-card" type="button" @click="addEpisodeGroup">
                 <el-icon><AddIcon /></el-icon><span>新建剧集</span>
               </button>
-              <article v-for="card in projectCards" :key="card.id" class="project-card" :data-project-id="card.id" role="button" tabindex="0" :aria-label="`进入${card.title}`" @click="openProjectCard(card, $event)" @keydown.enter.self="openProjectCard(card, $event)" @keydown.space.self.prevent="openProjectCard(card, $event)">
+              <template v-for="(card, index) in projectCards" :key="card.id">
+                <h2 v-if="projectSection === 'projects' && card.group?.archived && !projectCards[index - 1]?.group?.archived" class="project-grid-section-title">归档</h2>
+              <article class="project-card" :data-project-id="card.id" role="button" tabindex="0" :aria-label="`进入${card.title}`" @click="openProjectCard(card, $event)" @keydown.enter.self="openProjectCard(card, $event)" @keydown.space.self.prevent="openProjectCard(card, $event)">
                 <span v-if="card.group && card.group.results.playCount >= 2000" class="project-card-medal" :class="{ 'is-warning': card.group.results.playCount < 20000 }">
                   <GroupPlayMedal class="episode-star" :play-count="card.group.results.playCount" />
                 </span>
@@ -179,8 +181,9 @@
                   </el-dropdown>
                 </footer>
               </article>
+              </template>
             </div>
-            <el-empty v-if="!projectCards.length && (projectSearchKeyword || projectSection !== 'projects')" :description="projectSearchKeyword ? '未找到匹配的剧集' : projectSection === 'archived' ? '暂无归档剧集' : '暂无历史项目'" />
+            <el-empty v-if="!projectCards.length && (projectSearchKeyword || projectSection !== 'projects')" :description="projectSearchKeyword ? '未找到匹配的剧集' : '暂无历史项目'" />
           </div>
         </main>
 
@@ -196,7 +199,7 @@
                 <span ref="materialLibraryAddAnchorRef">
                   <el-dropdown trigger="click" :disabled="!materialLibraryEpisode" @command="openMaterialAddDialog($event, undefined, materialLibraryEpisode)">
                     <el-button :icon="AddIcon" text :disabled="!materialLibraryEpisode" aria-label="新增素材" />
-                    <template #dropdown><el-dropdown-menu>
+                    <template #dropdown><el-dropdown-menu @click.stop>
                       <el-dropdown-item command="scenes">添加场景</el-dropdown-item>
                       <el-dropdown-item command="characters">添加角色</el-dropdown-item>
                     </el-dropdown-menu></template>
@@ -215,112 +218,54 @@
                       </button>
                       <div v-if="!activeGroupEpisodes.length" class="material-management-empty">暂无分集</div>
                     </div>
-                    <div v-else-if="!materialLibraryEpisode" class="material-library-search-results">
-                      <section v-for="result in materialLibrarySearchResults" :key="result.episode.id" class="material-library-search-section" :aria-label="`${result.episode.title}素材搜索结果`">
-                        <button class="material-library-search-heading" type="button" @click="openMaterialLibraryFolder(result.episode.id)">{{ result.episode.title }}</button>
-                        <button v-for="name in result.names" :key="name" class="material-library-search-result" type="button" :title="`${name}\n${result.episode.title}`" @click="openMaterialLibraryFolder(result.episode.id)">
-                          <el-icon aria-hidden="true"><component :is="/\.mp3$/i.test(name) ? FileMusic : /\.png$/i.test(name) ? FilePdf : FileRemovalFilled" /></el-icon>
-                          <span>{{ name }}</span>
-                        </button>
-                      </section>
-                      <div v-if="!materialLibrarySearchResults.length" class="material-management-empty">未找到素材</div>
-                    </div>
-                    <div v-else class="material-management">
-                      <section class="material-management-section">
-                        <div class="material-management-heading-row">
-                          <h4 class="material-management-heading">场景配置</h4>
-                          <div class="material-management-heading-actions">
-                            <el-button class="sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="添加场景素材" @click="openMaterialAddDialog('scenes', $event, materialLibraryEpisode)" />
-                          </div>
-                        </div>
-                        <div class="material-scene-cards">
-                          <article v-for="item in sidebarSceneCards" :key="sceneAssetKey(item)" class="material-card material-scene-card" :class="{ 'is-unrecognized': !item.used }" :aria-label="`${sceneAssetLabel(item)}场景素材`">
-                            <div class="material-card-header">
-                              <el-tag class="material-card-tag" size="small" disable-transitions type="info">{{ [item.time, item.space === '无' ? '' : item.space].filter(Boolean).join('·') }}</el-tag>
-                              <div class="material-card-name-area">
-                                <el-icon v-if="!item.used" class="material-unreferenced-icon" aria-label="未引用"><LinkInterrupt /></el-icon>
-                                <span class="material-card-name" :title="item.name">{{ item.name }}</span>
-                              </div>
-                              <div class="material-management-actions material-card-actions">
-                                <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改场景素材" @click="openMaterialEditDialog('scenes', sceneAssetKey(item), $event, materialLibraryEpisode)" />
-                                <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除场景素材" @click="confirmRemoveMaterial('scenes', sceneAssetKey(item), materialLibraryEpisode)" />
-                              </div>
+                    <div v-else>
+                      <section v-for="section in materialLibrarySections" :key="section.episode.id" class="material-library-search-section" :aria-label="`${section.episode.title}素材`">
+                        <button v-if="!materialLibraryEpisode" class="material-library-search-heading" type="button" @click="openMaterialLibraryFolder(section.episode.id)">{{ section.episode.title }}</button>
+                        <div class="material-management">
+                          <section v-if="materialLibraryEpisode || section.scenes.length" class="material-management-section">
+                            <div class="material-scene-cards">
+                              <MaterialCard v-for="item in section.scenes" :key="sceneAssetKey(item)" class="material-scene-card"
+                                :name="item.name" :label="`${sceneAssetLabel(item)}场景素材`" kind="scene"
+                                :description="[item.time, item.space === '无' ? '' : item.space].filter(Boolean).join('·')"
+                                :used="item.used" :references="item.referenceBlocks" :confirmed="section.confirmed" :reference-title="name => materialReferenceTitle(name, section.episode)"
+                                @toggle="toggleMaterialConfirmation($event, section.episode)" @copy="copyMaterialReferenceName">
+                                <template #actions>
+                                  <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" aria-label="修改场景素材" @click="openMaterialEditDialog('scenes', sceneAssetKey(item), $event, section.episode)" />
+                                  <el-popconfirm title="确认删除这条场景素材？" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeMaterial('scenes', sceneAssetKey(item), section.episode)">
+                                    <template #reference><el-button class="sidebar-row-action-button" :icon="Delete" text size="small" aria-label="删除场景素材" /></template>
+                                  </el-popconfirm>
+                                </template>
+                              </MaterialCard>
+                              <div v-if="materialLibraryEpisode && !section.scenes.length" class="material-management-empty">{{ materialLibrarySearch.trim() ? '未找到场景素材' : '暂无场景素材' }}</div>
                             </div>
-                            <div v-if="item.referenceBlocks.length" class="material-scene-references" :aria-label="`${item.name}引用名称`">
-                              <div v-for="reference in item.referenceBlocks" :key="reference.name" class="material-reference-block" :class="{ 'is-confirmed': confirmedMaterialReferences.includes(reference.name) }" :title="materialReferenceTitle(reference.name)" @dblclick="copyMaterialReferenceName(reference.name)">
-                                <MaterialReferenceIcon corner v-if="item.used" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
-                                <span>{{ reference.label }}</span>
-                              </div>
+                          </section>
+                          <section v-if="materialLibraryEpisode || section.characters.length" class="material-management-section">
+                            <div class="material-character-cards">
+                              <MaterialCard v-for="item in section.characters" :key="item.id" class="material-character-card"
+                                :name="item.name" :label="`${item.name}角色素材`" kind="character" :description="item.isMain ? '主角' : item.isEnsemble ? '群像' : '配角'"
+                                :used="item.used" :ensemble="item.isEnsemble" :references="item.referenceBlocks" :confirmed="section.confirmed" :reference-title="name => materialReferenceTitle(name, section.episode)"
+                                @toggle="toggleMaterialConfirmation($event, section.episode)" @copy="copyMaterialReferenceName">
+                                <template #actions>
+                                  <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" :aria-label="`修改角色${item.name}`" @click="openMaterialEditDialog('characters', item.name, undefined, section.episode)" />
+                                  <el-popconfirm :title="section.episode.groupId ? '确认删除此角色及本剧分镜中的角色配置？' : '确认删除此角色？'" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeMaterial('characters', item.name, section.episode)">
+                                    <template #reference><el-button class="sidebar-row-action-button" :icon="Delete" text size="small" :aria-label="`删除角色${item.name}`" /></template>
+                                  </el-popconfirm>
+                                </template>
+                              </MaterialCard>
+                              <div v-if="materialLibraryEpisode && !section.characters.length" class="material-management-empty">{{ materialLibrarySearch.trim() ? '未找到角色' : '暂无角色' }}</div>
                             </div>
-                          </article>
-                          <div v-if="!filteredSidebarMaterials.scenes.length" class="material-management-empty">{{ materialLibrarySearch.trim() ? '未找到场景素材' : '暂无场景素材' }}</div>
-                        </div>
-                      </section>
-                      <section class="material-management-section">
-                        <div class="material-management-heading-row">
-                          <h4 class="material-management-heading">角色配置</h4>
-                          <div class="material-management-heading-actions">
-                            <el-tooltip content="智能识别" placement="top">
-                              <el-button
-                                class="sidebar-row-action-button"
-                                :icon="Search"
-                                text
-                                size="small"
-                                aria-label="智能识别"
-                                @click="recognizeCharacterDescriptionsFromClipboard(materialLibraryEpisode)"
-                              />
-                            </el-tooltip>
-                            <el-button class="sidebar-row-action-button" :icon="AddIcon" text size="small" aria-label="添加角色" @click="openMaterialAddDialog('characters', undefined, materialLibraryEpisode)" />
-                          </div>
-                        </div>
-                        <div class="material-character-cards">
-                          <article v-for="item in sidebarCharacterCards" :key="item.id" class="material-card material-character-card" :class="{ 'is-unrecognized': !item.used }" :aria-label="`${item.name}角色素材`">
-                            <div class="material-card-header material-character-card-header">
-                              <el-tag class="material-card-tag material-character-type" size="small" disable-transitions :type="item.isMain ? 'primary' : 'info'">{{ item.type.label }}</el-tag>
-                              <div class="material-card-name-area material-character-name-area">
-                                <el-icon v-if="!item.used && !item.isEnsemble" class="material-unreferenced-icon" aria-label="未引用"><LinkInterrupt /></el-icon>
-                                <span class="material-card-name material-character-name" :title="item.name">{{ item.name }}</span>
-                                <div class="material-character-voice" :class="{ 'is-disabled': !item.used || !item.voiceReference }" :title="item.voiceReference?.name ?? (item.isEnsemble ? '群像不使用音色' : '暂无音色引用')" @dblclick="item.voiceReference && copyMaterialReferenceName(item.voiceReference.name)">
-                                  <MaterialReferenceIcon v-if="item.used && item.voiceReference" :name="item.voiceReference.name" kind="audio" :confirmed="confirmedMaterialReferences.includes(item.voiceReference.name)" @toggle="toggleMaterialConfirmation(item.voiceReference.name)" />
-                                  <el-icon v-else-if="!item.isEnsemble" aria-hidden="true"><FileMusic /></el-icon>
-                                  <span>音色</span>
-                                </div>
-                              </div>
-                              <div class="material-management-actions material-card-actions material-character-card-actions">
-                                <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" :aria-label="`修改角色${item.name}`" @click="openMaterialEditDialog('characters', item.name, undefined, materialLibraryEpisode)" />
-                                <el-button class="sidebar-row-action-button" :icon="Delete" text size="small" :aria-label="`删除角色${item.name}`" @click="confirmRemoveMaterial('characters', item.name, materialLibraryEpisode)" />
-                              </div>
+                          </section>
+                          <section v-if="section.custom.length" class="material-management-section" aria-label="自定义配置">
+                            <div class="material-custom-cards">
+                              <MaterialCard v-for="item in section.custom" :key="item.referenceBlocks[0].name" class="material-custom-card"
+                                :name="item.name" :label="`${item.name}自定义素材`" kind="custom" description="引用"
+                                :used="item.used" :references="item.referenceBlocks" :confirmed="section.confirmed" :reference-title="name => materialReferenceTitle(name, section.episode)"
+                                @toggle="toggleMaterialConfirmation($event, section.episode)" @copy="copyMaterialReferenceName" />
                             </div>
-                            <div v-if="item.outfitReferences.length" class="material-character-outfits" :aria-label="`${item.name}服装`">
-                              <div v-for="outfit in item.outfitReferences" :key="outfit.name" class="material-reference-block material-character-outfit" :class="{ 'is-confirmed': item.used && !item.isEnsemble && confirmedMaterialReferences.includes(outfit.name) }" :title="materialReferenceTitle(outfit.name)" @dblclick="copyMaterialReferenceName(outfit.name)">
-                                <MaterialReferenceIcon corner v-if="item.used && !item.isEnsemble" :name="outfit.name" kind="image" :confirmed="confirmedMaterialReferences.includes(outfit.name)" @toggle="toggleMaterialConfirmation(outfit.name)" />
-                                <span>{{ outfit.label }}</span>
-                              </div>
-                            </div>
-                          </article>
-                          <div v-if="!sidebarCharacterCards.length" class="material-management-empty">{{ materialLibrarySearch.trim() ? '未找到角色' : '暂无角色' }}</div>
+                          </section>
                         </div>
                       </section>
-                      <section class="material-management-section" aria-label="自定义配置">
-                        <div class="material-management-heading-row">
-                          <h4 class="material-management-heading">自定义配置</h4>
-                        </div>
-                        <div class="material-management-list">
-                          <div v-for="item in filteredSidebarMaterials.custom" :key="item.name" class="material-management-entry">
-                            <div v-if="!item.references.length" class="material-management-item">
-                              <span class="material-management-name is-used" :title="item.name">{{ item.name }}</span>
-                            </div>
-                            <ul class="material-unit-list" :aria-label="`${item.name}引用名称`">
-                              <li v-for="reference in item.references" :key="reference.name" :class="{ 'is-confirmed': !/\.mp3$/i.test(reference.name) && confirmedMaterialReferences.includes(reference.name) }" :title="materialReferenceTitle(reference.name)" @dblclick="copyMaterialReferenceName(reference.name)">
-                                <MaterialReferenceIcon corner v-if="item.used && /\.(mp3|png)$/i.test(reference.name)" :name="reference.name" :confirmed="confirmedMaterialReferences.includes(reference.name)" @toggle="toggleMaterialConfirmation(reference.name)" />
-                                <el-icon v-else-if="/\.(mp3|png)$/i.test(reference.name)" aria-hidden="true"><component :is="/\.mp3$/i.test(reference.name) ? FileMusic : FilePdf" /></el-icon>
-                                <span>{{ reference.name }}</span>
-                              </li>
-                            </ul>
-                          </div>
-                          <div v-if="!filteredSidebarMaterials.custom.length" class="material-management-empty">{{ materialLibrarySearch.trim() ? '未找到自定义配置' : '暂无自定义配置' }}</div>
-                        </div>
-                      </section>
+                      <div v-if="!materialLibrarySections.length" class="material-management-empty">未找到素材</div>
                     </div>
                   </el-scrollbar>
             </section>
@@ -1327,7 +1272,7 @@
                 }
               }">
                 <el-radio-button value="main" aria-label="主角" title="主角"><el-icon><MainCharacter /></el-icon></el-radio-button>
-                <el-radio-button value="ordinary" aria-label="普通" title="普通"><el-icon><User /></el-icon></el-radio-button>
+                <el-radio-button value="ordinary" aria-label="配角" title="配角"><el-icon><User /></el-icon></el-radio-button>
                 <el-radio-button value="ensemble" aria-label="群像" title="群像"><el-icon><Grape /></el-icon></el-radio-button>
               </el-radio-group>
             </div>
@@ -1434,36 +1379,6 @@
           <el-button type="primary" @click="confirmMaterialDialog">{{ materialDialogConfirmText }}</el-button>
         </template>
       </component>
-      <el-drawer
-        v-model="characterPasteDialogVisible"
-        title="智能识别"
-        size="380px"
-        direction="ltr"
-        :modal="false"
-        :show-close="false"
-        modal-class="dismissible-drawer-overlay"
-        append-to-body
-        class="app-drawer character-paste-dialog"
-        @opened="focusCharacterPasteInput"
-        @closed="resetCharacterPasteDialog"
-      >
-        <p class="character-paste-hint">浏览器无法自动读取剪切板，请在下方填写CSV或JSON数据。<br />CSV：角色名,形象描述,音色描述；JSON：name、appearanceDescription、voiceDescription、isEnsemble（选填）</p>
-        <p v-if="characterRecognitionAssets.some(asset => asset.outfits.length > 1)" class="character-paste-hint">多套服装请使用 JSON，并用 outfitNote 指定服装备注。</p>
-        <el-input
-          ref="characterPasteInputRef"
-          v-model="characterPasteDraft"
-          type="textarea"
-          :rows="10"
-          resize="vertical"
-          placeholder="填写CSV或JSON数据"
-          aria-label="粘贴角色形象和音色描述"
-          @paste="handleCharacterDescriptionPaste"
-        />
-        <template #footer>
-          <el-button @click="characterPasteDialogVisible = false">取消</el-button>
-          <el-button type="primary" :disabled="!characterPasteDraft.trim()" @click="confirmCharacterPaste">识别</el-button>
-        </template>
-      </el-drawer>
       <el-drawer v-model="outfitAssignmentVisible" title="分配角色服装" direction="ltr" size="380px" :modal="false" :show-close="false" modal-class="dismissible-drawer-overlay" append-to-body class="app-drawer outfit-assignment-drawer" @closed="cancelOutfitAssignment">
         <p class="empty-note">新增使用单元需要分配服装，保存后应用本次操作。</p>
         <el-form label-position="top">
@@ -1496,7 +1411,7 @@ import { linkedSourceShotIds, neighboringEpisode, visibleShotCards } from './nei
 import EpisodeSplitNumberCell from './components/EpisodeSplitNumberCell.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot, normalizeReferenceMode } from './config'
 import { ElDialog, ElDrawer, ElPopover, ElMessageBox, type DropdownInstance } from 'element-plus'
-import { AddIcon, ArrowDown, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, FileMusic, Grape, FilePdf, Location, MainCharacter, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, NextEpisodeUnit, Position, PositionReference, PreviousEpisodeUnit, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, WarningFilled } from './icons'
+import { AddIcon, ArrowDown, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Document, Download, EditPen, Expand, Grape, Location, MainCharacter, MaterialTabIcon, Microphone, Moon, MoreFilled, Mute, Notebook, NextEpisodeUnit, Position, PositionReference, PreviousEpisodeUnit, Refresh, Search, Setting, ShotTabIcon, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, WarningFilled } from './icons'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { normalizeSplitScriptText } from './episodeScript'
 import { clearInteriorEpisodeContacts, contactEditableEpisodeIds, renameEpisodeContacts } from './episodeContacts'
@@ -1549,10 +1464,10 @@ import type { AppState, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGro
 import { characterAssetsFor as assetsFor, initializeSharedCharacters, characterAppearance, characterUnits, validateCharacterOutfits } from './sharedCharacters'
 import { characterAvailableInUnit, compareCharacterAssets, episodeCharacterUnits, extendCharacterScopes, initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes, referencedCharacterNames } from './characterScopes'
 import { formatPromptReferences } from './prompt'
-import { FileRemovalFilled, GrapeFilled, LinkInterrupt, MainCharacterFilled } from './icons'
+import { GrapeFilled, MainCharacterFilled } from './icons'
 import { HomeBackIcon, GoStart, GoEnd, PointBalanceIcon, SceneStatus } from './icons'
-import { ProjectFolder, ProjectFolderFilled, ArchiveFolder, ArchiveFolderFilled, HistoryFolder, HistoryFolderFilled, MoreOneIcon, FolderConversion } from './icons'
-import MaterialReferenceIcon from './components/MaterialReferenceIcon.vue'
+import { ProjectFolder, ProjectFolderFilled, ArchiveFolder, HistoryFolder, HistoryFolderFilled, MoreOneIcon, FolderConversion } from './icons'
+import MaterialCard from './components/MaterialCard.vue'
 import { normalizeMaterialConfirmations } from './defaults'
 import CharacterOutfitEditor from './components/CharacterOutfitEditor.vue'
 import type { CharacterOutfit, CharacterAsset } from './types'
@@ -1604,15 +1519,8 @@ type MaterialAddResult = {
   added: number
   skipped: number
 }
-type CharacterDescriptionImport = {
-  name: string
-  outfitNote?: string
-  isEnsemble?: boolean
-  appearanceDescription?: string
-  voiceDescription?: string
-}
 type MaterialDialogMode = 'add' | 'edit'
-type ProjectSection = 'projects' | 'archived' | 'history'
+type ProjectSection = 'projects' | 'history'
 type EpisodeScriptTab = 'materials' | 'shots'
 type DialogueView = 'original' | 'replaced'
 type BatchShotSegment = {
@@ -1642,7 +1550,7 @@ const props = defineProps<{
 
 const { state, activeEpisode, saveError, saveNow, replaceState, isReplacing } = useAppState(props.initialState, props.repository)
 const activeCharacterAssets = computed(() => activeEpisode.value ? assetsFor(state, activeEpisode.value) : [])
-const materialLibraryEpisodeId = ref<string | null>(null)
+const materialLibraryEpisodeId = ref<string | null>(activeEpisode.value?.id ?? null)
 const materialLibraryEpisode = computed(() => state.episodes.find(episode => episode.id === materialLibraryEpisodeId.value))
 const materialLibrarySearch = ref('')
 const materialLibraryAddAnchorRef = ref<HTMLElement | null>(null)
@@ -1738,14 +1646,13 @@ const detectionConflictShotId = ref<string | null>(null)
 const workspaceView = ref<'library' | 'editor'>('library')
 const projectSections: { id: ProjectSection; title: string; icon: Component; filledIcon: Component }[] = [
   { id: 'projects', title: '项目', icon: ProjectFolder, filledIcon: ProjectFolderFilled },
-  { id: 'archived', title: '归档', icon: ArchiveFolder, filledIcon: ArchiveFolderFilled },
   { id: 'history', title: '历史', icon: HistoryFolder, filledIcon: HistoryFolderFilled },
 ]
 const projectSection = ref<ProjectSection>('projects')
 const projectSearch = ref('')
 const projectSearchKeyword = computed(() => projectSearch.value.trim().toLocaleLowerCase())
 const projectLibraryRef = ref<HTMLElement | null>(null)
-const projectScrollPositions: Record<ProjectSection, number> = { projects: 0, archived: 0, history: 0 }
+const projectScrollPositions: Record<ProjectSection, number> = { projects: 0, history: 0 }
 const lastGroupEpisodes = new Map<string, string>()
 const episodeSwitchDropdownRef = ref<DropdownInstance | null>(null)
 const episodeSwitchVisible = ref(false)
@@ -1771,6 +1678,9 @@ const materialCharacterTypeManuallySelected = ref(false)
 const materialCharacterIsEnsembleDraft = computed(() => materialCharacterTypeDraft.value === 'ensemble')
 const materialCharacterAvailableUnitsDraft = ref<NonNullable<CharacterAsset['availableUnits']>>([])
 const materialCharacterOutfitsDraft = ref<CharacterOutfit[]>([])
+watch([materialCharacterTypeDraft, () => materialCharacterOutfitsDraft.value.length], ([type, count]) => {
+  if (type === 'main' && count < 2 && !materialCharacterNoteDraft.value.trim()) materialCharacterNoteDraft.value = '原皮'
+})
 const materialEditingEpisodeId = ref<string | null>(null)
 const materialEditingEpisode = computed(() => state.episodes.find(episode => episode.id === materialEditingEpisodeId.value) ?? activeEpisode.value)
 const materialCharacterScopeSelection = computed({
@@ -1790,11 +1700,6 @@ const materialCharacterUnits = computed(() => {
   const asset = (episode ? assetsFor(state, episode) : []).find(item => item.name === editingMaterial.value?.value)
   return episode && asset ? characterUnits(state, episode, asset) : []
 })
-const characterPasteDialogVisible = ref(false)
-const characterRecognitionEpisode = ref<Episode | null>(null)
-const characterRecognitionAssets = computed(() => characterRecognitionEpisode.value ? assetsFor(state, characterRecognitionEpisode.value) : [])
-const characterPasteDraft = ref('')
-const characterPasteInputRef = ref<{ focus: () => void } | null>(null)
 const materialSceneDrafts = ref<MaterialSceneDraft[]>(createMaterialSceneDrafts())
 const materialSceneTransitionsReady = ref(false)
 const batchShotSegments = ref<BatchShotSegment[]>([])
@@ -1816,7 +1721,7 @@ const materialSceneSpaceOptions: MaterialSegmentedOption<SceneSpace>[] = [
 ]
 const characterTypeGroups = [
   { value: 'main', label: '主角', icon: MainCharacter },
-  { value: 'ordinary', label: '普通', icon: User },
+  { value: 'ordinary', label: '配角', icon: User },
   { value: 'ensemble', label: '群像', icon: Grape },
 ]
 const shotViewModeOptions = computed(() => displayedShotCards.value.map(({ shot, order }) => ({
@@ -1904,55 +1809,56 @@ const shotConnectionMarks = {
   8: '',
 }
 
-const confirmedMaterialReferences = computed(() => {
-  const episode = materialLibraryEpisode.value
-  return episode ? state.episodeGroups.find(group => group.id === episode.groupId)?.confirmedMaterialReferences ?? episode.confirmedMaterialReferences : []
-})
 const materialReferenceUnits = computed(() => {
-  const current = materialLibraryEpisode.value
-  const references = new Map<string, Set<string>>()
-  if (!current) return references
-  const group = state.episodeGroups.find(group => group.id === current.groupId)
-  const mode = group?.referenceMode ?? state.globalConfig.prompt.referenceMode
-  const episodes = state.episodes.filter(episode => current.groupId ? episode.groupId === current.groupId : episode.id === current.id)
-    .sort((a, b) => parseEpisodeNumber(a.title) - parseEpisodeNumber(b.title))
-  for (const episode of episodes) {
-    const assets = assetsFor(state, episode)
-    const add = (name: string, unitNumber: number) => {
-      if (/\.mp3$/i.test(name)) return
-      const units = references.get(name) ?? new Set<string>()
-      units.add(`${parseEpisodeNumber(episode.title)}-${unitNumber}`)
-      references.set(name, units)
-    }
-    const collectManual = (text: string, unitNumber: number) => {
-      for (const match of text.matchAll(/\[([^\[\]\r\n]+)\]/g)) {
-        const name = match[1].trim()
-        if (name) {
-          add(formatPromptReferenceName(prepareManualReferenceName(name, text.slice(0, match.index))), unitNumber)
-          const characterName = name.replace(/\.[a-z\d]+$/i, '').replace(/\.+$/u, '').trim()
-          if (assets.some(asset => asset.name === characterName)) add(characterName, unitNumber)
+  const scopes = materialLibraryEpisode.value ? [materialLibraryEpisode.value] : activeGroupEpisodes.value
+  const result = new Map<string, Map<string, Set<string>>>()
+  for (const current of scopes) {
+    const key = current.groupId ?? current.id
+    if (result.has(key)) continue
+    const references = new Map<string, Set<string>>()
+    const group = state.episodeGroups.find(group => group.id === current.groupId)
+    const mode = group?.referenceMode ?? state.globalConfig.prompt.referenceMode
+    const episodes = state.episodes.filter(episode => current.groupId ? episode.groupId === current.groupId : episode.id === current.id)
+      .sort((a, b) => parseEpisodeNumber(a.title) - parseEpisodeNumber(b.title))
+    for (const episode of episodes) {
+      const assets = assetsFor(state, episode)
+      const add = (name: string, unitNumber: number) => {
+        if (/\.mp3$/i.test(name)) return
+        const units = references.get(name) ?? new Set<string>()
+        units.add(`${parseEpisodeNumber(episode.title)}-${unitNumber}`)
+        references.set(name, units)
+      }
+      const collectManual = (text: string, unitNumber: number) => {
+        for (const match of text.matchAll(/\[([^\[\]\r\n]+)\]/g)) {
+          const name = match[1].trim()
+          if (name) {
+            add(formatPromptReferenceName(prepareManualReferenceName(name, text.slice(0, match.index))), unitNumber)
+            const characterName = name.replace(/\.[a-z\d]+$/i, '').replace(/\.+$/u, '').trim()
+            if (assets.some(asset => asset.name === characterName)) add(characterName, unitNumber)
+          }
         }
       }
+      episode.shots.map((shot, index) => ({ shot, index })).sort((a, b) => a.shot.unitNumber - b.shot.unitNumber).forEach(({ shot, index }) => {
+        shot.scenes.filter(scene => scene.name.trim()).forEach(scene => {
+          add(shot.usePositionReference ? mode === 'basic' ? '@' : formatPromptReferenceName(formatShotReference(episode, index, state.episodes))
+            : mode === 'basic' ? `${sceneReferenceName(scene)}@` : formatPromptReferenceName(sceneReferenceName(scene)), shot.unitNumber)
+        })
+        shot.characters.forEach(character => {
+          add(character.name, shot.unitNumber)
+          const asset = assets.find(asset => asset.name === character.name)
+          const appearance = asset ? characterAppearance(asset, episode.id, shot) : null
+          if (!asset?.isEnsemble) add(mode === 'basic' ? `${character.name}@` : formatPromptReferenceName(appearance?.referenceName ?? character.name), shot.unitNumber)
+          if (appearance) collectManual(appearance.description, shot.unitNumber)
+        })
+        collectManual(shot.text, shot.unitNumber)
+      })
     }
-    episode.shots.map((shot, index) => ({ shot, index })).sort((a, b) => a.shot.unitNumber - b.shot.unitNumber).forEach(({ shot, index }) => {
-      shot.scenes.filter(scene => scene.name.trim()).forEach(scene => {
-        add(shot.usePositionReference ? mode === 'basic' ? '@' : formatPromptReferenceName(formatShotReference(episode, index, state.episodes))
-          : mode === 'basic' ? `${sceneReferenceName(scene)}@` : formatPromptReferenceName(sceneReferenceName(scene)), shot.unitNumber)
-      })
-      shot.characters.forEach(character => {
-        add(character.name, shot.unitNumber)
-        const asset = assets.find(asset => asset.name === character.name)
-        const appearance = asset ? characterAppearance(asset, episode.id, shot) : null
-        if (!asset?.isEnsemble) add(mode === 'basic' ? `${character.name}@` : formatPromptReferenceName(appearance?.referenceName ?? character.name), shot.unitNumber)
-        if (appearance) collectManual(appearance.description, shot.unitNumber)
-      })
-      collectManual(shot.text, shot.unitNumber)
-    })
+    result.set(key, references)
   }
-  return references
+  return result
 })
-function materialReferenceTitle(name: string) {
-  const units = !/\.mp3$/i.test(name) ? materialReferenceUnits.value.get(name) : undefined
+function materialReferenceTitle(name: string, episode: Episode) {
+  const units = !/\.mp3$/i.test(name) ? materialReferenceUnits.value.get(episode.groupId ?? episode.id)!.get(name) : undefined
   return units?.size ? `${name}\n${[...units].join('丨')}` : name
 }
 async function copyMaterialReferenceName(name: string) {
@@ -1960,8 +1866,7 @@ async function copyMaterialReferenceName(name: string) {
   if (await copyText(materialName)) notify.success('已复制素材名')
   else notify.error('复制失败')
 }
-function toggleMaterialConfirmation(name: string) {
-  const episode = materialLibraryEpisode.value!
+function toggleMaterialConfirmation(name: string, episode: Episode) {
   const owner = state.episodeGroups.find(group => group.id === episode.groupId) ?? episode
   const index = owner.confirmedMaterialReferences.indexOf(name)
   if (index < 0) owner.confirmedMaterialReferences.push(name)
@@ -2057,33 +1962,6 @@ function collectEpisodeMaterials(episode: Episode) {
     custom: [...custom].map(([name, usage]) => ({ name, ...referenceNames(usage) })),
   }
 }
-const sidebarMaterials = computed(() => materialLibraryEpisode.value ? collectEpisodeMaterials(materialLibraryEpisode.value) : { scenes: [], characters: [], custom: [] })
-const filteredSidebarMaterials = computed(() => {
-  const query = materialLibrarySearch.value.trim().toLocaleLowerCase()
-  const matches = (item: { name: string; references: { name: string }[] }) => !query || [item.name, ...item.references.map(reference => reference.name)].some(name => name.toLocaleLowerCase().includes(query))
-  return {
-    scenes: sidebarMaterials.value.scenes.filter(item => matches(item) || sceneAssetLabel(item).toLocaleLowerCase().includes(query)),
-    characters: sidebarMaterials.value.characters.filter(matches),
-    custom: sidebarMaterials.value.custom.filter(matches),
-  }
-})
-const sidebarCharacterCards = computed(() => filteredSidebarMaterials.value.characters.map(asset => ({
-  ...asset,
-  type: characterTypeGroups.find(type => type.value === (asset.isMain ? 'main' : asset.isEnsemble ? 'ensemble' : 'ordinary'))!,
-  outfitReferences: asset.references.filter(reference => !/\.mp3$/i.test(reference.name)).map(reference => {
-    const name = reference.name.replace(/\.[a-z\d]+$/i, '').replace(/[@.]$/u, '')
-    const label = name.startsWith(`${asset.name}（`) && name.endsWith('）') ? name.slice(asset.name.length + 1, -1) : name === asset.name ? asset.note || '默认' : name
-    return { ...reference, label }
-  }),
-})))
-const sidebarSceneCards = computed(() => filteredSidebarMaterials.value.scenes.map(scene => ({
-  ...scene,
-  referenceBlocks: scene.references.map(reference => {
-    const label = reference.name.replace(/\.[a-z\d]+$/i, '')
-    const isNumber = /^\d+(?:-\d+)+$/.test(label)
-    return { ...reference, label: isNumber ? label : '原场景', isNumber }
-  }).sort((a, b) => Number(a.isNumber) - Number(b.isNumber)),
-})))
 const completedCount = computed(() => activeEpisode.value?.shots.filter((shot) => shot.status === 'complete').length ?? 0)
 const isEpisodeShotUpdateMode = computed(() => Boolean(activeEpisode.value && hasExistingShotConfiguration(activeEpisode.value)))
 const sortedEpisodeGroups = computed(() => state.episodeGroups.filter((group) => !group.archived).sort((a, b) => a.title.localeCompare(b.title, 'zh-CN', { numeric: true })))
@@ -2101,24 +1979,50 @@ const activeGroupEpisodes = computed(() => activeEpisode.value
   ? sortEpisodesForDisplay(state.episodes.filter((episode) => episode.groupId === activeEpisode.value?.groupId))
   : [])
 const activeGroupEpisodeIndex = computed(() => activeGroupEpisodes.value.findIndex(episode => episode.id === activeEpisode.value?.id))
-const materialLibrarySearchResults = computed(() => {
+const materialLibrarySections = computed(() => {
   const query = materialLibrarySearch.value.trim().toLocaleLowerCase()
-  if (materialLibraryEpisode.value || !query) return []
-  return activeGroupEpisodes.value.map(episode => {
+  const matches = (item: { name: string; references: { name: string }[] }) => !query || [item.name, ...item.references.map(reference => reference.name)].some(name => name.toLocaleLowerCase().includes(query))
+  const episodes = materialLibraryEpisode.value ? [materialLibraryEpisode.value] : query ? activeGroupEpisodes.value : []
+  return episodes.map(episode => {
     const materials = collectEpisodeMaterials(episode)
-    const names = Object.values(materials).flat().flatMap(item => {
-      const matchesAsset = item.name.toLocaleLowerCase().includes(query) || 'time' in item && sceneAssetLabel(item).toLocaleLowerCase().includes(query)
-      const references = item.references.length ? item.references : [{ name: item.name }]
-      return references.filter(reference => matchesAsset || reference.name.toLocaleLowerCase().includes(query)).map(reference => reference.name)
-    })
-    return { episode, names: [...new Set(names)] }
-  }).filter(result => result.names.length)
+    const scenes = materials.scenes.filter(item => matches(item) || sceneAssetLabel(item).toLocaleLowerCase().includes(query)).map(scene => ({
+      ...scene,
+      referenceBlocks: scene.references.map(reference => {
+        const label = reference.name.replace(/\.[a-z\d]+$/i, '')
+        const isNumber = /^\d+(?:-\d+)+$/.test(label)
+        return { ...reference, label: /\.mp3$/i.test(reference.name) ? '音色' : isNumber || label === '@' ? label : '原场景', isNumber, kind: /\.mp3$/i.test(reference.name) ? 'audio' as const : 'image' as const, confirmable: scene.used }
+      }).sort((a, b) => Number(a.isNumber) - Number(b.isNumber)),
+    }))
+    const characters = materials.characters.filter(matches).map(asset => ({
+      ...asset,
+      referenceBlocks: [
+        ...(asset.voiceReference ? [{ ...asset.voiceReference, label: '音色', kind: 'audio' as const, confirmable: asset.used }] : []),
+        ...asset.references.filter(reference => !/\.mp3$/i.test(reference.name))
+          .filter(reference => reference.name !== asset.name || asset.used && !asset.isEnsemble)
+          .map(reference => {
+            const name = reference.name.replace(/\.[a-z\d]+$/i, '')
+            const label = name.startsWith(`${asset.name}（`) && name.endsWith('）') ? name.slice(asset.name.length + 1, -1) : name
+            return { ...reference, label, kind: 'image' as const, confirmable: asset.used && !asset.isEnsemble }
+          }),
+      ],
+    }))
+    const custom = materials.custom.filter(matches).flatMap(item => item.references.map(reference => ({
+      ...item,
+      referenceBlocks: [{ ...reference, label: /\.mp3$/i.test(reference.name) ? '音色' : reference.name.replace(/\.[a-z\d]+$/i, ''), kind: /\.mp3$/i.test(reference.name) ? 'audio' as const : 'image' as const, confirmable: item.used }],
+    })))
+    const owner = state.episodeGroups.find(group => group.id === episode.groupId) ?? episode
+    return { episode, scenes, characters, custom, confirmed: owner.confirmedMaterialReferences }
+  }).filter(section => materialLibraryEpisode.value || section.scenes.length || section.characters.length || section.custom.length)
 })
 const projectCards = computed(() => {
-  const groups = projectSection.value === 'projects' ? sortedEpisodeGroups.value : sortedArchivedEpisodeGroups.value.filter(group => historicalGroupIds.value.has(group.id) === (projectSection.value === 'history'))
+  const groups = projectSection.value === 'projects'
+    ? sortedEpisodeGroups.value
+    : sortedArchivedEpisodeGroups.value.filter(group => historicalGroupIds.value.has(group.id))
   const entries: { id: string; group: EpisodeGroup | null; episodes: Episode[] }[] = [
     ...groups.map(group => ({ id: group.id, group, episodes: episodesForGroup(group.id) })),
     ...(projectSection.value === 'projects' ? sortedUngroupedEpisodes.value.map(episode => ({ id: episode.id, group: null, episodes: [episode] })) : []),
+    ...(projectSection.value === 'projects' ? sortedArchivedEpisodeGroups.value.filter(group => !historicalGroupIds.value.has(group.id))
+      .map(group => ({ id: group.id, group, episodes: episodesForGroup(group.id) })) : []),
   ]
   return entries.map(entry => {
     const production = summarizeProductionData(entry.episodes)
@@ -3106,6 +3010,7 @@ watch(
   () => state.activeEpisodeId,
   (episodeId, previousEpisodeId) => {
     if (episodeId !== previousEpisodeId) {
+      openMaterialLibraryFolder(episodeId || null)
       cancelAnimationFrame(shotScrollAnimation)
       setNeighborScrollPadding(0)
       resetSingleExpandedView()
@@ -3117,8 +3022,6 @@ watch(
     }
   },
 )
-
-watch(() => activeEpisode.value?.groupId, () => openMaterialLibraryFolder(null))
 
 watch(
   () => JSON.stringify(state.episodes.map(({ id, groupId, title }) => ({ id, groupId, title }))),
@@ -3486,6 +3389,7 @@ function commitMaterialDialog() {
       return false
     }
 
+    materialCharacterNoteDraft.value = materialCharacterNoteDraft.value.trim() || (materialCharacterTypeDraft.value === 'main' && materialCharacterOutfitsDraft.value.length < 2 ? '原皮' : '')
     const draftAsset = { ...(assetsFor(state, episode).find(item => item.name === editing?.value) ?? createCharacterAsset(nextName)), outfits: materialCharacterOutfitsDraft.value }
     const outfitError = validateCharacterOutfits(state, episode, draftAsset)
     if (outfitError) { notify.warning(outfitError); return false }
@@ -3560,228 +3464,6 @@ function updateCharacterMaterial(oldName: string, nextName: string, appearanceDe
   })
 }
 
-function parseCharacterDescriptionClipboard(text: string): CharacterDescriptionImport[] {
-  const normalizedText = text.replace(/\u00a0/g, ' ').trim()
-
-  if (!normalizedText) {
-    throw new Error('剪切板内容为空')
-  }
-
-  if (normalizedText.startsWith('{') || normalizedText.startsWith('[')) {
-    let value: unknown
-
-    try {
-      value = JSON.parse(normalizedText)
-    } catch {
-      try {
-        value = JSON.parse(`[${normalizedText.replace(/,\s*$/, '')}]`)
-      } catch {
-        throw new Error('JSON 格式无效')
-      }
-    }
-
-    const entries = Array.isArray(value) ? value : [value]
-
-    return entries.map((entry, index) => {
-      if (!entry || typeof entry !== 'object') {
-        throw new Error(`JSON 第 ${index + 1} 项格式无效`)
-      }
-
-      const item = entry as { name?: unknown; outfitNote?: unknown; statusText?: unknown; appearanceDescription?: unknown; voiceDescription?: unknown; isEnsemble?: unknown }
-      const name = typeof item.name === 'string' ? item.name.trim() : ''
-      const appearanceDescription = item.appearanceDescription !== undefined ? item.appearanceDescription : item.statusText
-      if (!name || (appearanceDescription === undefined && item.voiceDescription === undefined && item.isEnsemble === undefined)) {
-        throw new Error(`JSON 第 ${index + 1} 项缺少 name 或描述字段`)
-      }
-      if ((appearanceDescription !== undefined && typeof appearanceDescription !== 'string')
-        || (item.voiceDescription !== undefined && typeof item.voiceDescription !== 'string')) {
-        throw new Error(`JSON 第 ${index + 1} 项描述必须是文字`)
-      }
-      if (item.isEnsemble !== undefined && typeof item.isEnsemble !== 'boolean') throw new Error(`JSON 第 ${index + 1} 项 isEnsemble 必须是布尔值`)
-      if (item.outfitNote !== undefined && typeof item.outfitNote !== 'string') throw new Error(`JSON 第 ${index + 1} 项 outfitNote 必须是文字`)
-      return { name, outfitNote: item.outfitNote?.trim(), appearanceDescription: appearanceDescription?.trim(), voiceDescription: item.voiceDescription?.trim(), isEnsemble: item.isEnsemble }
-    })
-  }
-
-  return normalizedText.split(/\r?\n/).filter((line) => line.trim()).map((line, index) => {
-    const cells = parseCharacterCsvRow(line)
-    if (cells.length < 2) {
-      throw new Error(`CSV 第 ${index + 1} 行缺少逗号`)
-    }
-    if (cells.length > 3) {
-      throw new Error(`CSV 第 ${index + 1} 行超过三列，请用双引号包裹含逗号的描述`)
-    }
-    const [name, appearanceDescription, voiceDescription] = cells
-    if (!name) {
-      throw new Error(`CSV 第 ${index + 1} 行缺少角色名称或描述`)
-    }
-    return { name, appearanceDescription, voiceDescription }
-  })
-}
-
-function parseCharacterCsvRow(line: string) {
-  const cells: string[] = []
-  let cell = ''
-  let quoted = false
-  for (let index = 0; index < line.length; index++) {
-    const character = line[index]
-    if (character === '"') {
-      if (quoted && line[index + 1] === '"') {
-        cell += '"'
-        index += 1
-      } else {
-        quoted = !quoted
-      }
-    } else if (!quoted && (character === ',' || character === '，')) {
-      cells.push(cell.trim())
-      cell = ''
-    } else {
-      cell += character
-    }
-  }
-  if (quoted) throw new Error('CSV 双引号未闭合')
-  cells.push(cell.trim())
-  return cells
-}
-
-function formatRecognitionNames(names: string[]) {
-  const visibleNames = names.slice(0, 4).join('、')
-  return names.length > 4 ? `${visibleNames} 等 ${names.length} 项` : visibleNames
-}
-
-async function applyCharacterDescriptionText(text: string) {
-  const episode = characterRecognitionEpisode.value
-
-  if (!episode || !assetsFor(state, episode).length) {
-    notify.info('本集暂无角色')
-    return false
-  }
-
-  let imports: CharacterDescriptionImport[]
-
-  try {
-    imports = parseCharacterDescriptionClipboard(text)
-  } catch (error) {
-    notify.warning(error instanceof Error ? error.message : '无法识别剪切板内容')
-    return false
-  }
-
-  const assets: CharacterAsset[] = JSON.parse(JSON.stringify(assetsFor(state, episode)))
-  const updatedNames = new Set<string>()
-  const unmatchedNames: string[] = []
-  const ambiguousNames: string[] = []
-
-  imports.forEach((item) => {
-    const exactMatch = assets.find((character) => character.name.trim() === item.name)
-    const normalizedName = normalizeCharacterNameForMatch(item.name)
-    const normalizedMatches = exactMatch ? [] : assets.filter(
-      (character) => normalizeCharacterNameForMatch(character.name) === normalizedName,
-    )
-    const character = exactMatch ?? (normalizedMatches.length === 1 ? normalizedMatches[0] : null)
-
-    if (character) {
-      if (item.appearanceDescription !== undefined) {
-        if (character.outfits.length > 1) {
-          const outfit = character.outfits.find(outfit => outfit.note === item.outfitNote)
-          if (!outfit) { ambiguousNames.push(`${item.name}（请指定服装备注 outfitNote）`); return }
-          outfit.appearanceDescription = item.appearanceDescription
-        } else character.appearanceDescription = item.appearanceDescription
-      }
-      if (item.voiceDescription !== undefined) character.voiceDescription = item.voiceDescription
-      if (item.isEnsemble !== undefined) {
-        character.isEnsemble = item.isEnsemble
-        if (item.isEnsemble) character.isMain = false
-      }
-      updatedNames.add(character.name)
-    } else if (normalizedMatches.length > 1) {
-      ambiguousNames.push(item.name)
-    } else {
-      unmatchedNames.push(item.name)
-    }
-  })
-
-  if (updatedNames.size) {
-    const candidate = { ...episode, characters: episode.groupId ? [] : assets }
-    if (!await approveEpisodeCharacters(candidate, assets)) return false
-    const group = state.episodeGroups.find(group => group.id === episode.groupId)
-    if (group) group.characters = assets
-    else episode.characters = assets
-    notify.success(`已识别并更新 ${updatedNames.size} 个角色描述`)
-  }
-
-  const issues = [
-    unmatchedNames.length ? `未匹配：${formatRecognitionNames(unmatchedNames)}` : '',
-    ambiguousNames.length ? `存在同名歧义：${formatRecognitionNames(ambiguousNames)}` : '',
-  ].filter(Boolean)
-
-  if (issues.length) {
-    notify.warning(issues.join('；'))
-  } else if (!updatedNames.size) {
-    notify.info('未识别到可更新的角色描述')
-  }
-
-  return true
-}
-
-function openCharacterPasteDialog() {
-  characterPasteDraft.value = JSON.stringify(characterRecognitionAssets.value.flatMap(({ name, appearanceDescription, voiceDescription, isEnsemble, outfits }) => outfits.length > 1
-    ? outfits.map(outfit => ({ name, outfitNote: outfit.note, appearanceDescription: outfit.appearanceDescription, voiceDescription, isEnsemble }))
-    : [{ name, appearanceDescription, voiceDescription, isEnsemble }]), null, 2)
-  characterPasteDialogVisible.value = true
-}
-
-function focusCharacterPasteInput() {
-  void nextTick(() => {
-    requestAnimationFrame(() => characterPasteInputRef.value?.focus())
-  })
-}
-
-function resetCharacterPasteDialog() {
-  characterPasteDraft.value = ''
-  characterRecognitionEpisode.value = null
-}
-
-async function handleCharacterDescriptionPaste(event: ClipboardEvent) {
-  const text = event.clipboardData?.getData('text/plain') ?? ''
-
-  if (!text) {
-    return
-  }
-
-  event.preventDefault()
-  characterPasteDraft.value = text
-
-  if (await applyCharacterDescriptionText(text)) {
-    characterPasteDialogVisible.value = false
-  }
-}
-
-async function confirmCharacterPaste() {
-  if (await applyCharacterDescriptionText(characterPasteDraft.value)) {
-    characterPasteDialogVisible.value = false
-  }
-}
-
-async function recognizeCharacterDescriptionsFromClipboard(episode = activeEpisode.value) {
-  if (!episode || !assetsFor(state, episode).length) {
-    notify.info('本集暂无角色')
-    return
-  }
-
-  characterRecognitionEpisode.value = episode
-  if (window.isSecureContext && navigator.clipboard?.readText) {
-    try {
-      const clipboardText = await navigator.clipboard.readText()
-      await applyCharacterDescriptionText(clipboardText)
-      return
-    } catch {
-      // Fall back to a user-initiated paste when automatic clipboard access is unavailable.
-    }
-  }
-
-  openCharacterPasteDialog()
-}
-
 function renameSceneMaterial(oldKey: string, nextScene: MaterialSceneDraft) {
   const episode = materialEditingEpisode.value
   const sceneAsset = episode?.scenes.find((scene) => sceneAssetKey(scene) === oldKey)
@@ -3802,24 +3484,6 @@ function renameSceneMaterial(oldKey: string, nextScene: MaterialSceneDraft) {
       }
     })
   })
-}
-
-async function confirmRemoveMaterial(kind: MaterialKind, value: string, episode = activeEpisode.value) {
-  try {
-    await ElMessageBox.confirm(
-      kind === 'characters' ? (episode?.groupId ? '确认删除此角色及本剧分镜中的角色配置？' : '确认删除此角色？') : '确认删除这条场景素材？',
-      kind === 'characters' ? '删除角色' : '删除场景素材',
-      {
-        type: 'warning',
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-      },
-    )
-  } catch {
-    return
-  }
-
-  removeMaterial(kind, value, episode)
 }
 
 function syncCharacterStatus(sourceShot: Shot, source: CharacterConfig, scope: StatusSyncScope) {
@@ -5321,7 +4985,6 @@ function isEditableShortcutTarget(target: EventTarget | null) {
 
 function isShortcutBlocked() {
   return workspaceView.value === 'library' || episodeSwitchVisible.value || outfitAssignmentVisible.value || materialDialogVisible.value
-    || characterPasteDialogVisible.value
     || globalDialogVisible.value
     || webDavAuthVisible.value
     || pointLedgerVisible.value
@@ -5473,7 +5136,6 @@ function handleDrawerOutsideClick(event: MouseEvent) {
   if (materialDialogVisible.value && materialDialogKind.value === 'scenes' && !target.closest('.scene-material-popover') && !scenePopoverReference.value?.contains(target)) materialDialogVisible.value = false
   if (!target.classList.contains('dismissible-drawer-overlay')) return
   if (target.querySelector('.material-dialog')) materialDialogVisible.value = false
-  if (target.querySelector('.character-paste-dialog')) characterPasteDialogVisible.value = false
   if (target.querySelector('.detection-dialog')) detectionDialogVisible.value = false
   if (target.querySelector('.review-dialog')) dataDialogVisible.value = false
   if (target.querySelector('.outfit-assignment-drawer')) outfitAssignmentVisible.value = false

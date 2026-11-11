@@ -70,12 +70,12 @@ export function normalizeCharacterAssets(value: unknown): CharacterAsset[] {
     if (normalized.isMain) normalized.isEnsemble = false
     normalized.availableUnits = Array.isArray(asset.availableUnits) ? asset.availableUnits.filter(unit => unit && typeof unit.episodeId === 'string' && Number.isInteger(unit.unitNumber) && unit.unitNumber > 0)
       .map(unit => ({ episodeId: unit.episodeId, unitNumber: unit.unitNumber })) : null
-    normalized.note = typeof asset.note === 'string' ? asset.note.trim() : ''
+    normalized.note = typeof asset.note === 'string' ? asset.note.trim().replace(/^常服$/, '原皮') : ''
     normalized.appearanceDescriptionEnabled = asset.appearanceDescriptionEnabled === true
     normalized.voiceDescriptionEnabled = asset.voiceDescriptionEnabled === true
     normalized.outfits = Array.isArray(asset.outfits) ? asset.outfits.filter(outfit => outfit && typeof outfit === 'object').map((outfit) => ({
       id: typeof outfit.id === 'string' && outfit.id ? outfit.id : createId('outfit'),
-      note: typeof outfit.note === 'string' ? outfit.note.trim() : '',
+      note: typeof outfit.note === 'string' ? outfit.note.trim().replace(/^常服$/, '原皮') : '',
       appearanceDescription: typeof outfit.appearanceDescription === 'string' ? outfit.appearanceDescription : '',
       appearanceDescriptionEnabled: outfit.appearanceDescriptionEnabled === true,
       units: Array.isArray(outfit.units) ? outfit.units.filter((unit) => unit && typeof unit.episodeId === 'string' && Number.isInteger(unit.unitNumber) && unit.unitNumber > 0) : [],
@@ -87,6 +87,7 @@ export function normalizeCharacterAssets(value: unknown): CharacterAsset[] {
       normalized.note = normalized.outfits[0].note || normalized.note
       normalized.outfits = []
     }
+    if (normalized.isMain && !normalized.outfits.length && !normalized.note) normalized.note = '原皮'
     return normalized
   }).filter((item): item is CharacterAsset => Boolean(item))
 
