@@ -133,6 +133,92 @@ h3,
   max-width: calc(100vw - 24px);
 }
 
+.el-overlay {
+  --el-overlay-color-lighter: #fff3;
+  background-color: var(--el-overlay-color-lighter);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+html.dark .el-overlay {
+  --el-overlay-color-lighter: #0009;
+}
+
+.app-modal.el-dialog {
+  display: flex;
+  max-height: calc(100vh - 48px);
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 20px;
+  box-shadow: var(--el-box-shadow);
+}
+
+.app-modal.el-dialog > .el-dialog__header {
+  display: flex;
+  min-height: 64px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  padding: 18px 56px 18px 24px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.app-modal.el-dialog > .el-dialog__header .el-dialog__title {
+  color: var(--el-text-color-primary);
+  font-size: var(--el-font-size-large);
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.app-modal.el-dialog > .el-dialog__header .el-dialog__headerbtn {
+  display: flex;
+  top: 18px;
+  right: 18px;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.app-modal.el-dialog > .el-dialog__header .el-dialog__headerbtn .el-dialog__close {
+  color: var(--el-text-color-primary);
+  font-size: 22px;
+}
+
+.app-modal-sections {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+}
+
+.app-modal-sections .el-link {
+  white-space: nowrap;
+}
+
+.app-modal.el-dialog > .el-dialog__body {
+  min-height: 0;
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.app-modal.el-dialog > .el-dialog__footer {
+  flex: 0 0 auto;
+  padding: 16px 24px 20px;
+}
+
+.app-modal.el-dialog > .el-dialog__footer .el-button {
+  border-radius: 999px;
+}
+
 .el-dialog__footer,
 .el-drawer__footer,
 .el-message-box__btns,
@@ -1457,37 +1543,39 @@ html.dark .episode-panel {
   max-width: 100%;
 }
 
-.material-dialog .el-drawer__body {
-  padding-top: 8px;
+.material-dialog.el-dialog {
+  height: min(780px, calc(100vh - 48px));
+}
+
+.material-dialog.el-dialog > .el-dialog__body {
+  display: flex;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
 }
 
 .material-dialog .material-form {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(240px, 0.75fr) minmax(0, 1.25fr);
+  gap: 24px;
   height: 100%;
   min-height: 0;
-  flex-direction: column;
 }
 
-.material-dialog .material-form > .el-form-item,
+.material-character-details,
+.material-dialog .character-outfit-editor {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .material-dialog .character-outfit-editor > .el-form-item,
 .material-dialog .character-outfit-actions {
   flex-shrink: 0;
 }
 
-.material-dialog .character-outfit-editor {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-}
-
 .material-dialog .character-outfit-editor.has-multiple {
   overflow: hidden;
-}
-
-.material-dialog .character-outfit-editor.has-multiple > .el-form-item {
-  order: -2;
 }
 
 .material-dialog .character-outfit-list {
@@ -1581,27 +1669,11 @@ html.dark .episode-panel {
   gap: 8px;
 }
 
-.material-form .material-appearance-field .el-form-item__label {
+.el-form .material-appearance-field.el-form-item > .el-form-item__label {
   display: flex;
   align-items: center;
   gap: 8px;
   height: var(--el-component-size-small);
-}
-
-.material-form-inline .el-form-item__label {
-  padding-right: 0;
-  margin-right: 12px;
-}
-
-.material-form-inline .material-appearance-field .el-form-item__label {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
-  height: auto;
-}
-
-.material-form-inline .character-outfit-actions {
-  padding-left: calc(4em + 12px);
 }
 
 .material-scene-list {
@@ -3149,8 +3221,6 @@ html.dark .episode-panel {
   height: min(780px, calc(100vh - 48px));
   max-height: calc(100vh - 48px);
   flex-direction: column;
-  margin-top: 24px !important;
-  margin-bottom: 24px !important;
 }
 
 .global-config-dialog .el-dialog__body {
@@ -3176,10 +3246,6 @@ html.dark .episode-panel {
 .point-ledger-dialog .el-dialog__header,
 .point-ledger-dialog .el-dialog__footer {
   flex: 0 0 auto;
-}
-
-.global-config-dialog .el-dialog__header {
-  display: none;
 }
 
 .global-config-dialog .el-dialog__footer {
@@ -3216,6 +3282,21 @@ html.dark .episode-panel {
   min-height: 0;
   padding: 20px 22px;
   overflow-y: auto;
+}
+
+.app-modal.global-config-dialog > .el-dialog__body,
+.app-modal.point-ledger-dialog > .el-dialog__body,
+.app-modal.episode-script-dialog:not(.dialogue-dialog) > .el-dialog__body {
+  padding: 0;
+}
+
+.app-modal .global-config-scroll-pane {
+  padding: 20px 24px;
+}
+
+.app-modal .global-config-tabs > .el-tabs__header,
+.app-modal .episode-script-tabs > .el-tabs__header {
+  display: none;
 }
 
 .global-config-form,
@@ -3615,8 +3696,6 @@ html.dark .episode-panel {
   height: min(820px, calc(100vh - 48px));
   max-height: calc(100vh - 48px);
   flex-direction: column;
-  margin-top: 24px !important;
-  margin-bottom: 24px !important;
 }
 
 .episode-script-dialog .el-dialog__body {
@@ -3626,15 +3705,6 @@ html.dark .episode-panel {
   max-height: none;
   flex-direction: column;
   overflow: hidden;
-}
-
-.episode-script-dialog .el-dialog__header {
-  display: none;
-}
-
-.dialogue-dialog .el-dialog__header {
-  display: block;
-  flex: 0 0 auto;
 }
 
 .episode-script-dialog .el-dialog__footer {
@@ -3651,7 +3721,7 @@ html.dark .episode-panel {
 .episode-script-tabs > .el-tabs__content {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 14px;
+  padding: 20px 24px;
   overflow: hidden;
 }
 
@@ -4031,6 +4101,21 @@ html.dark .episode-panel {
 }
 
 @media (max-width: 760px) {
+  .material-dialog .material-form {
+    display: block;
+    overflow-y: auto;
+  }
+
+  .material-character-details,
+  .material-dialog .character-outfit-editor.has-multiple,
+  .material-dialog .character-outfit-list {
+    overflow: visible;
+  }
+
+  .material-dialog .character-outfit-editor {
+    margin-top: 24px;
+  }
+
   .episode-script-dialog.el-dialog,
   .episode-script-dialog .el-dialog {
     width: calc(100vw - 24px) !important;
@@ -4202,10 +4287,6 @@ html.dark .episode-panel {
   transition-property: transform, border-color !important;
 }
 
-.el-overlay {
-  backdrop-filter: blur(30px);
-}
-
 .character-outfit-editor.has-multiple {
   display: flex;
   flex-direction: column;
@@ -4232,7 +4313,7 @@ html.dark .episode-panel {
 }
 .outfit-unit-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(10, minmax(0, 1fr));
   gap: 0;
   width: 100%;
 }

@@ -1,12 +1,19 @@
 <template>
   <el-dialog
     :model-value="modelValue"
+    title="全局设置"
     width="900px"
-    :show-close="false"
-    class="global-config-dialog"
+    align-center
+    class="global-config-dialog app-modal"
     :before-close="handleBeforeClose"
     @update:model-value="emit('update:modelValue', $event)"
   >
+    <template #header="{ titleId, titleClass }">
+      <span :id="titleId" :class="titleClass">全局设置</span>
+      <nav class="app-modal-sections" aria-label="全局设置分类">
+        <el-link v-for="tab in configTabs" :key="tab.value" :type="activeTab === tab.value ? 'primary' : 'default'" underline="never" href="#" :aria-current="activeTab === tab.value ? 'page' : undefined" @click.prevent="activeTab = tab.value">{{ tab.label }}</el-link>
+      </nav>
+    </template>
     <el-tabs v-model="activeTab" class="global-config-tabs">
       <el-tab-pane label="提示词" name="prompt">
         <div class="global-config-scroll-pane">
@@ -214,6 +221,12 @@ const emit = defineEmits<{
 }>()
 
 const activeTab = ref<GlobalConfigTab>('prompt')
+const configTabs: { value: GlobalConfigTab; label: string }[] = [
+  { value: 'prompt', label: '提示词' },
+  { value: 'data', label: '数据收集' },
+  { value: 'dialogue', label: '提取台词' },
+  { value: 'webdav', label: 'WebDAV' },
+]
 const draft = ref<GlobalConfig>(cloneGlobalConfig(props.config))
 const selectedProfileId = ref(props.config.prompt.activeProfileId)
 const profileSelectRef = ref<SelectInstance | null>(null)

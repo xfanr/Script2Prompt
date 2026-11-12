@@ -14,16 +14,18 @@
             </div>
             <span v-if="!units.length" class="empty-note">暂无使用单元</span>
           </el-form-item>
-          <el-form-item label="形象描述">
-            <div class="appearance-description-control">
-              <el-switch v-model="outfit.appearanceDescriptionEnabled" aria-label="启用形象描述" />
-              <el-input v-if="outfit.appearanceDescriptionEnabled" v-model="outfit.appearanceDescription" aria-label="形象描述" type="textarea" :rows="3" />
-            </div>
+          <el-form-item class="material-appearance-field" label="形象描述" for="">
+            <template #label>
+              <span>形象描述</span>
+              <el-switch v-model="outfit.appearanceDescriptionEnabled" size="small" aria-label="启用形象描述" />
+            </template>
+            <el-input v-if="outfit.appearanceDescriptionEnabled" v-model="outfit.appearanceDescription" aria-label="形象描述" type="textarea" :rows="3" />
           </el-form-item>
         </section>
       </div>
     </template>
     <template v-else>
+      <slot name="single-header" />
       <el-form-item label="出现单元">
         <div v-if="units.length" class="outfit-unit-grid">
           <el-check-tag v-for="unit in units" :key="`${unit.episodeId}:${unit.unitNumber}`"
@@ -74,7 +76,7 @@ function add(split = false) {
     note.value = ''
   }
   const units = split ? props.units.filter(unit => !singleUnits.value.some(item => sameUnit(item, unit))).map(({ episodeId, unitNumber }) => ({ episodeId, unitNumber })) : []
-  next.push({ id: createId('outfit'), note: '', appearanceDescription: '', appearanceDescriptionEnabled: false, units })
+  next.push({ id: createId('outfit'), note: '', appearanceDescription: '', appearanceDescriptionEnabled: true, units })
   outfits.value = next
 }
 function remove(id: string) {

@@ -1,5 +1,5 @@
 <template>
-  <el-dialog :model-value="modelValue" title="积分记录" width="900px" class="point-ledger-dialog" :before-close="handleBeforeClose" @update:model-value="emit('update:modelValue', $event)">
+  <el-dialog :model-value="modelValue" title="积分记录" width="900px" align-center class="point-ledger-dialog app-modal" :before-close="handleBeforeClose" @update:model-value="emit('update:modelValue', $event)">
     <div class="global-config-scroll-pane">
       <PointLedgerEditor v-if="modelValue" v-model="draft" :episodes="episodes" :groups="episodeGroups" />
     </div>

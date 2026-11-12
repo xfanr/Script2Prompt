@@ -720,7 +720,7 @@
         @webdav-test="testWebDav"
         @webdav-migrate="migrateWebDav"
       />
-      <el-dialog v-model="webDavAuthVisible" title="WebDAV 验证" width="400px" :before-close="closeWebDavAuth" @opened="webDavAuthPasswordRef?.focus()">
+      <el-dialog v-model="webDavAuthVisible" title="WebDAV 验证" width="400px" align-center class="app-modal" :before-close="closeWebDavAuth" @opened="webDavAuthPasswordRef?.focus()">
         <el-form id="webdav-auth-form" name="webdav-auth" method="post" autocomplete="on" label-position="top" :disabled="webDavAuthSubmitting" @submit.prevent="continueWebDavTransfer">
           <el-form-item label="用户名" for="webdav-auth-username">
             <el-input id="webdav-auth-username" v-model="webDavAuthUsername" name="username" autocomplete="username" />
@@ -779,10 +779,10 @@
         :is="dataDialogView === 'shot' ? ElDrawer : ElDialog"
         v-model="dataDialogVisible"
         :title="dataDialogTitle"
-        v-bind="dataDialogView === 'shot' ? { size: '380px', direction: 'ltr', modal: false, modalClass: 'dismissible-drawer-overlay', appendToBody: true } : { width: '820px' }"
-        :show-close="false"
+        v-bind="dataDialogView === 'shot' ? { size: '380px', direction: 'ltr', modal: false, modalClass: 'dismissible-drawer-overlay', appendToBody: true } : { width: '820px', alignCenter: true }"
+        :show-close="dataDialogView !== 'shot'"
         class="data-dialog"
-        :class="{ 'app-drawer review-dialog': dataDialogView === 'shot', 'review-summary-dialog': dataDialogView === 'episode', 'group-summary-dialog': dataDialogView === 'group' }"
+        :class="{ 'app-drawer review-dialog': dataDialogView === 'shot', 'app-modal': dataDialogView !== 'shot', 'review-summary-dialog': dataDialogView === 'episode', 'group-summary-dialog': dataDialogView === 'group' }"
         @closed="clearDataDialogContext"
       >
         <template #header="{ titleId, titleClass }">
@@ -1019,7 +1019,14 @@
           <el-button type="primary" @click="saveReviewDialog">保存</el-button>
         </template>
       </component>
-      <el-dialog v-model="episodeScriptDialogVisible" width="820px" class="episode-script-dialog" :show-close="false" :close-on-click-modal="!episodeScriptSaving" :close-on-press-escape="!episodeScriptSaving" @closed="resetEpisodeScriptDialog">
+      <el-dialog v-model="episodeScriptDialogVisible" :title="episodeScriptActiveTab === 'materials' ? '分集素材' : '分镜拆分'" width="820px" align-center class="episode-script-dialog app-modal" :show-close="!episodeScriptSaving" :close-on-click-modal="!episodeScriptSaving" :close-on-press-escape="!episodeScriptSaving" @closed="resetEpisodeScriptDialog">
+        <template #header="{ titleId, titleClass }">
+          <span :id="titleId" :class="titleClass">{{ episodeScriptActiveTab === 'materials' ? '分集素材' : '分镜拆分' }}</span>
+          <nav class="app-modal-sections" aria-label="分集编辑分类">
+            <el-link :type="episodeScriptActiveTab === 'materials' ? 'primary' : 'default'" underline="never" href="#" :aria-current="episodeScriptActiveTab === 'materials' ? 'page' : undefined" :disabled="episodeScriptSaving" @click.prevent="episodeScriptActiveTab = 'materials'">素材</el-link>
+            <el-link :type="episodeScriptActiveTab === 'shots' ? 'primary' : 'default'" underline="never" href="#" :aria-current="episodeScriptActiveTab === 'shots' ? 'page' : undefined" :disabled="episodeScriptSaving" @click.prevent="episodeScriptActiveTab = 'shots'">分镜</el-link>
+          </nav>
+        </template>
         <el-tabs v-model="episodeScriptActiveTab" class="episode-script-tabs" :before-leave="() => !episodeScriptSaving">
           <el-tab-pane label="素材" name="materials">
             <div class="episode-script-columns">
@@ -1211,7 +1218,7 @@
           </template>
         </template>
       </el-dialog>
-      <el-dialog v-model="dialogueDialogVisible" title="台词" width="820px" class="episode-script-dialog dialogue-dialog" :close-on-click-modal="!dialogueSaving" :close-on-press-escape="!dialogueSaving" :show-close="!dialogueSaving" @closed="resetDialogueDialog">
+      <el-dialog v-model="dialogueDialogVisible" title="台词" width="820px" align-center class="episode-script-dialog dialogue-dialog app-modal" :close-on-click-modal="!dialogueSaving" :close-on-press-escape="!dialogueSaving" :show-close="!dialogueSaving" @closed="resetDialogueDialog">
         <div class="episode-script-columns">
           <div class="episode-script-source-panel">
             <div class="episode-script-panel-title">
@@ -1258,60 +1265,59 @@
           <el-button type="primary" :disabled="!dialogueOutputDraft.trim()" :loading="dialogueSaving" @click="copyExtractedDialogue">复制</el-button>
         </template>
       </el-dialog>
-      <component :is="shouldShowMaterialScenes ? ElPopover : ElDrawer" v-bind="materialDialogProps" :title="materialDialogTitle" :class="shouldShowMaterialScenes ? undefined : 'app-drawer material-dialog'" @update:model-value="materialDialogVisible = $event" @closed="handleMaterialDialogClosed" @after-leave="handleMaterialDialogClosed">
-        <el-form class="material-form" :class="{ 'material-form-inline': isCharacterMaterialEdit }" :label-position="isCharacterMaterialEdit ? 'left' : 'top'" :label-width="isCharacterMaterialEdit ? '4em' : undefined" @submit.prevent @keydown.esc.stop="materialDialogVisible = false">
-          <el-form-item v-if="shouldShowMaterialCharacters" label="角色">
-            <div class="material-character-name-row">
-              <el-input
-                v-model="materialCharacterDraft"
-                class="material-character-input"
-                clearable
-                placeholder="请输入角色名称"
-                @input="materialDialogMode === 'add' && !materialCharacterTypeManuallySelected && (materialCharacterTypeDraft = /(?:们|群像|若干)$/.test($event.trim()) ? 'ensemble' : 'ordinary')"
-                @keyup.enter="confirmMaterialDialog"
-              />
-              <el-radio-group v-model="materialCharacterTypeDraft" class="material-character-type" aria-label="角色类型" @change="() => {
-                materialCharacterTypeManuallySelected = true
-                if (materialCharacterTypeDraft === 'ensemble') {
-                  materialCharacterAppearanceEnabledDraft = true
-                  materialCharacterOutfitsDraft.forEach(outfit => outfit.appearanceDescriptionEnabled = true)
-                }
-              }">
-                <el-radio-button value="main" aria-label="主角" title="主角"><el-icon><MainCharacter /></el-icon></el-radio-button>
-                <el-radio-button value="ordinary" aria-label="配角" title="配角"><el-icon><User /></el-icon></el-radio-button>
-                <el-radio-button value="ensemble" aria-label="群像" title="群像"><el-icon><Grape /></el-icon></el-radio-button>
-              </el-radio-group>
-            </div>
-          </el-form-item>
-          <el-form-item v-if="shouldShowMaterialCharacters && materialCharacterOutfitsDraft.length < 2" label="备注">
-            <el-input v-model="materialCharacterNoteDraft" />
-          </el-form-item>
-          <el-form-item v-if="shouldShowMaterialCharacters" label="可选范围">
-            <el-select v-model="materialCharacterScopeSelection" class="material-character-scope" value-key="key" multiple collapse-tags collapse-tags-tooltip clearable :disabled="materialCharacterTypeDraft === 'main'" :placeholder="materialCharacterTypeDraft === 'main' ? '全剧所有单元' : '选择单元'" aria-label="角色可选范围">
-              <el-option-group v-for="group in materialCharacterScopeOptions" :key="group.value" :label="group.label">
-                <el-option v-for="unit in group.children" :key="unit.value.key" :label="unit.label" :value="unit.value" />
-              </el-option-group>
-            </el-select>
-          </el-form-item>
-          <CharacterOutfitEditor v-if="shouldShowMaterialCharacters && materialDialogVisible" ref="materialOutfitEditorRef" v-model:outfits="materialCharacterOutfitsDraft" v-model:description="materialCharacterAppearanceDraft" v-model:description-enabled="materialCharacterAppearanceEnabledDraft" v-model:note="materialCharacterNoteDraft" :units="materialCharacterUnits" :allow-add="materialCharacterUnits.length > 1">
-            <el-form-item v-if="shouldShowMaterialCharacters" label="音色描述">
-              <div class="appearance-description-control">
-                <el-switch v-model="materialCharacterVoiceEnabledDraft" :disabled="materialCharacterIsEnsembleDraft" aria-label="启用音色描述" />
+      <component :is="shouldShowMaterialScenes ? ElPopover : ElDialog" v-bind="materialDialogProps" :title="materialDialogTitle" :class="shouldShowMaterialScenes ? undefined : 'app-modal material-dialog'" @update:model-value="materialDialogVisible = $event" @closed="handleMaterialDialogClosed" @after-leave="handleMaterialDialogClosed">
+        <el-form class="material-form" label-position="top" @submit.prevent @keydown.esc.stop="materialDialogVisible = false">
+          <div v-if="shouldShowMaterialCharacters" class="material-character-details">
+            <el-form-item label="角色">
+              <div class="material-character-name-row">
                 <el-input
-                  v-if="materialCharacterVoiceEnabledDraft"
-                  v-model="materialCharacterVoiceDraft"
-                  :disabled="materialCharacterIsEnsembleDraft"
-                  aria-label="音色描述"
-                  type="textarea"
-                  :rows="2"
-                  resize="vertical"
-                  placeholder="输入角色的音色描述（选填）"
+                  v-model="materialCharacterDraft"
+                  class="material-character-input"
+                  clearable
+                  placeholder="请输入角色名称"
+                  @input="materialDialogMode === 'add' && !materialCharacterTypeManuallySelected && (materialCharacterTypeDraft = /(?:们|群像|若干)$/.test($event.trim()) ? 'ensemble' : 'ordinary')"
+                  @keyup.enter="confirmMaterialDialog"
                 />
+                <el-radio-group v-model="materialCharacterTypeDraft" class="material-character-type" aria-label="角色类型" @change="() => {
+                  materialCharacterTypeManuallySelected = true
+                  if (materialCharacterTypeDraft === 'ensemble') {
+                    materialCharacterAppearanceEnabledDraft = true
+                    materialCharacterOutfitsDraft.forEach(outfit => outfit.appearanceDescriptionEnabled = true)
+                  }
+                }">
+                  <el-radio-button value="main" aria-label="主角" title="主角"><el-icon><MainCharacter /></el-icon></el-radio-button>
+                  <el-radio-button value="ordinary" aria-label="配角" title="配角"><el-icon><User /></el-icon></el-radio-button>
+                  <el-radio-button value="ensemble" aria-label="群像" title="群像"><el-icon><Grape /></el-icon></el-radio-button>
+                </el-radio-group>
               </div>
             </el-form-item>
-            <el-form-item v-if="shouldShowMaterialCharacters && materialCharacterOutfitsDraft.length < 2" class="material-appearance-field" label="形象描述">
+            <el-form-item label="可选范围">
+              <el-select v-model="materialCharacterScopeSelection" class="material-character-scope" value-key="key" multiple collapse-tags collapse-tags-tooltip clearable :disabled="materialCharacterTypeDraft === 'main'" :placeholder="materialCharacterTypeDraft === 'main' ? '全剧所有单元' : '选择单元'" aria-label="角色可选范围">
+                <el-option-group v-for="group in materialCharacterScopeOptions" :key="group.value" :label="group.label">
+                  <el-option v-for="unit in group.children" :key="unit.value.key" :label="unit.label" :value="unit.value" />
+                </el-option-group>
+              </el-select>
+            </el-form-item>
+            <el-form-item label="音色描述">
+              <el-input
+                v-model="materialCharacterVoiceDraft"
+                :disabled="materialCharacterIsEnsembleDraft"
+                aria-label="音色描述"
+                type="textarea"
+                :rows="2"
+                resize="vertical"
+                placeholder="输入角色的音色描述（选填）"
+              />
+            </el-form-item>
+          </div>
+          <CharacterOutfitEditor v-if="shouldShowMaterialCharacters && materialDialogVisible" ref="materialOutfitEditorRef" v-model:outfits="materialCharacterOutfitsDraft" v-model:description="materialCharacterAppearanceDraft" v-model:description-enabled="materialCharacterAppearanceEnabledDraft" v-model:note="materialCharacterNoteDraft" :units="materialCharacterUnits" :allow-add="materialCharacterUnits.length > 1">
+            <template #single-header>
+              <el-form-item label="备注"><el-input v-model="materialCharacterNoteDraft" /></el-form-item>
+            </template>
+            <el-form-item v-if="materialCharacterOutfitsDraft.length < 2" class="material-appearance-field" label="形象描述" for="">
               <template #label>
                 <span>形象描述</span>
+                <el-switch v-model="materialCharacterAppearanceEnabledDraft" size="small" aria-label="启用形象描述" />
                 <el-dropdown v-if="materialCharacterIsEnsembleDraft && materialCharacterAppearanceEnabledDraft" trigger="click" @command="(content) => materialCharacterAppearanceDraft = content">
                   <el-link type="primary" underline="never">模板</el-link>
                   <template #dropdown>
@@ -1321,18 +1327,15 @@
                   </template>
                 </el-dropdown>
               </template>
-              <div class="appearance-description-control">
-                <el-switch v-model="materialCharacterAppearanceEnabledDraft" aria-label="启用形象描述" />
-                <el-input
-                  v-if="materialCharacterAppearanceEnabledDraft"
-                  v-model="materialCharacterAppearanceDraft"
-                  aria-label="形象描述"
-                  type="textarea"
-                  :rows="4"
-                  resize="vertical"
-                  placeholder="输入角色的外貌、服装或造型描述（选填）"
-                />
-              </div>
+              <el-input
+                v-if="materialCharacterAppearanceEnabledDraft"
+                v-model="materialCharacterAppearanceDraft"
+                aria-label="形象描述"
+                type="textarea"
+                :rows="4"
+                resize="vertical"
+                placeholder="输入角色的外貌、服装或造型描述（选填）"
+              />
             </el-form-item>
           </CharacterOutfitEditor>
           <el-form-item v-if="shouldShowMaterialScenes">
@@ -1671,15 +1674,13 @@ const materialDialogKind = ref<MaterialKind>('characters')
 const scenePopoverReference = ref<HTMLElement | null>(null)
 const materialDialogProps = computed(() => materialDialogKind.value === 'scenes'
   ? { visible: materialDialogVisible.value, virtualRef: scenePopoverReference.value, virtualTriggering: true, width: 300, placement: 'right-start' as const, popperClass: 'scene-material-popover' }
-  : { modelValue: materialDialogVisible.value, size: '380px', direction: 'ltr' as const, modal: false, showClose: false, modalClass: 'dismissible-drawer-overlay', appendToBody: true })
-const isCharacterMaterialEdit = computed(() => materialDialogMode.value === 'edit' && materialDialogKind.value === 'characters')
+  : { modelValue: materialDialogVisible.value, width: '900px', alignCenter: true, appendToBody: true })
 const editingMaterial = ref<EditingMaterial | null>(null)
 const materialCharacterDraft = ref('')
 const materialCharacterNoteDraft = ref('')
 const materialCharacterAppearanceDraft = ref('')
-const materialCharacterAppearanceEnabledDraft = ref(false)
+const materialCharacterAppearanceEnabledDraft = ref(true)
 const materialCharacterVoiceDraft = ref('')
-const materialCharacterVoiceEnabledDraft = ref(false)
 const materialCharacterTypeDraft = ref<'ordinary' | 'main' | 'ensemble'>('ordinary')
 const materialCharacterTypeManuallySelected = ref(false)
 const materialCharacterIsEnsembleDraft = computed(() => materialCharacterTypeDraft.value === 'ensemble')
@@ -3265,9 +3266,8 @@ function resetMaterialDrafts(sceneCount = 1) {
   materialCharacterDraft.value = ''
   materialCharacterNoteDraft.value = ''
   materialCharacterAppearanceDraft.value = ''
-  materialCharacterAppearanceEnabledDraft.value = false
+  materialCharacterAppearanceEnabledDraft.value = true
   materialCharacterVoiceDraft.value = ''
-  materialCharacterVoiceEnabledDraft.value = false
   materialCharacterTypeDraft.value = 'ordinary'
   materialCharacterTypeManuallySelected.value = false
   materialCharacterAvailableUnitsDraft.value = materialEditingEpisode.value ? episodeCharacterUnits(materialEditingEpisode.value) : []
@@ -3347,7 +3347,6 @@ function openMaterialEditDialog(kind: MaterialKind, value: string, event?: Mouse
     materialCharacterAppearanceDraft.value = character.appearanceDescription
     materialCharacterAppearanceEnabledDraft.value = character.appearanceDescriptionEnabled
     materialCharacterVoiceDraft.value = character.voiceDescription
-    materialCharacterVoiceEnabledDraft.value = character.voiceDescriptionEnabled
     materialCharacterTypeDraft.value = character.isMain ? 'main' : character.isEnsemble ? 'ensemble' : 'ordinary'
     materialCharacterAvailableUnitsDraft.value = JSON.parse(JSON.stringify(character.availableUnits ?? []))
     materialCharacterOutfitsDraft.value = JSON.parse(JSON.stringify(character.outfits))
@@ -3396,7 +3395,7 @@ function commitMaterialDialog() {
     const outfitError = validateCharacterOutfits(state, episode, draftAsset)
     if (outfitError) { notify.warning(outfitError); return false }
     if (adding) {
-      assetsFor(state, episode).push({ ...createCharacterAsset(nextName, materialCharacterAppearanceDraft.value.trim(), materialCharacterVoiceDraft.value.trim(), materialCharacterIsEnsembleDraft.value), isMain: materialCharacterTypeDraft.value === 'main', availableUnits: materialCharacterAvailableUnitsDraft.value.map(unit => ({ ...unit })), note: materialCharacterNoteDraft.value.trim(), appearanceDescriptionEnabled: materialCharacterAppearanceEnabledDraft.value, voiceDescriptionEnabled: materialCharacterVoiceEnabledDraft.value })
+      assetsFor(state, episode).push({ ...createCharacterAsset(nextName, materialCharacterAppearanceDraft.value.trim(), materialCharacterVoiceDraft.value.trim(), materialCharacterIsEnsembleDraft.value), isMain: materialCharacterTypeDraft.value === 'main', availableUnits: materialCharacterAvailableUnitsDraft.value.map(unit => ({ ...unit })), note: materialCharacterNoteDraft.value.trim(), appearanceDescriptionEnabled: materialCharacterAppearanceEnabledDraft.value, voiceDescriptionEnabled: true })
       notify.success('已添加角色')
     } else {
       updateCharacterMaterial(editing!.value, nextName, materialCharacterAppearanceDraft.value, materialCharacterVoiceDraft.value, materialCharacterIsEnsembleDraft.value)
@@ -3449,7 +3448,7 @@ function updateCharacterMaterial(oldName: string, nextName: string, appearanceDe
   characterAsset.appearanceDescription = appearanceDescription.trim()
   characterAsset.appearanceDescriptionEnabled = materialCharacterAppearanceEnabledDraft.value
   characterAsset.voiceDescription = voiceDescription.trim()
-  characterAsset.voiceDescriptionEnabled = materialCharacterVoiceEnabledDraft.value
+  characterAsset.voiceDescriptionEnabled = true
   characterAsset.isEnsemble = isEnsemble
   characterAsset.isMain = materialCharacterTypeDraft.value === 'main'
   characterAsset.availableUnits = materialCharacterAvailableUnitsDraft.value.map(unit => ({ ...unit }))
@@ -5142,7 +5141,6 @@ function handleDrawerOutsideClick(event: MouseEvent) {
   if (!(target instanceof Element)) return
   if (materialDialogVisible.value && materialDialogKind.value === 'scenes' && !target.closest('.scene-material-popover') && !scenePopoverReference.value?.contains(target)) materialDialogVisible.value = false
   if (!target.classList.contains('dismissible-drawer-overlay')) return
-  if (target.querySelector('.material-dialog')) materialDialogVisible.value = false
   if (target.querySelector('.detection-dialog')) detectionDialogVisible.value = false
   if (target.querySelector('.review-dialog')) dataDialogVisible.value = false
   if (target.querySelector('.outfit-assignment-drawer')) outfitAssignmentVisible.value = false
