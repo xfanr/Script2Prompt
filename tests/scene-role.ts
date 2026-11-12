@@ -65,7 +65,7 @@ export async function runSceneRoleTests() {
     current.scenes = [createSceneConfig('民政局门口', '白天', '室外')]
     current.usePositionReference = false
     current.firstFrameMode = true
-    current.text = '（（@））\n正文'
+    current.text = '【【@】】\n正文'
     for (const mode of ['basic', 'detailed'] as const) {
       const text = composePrompt(config, current, undefined, 8, [], '5-6', mode)
       const sceneName = '白天·民政局门口.png'
@@ -125,13 +125,13 @@ export async function runSceneRoleTests() {
     assert(formatShotReference(episode, 5) === '5-3-4', 'default is not the full formal shot number')
     current.referenceShotNumber = 6
     current.firstFrameMode = true
-    current.text = '（（@））\n正文@'
+    current.text = '【【@】】\n正文@'
     const referenceName = formatShotReference(episode, 5)
     const detail = composeShotDetail(config, current, undefined, 8, [], referenceName)
     const full = composePrompt(config, current, undefined, 8, [], referenceName)
     assert(full.includes('多角色位置参考 [5-3-4.png] '), 'selected position reference missing')
     assert(detail.includes('\n [5-3-4.png] \n') && full.endsWith(`三、分镜详情\n${detail}`), 'first-frame reference or shared detail mismatch')
-    assert(detail.endsWith('正文@') && current.text === '（（@））\n正文@', 'custom at sign or source changed')
+    assert(detail.endsWith('正文@') && current.text === '【【@】】\n正文@', 'custom at sign or source changed')
     current.referenceShotNumber = 8
     episode.shots[0].referenceShotNumber = 8
     assert(formatShotReference(episode, 0) === '5-3-6', 'duplicate selection not allowed')
@@ -184,7 +184,7 @@ export async function runSceneRoleTests() {
     current.shots[0].referenceEpisodeId = source.id
     current.shots[0].referenceShotNumber = 3
     current.shots[0].firstFrameMode = true
-    current.shots[0].text = '（（@））\n正文@'
+    current.shots[0].text = '【【@】】\n正文@'
     source.shots = [createShot(1), createShot(2), createShot(2)]
     const episodes = [current, middle, source]
     reconcileShotReferences(episodes)

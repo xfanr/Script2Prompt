@@ -154,11 +154,12 @@ export function composeShotDetail(
   const text = formatShotDetailText(expandedText, referenceMode === 'basic'
     ? []
     : [...shot.characters.map((character) => character.name), ...characterAssets.map((character) => character.name)])
-  const firstFrame = shot.firstFrameMode ? parseFirstFrameText(text) : null
+  const parsed = parseFirstFrameText(text)
+  const firstFrame = shot.firstFrameMode ? parsed : null
   return formatPromptReferences(joinPromptBlocks([
     firstFrame ? firstFrameShotPrompt(firstFrame.content === '@' && referenceName && referenceMode !== 'basic' ? `[${referenceName}]` : firstFrame.content, estimatedSeconds) : '',
     profile.shotPrefix,
-    firstFrame ? firstFrame.detailText : text,
+    parsed.detailText,
   ]))
 }
 

@@ -1189,8 +1189,9 @@ html.dark .episode-panel {
 }
 
 .material-card {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 44px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   min-width: 0;
   align-items: center;
   gap: 8px;
@@ -1211,7 +1212,7 @@ html.dark .episode-panel {
   gap: 4px;
 }
 
-.material-card:not(.has-references) .material-card-summary {
+.material-card:not(.has-references):not(.is-unrecognized) .material-card-summary {
   grid-column: 1 / 3;
 }
 
@@ -1221,6 +1222,7 @@ html.dark .episode-panel {
   line-height: 20px;
 }
 
+.material-card-meta,
 .material-card-name-area {
   display: flex;
   min-width: 0;
@@ -1228,13 +1230,19 @@ html.dark .episode-panel {
   gap: 4px;
 }
 
+.material-card-meta {
+  flex-shrink: 0;
+}
+
 .material-card-name {
   min-width: 0;
+  overflow: hidden;
   color: var(--el-text-color-primary);
   font-size: var(--el-font-size-base);
   font-weight: 600;
   line-height: 20px;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .material-card-description {
@@ -1249,15 +1257,12 @@ html.dark .episode-panel {
   align-items: center;
 }
 
-.material-card.is-compact .material-card-name-area {
-  flex: 0 1 auto;
+.material-card.is-compact {
+  grid-template-columns: minmax(0, 1fr) 16px;
 }
 
-.material-card.is-compact .material-card-name,
-.material-card.is-compact .material-reference-block > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.material-card.is-compact .material-card-name-area {
+  flex: 0 1 auto;
 }
 
 .material-card.is-compact .material-card-description {
@@ -1281,7 +1286,9 @@ html.dark .episode-panel {
   display: flex;
   min-width: 0;
   min-height: 24px;
+  padding-block: 2px;
   align-items: flex-start;
+  justify-content: flex-end;
   gap: 4px;
   color: var(--el-text-color-regular);
   font-size: var(--el-font-size-small);
@@ -1313,30 +1320,48 @@ html.dark .episode-panel {
   color: var(--el-color-success);
 }
 
-.material-reference-file-icon,
 .material-confirm-button .el-icon {
   font-size: 14px;
   flex-shrink: 0;
 }
 
-.material-reference-file-icon {
-  height: 20px;
-}
-
 .material-reference-block > span {
   min-width: 0;
+  flex: 1;
   overflow-wrap: anywhere;
+  text-align: right;
 }
 
 .material-card.is-unrecognized .material-card-name {
-  text-decoration: line-through;
+  text-decoration: underline;
+}
+
+.material-card-warning.el-icon {
+  grid-area: 1 / 2;
+  justify-self: end;
+  width: 16px;
+  height: 20px;
+  color: var(--el-color-warning);
+  font-size: 14px;
 }
 
 .material-card .material-card-actions {
-  grid-area: 1 / 3;
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  right: 28px;
+  height: 20px;
+  margin-block: auto;
   flex-direction: row;
-  align-self: center;
+  align-items: center;
   gap: 4px;
+  border-radius: 4px;
+  background: var(--el-fill-color-lighter);
+}
+
+.material-card:not(.has-references):not(.is-unrecognized) .material-card-actions {
+  right: 8px;
 }
 
 .material-card-actions .sidebar-row-action-button.el-button {
@@ -1344,6 +1369,11 @@ html.dark .episode-panel {
   min-width: 20px;
   height: 20px;
   flex: 0 0 20px;
+}
+
+.material-card.is-compact .material-card-actions .el-icon,
+.material-card.is-compact .material-confirm-button .el-icon {
+  transform: translateY(1px);
 }
 
 .material-card:hover .material-card-actions,
@@ -2025,7 +2055,7 @@ html.dark .episode-panel {
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-  color: var(--el-text-color-primary);
+  color: transparent;
   caret-color: var(--el-text-color-primary);
   font-family: var(--highlight-font-family);
   font-size: var(--highlight-font-size);
@@ -2048,7 +2078,7 @@ html.dark .episode-panel {
   overflow: auto;
   padding: var(--highlight-padding-block) var(--highlight-padding-inline);
   border-radius: 4px;
-  color: transparent;
+  color: var(--el-text-color-primary);
   font-family: var(--highlight-font-family);
   font-size: var(--highlight-font-size);
   font-kerning: none;
@@ -2064,9 +2094,14 @@ html.dark .episode-panel {
   scrollbar-gutter: stable;
 }
 
+.script-input-wrap .el-textarea__inner::selection {
+  color: var(--el-text-color-primary);
+  background: var(--el-color-primary-light-8);
+}
+
 .script-highlight-layer mark {
   border-radius: 0;
-  color: transparent;
+  color: inherit;
   font: inherit;
 }
 
@@ -2076,6 +2111,16 @@ html.dark .episode-panel {
 
 .script-highlight-layer .phone-voice-marker,
 .script-highlight-layer .manual-reference {
+  background: var(--el-color-warning-light-7);
+}
+
+.script-highlight-layer .script-note {
+  color: var(--el-text-color-secondary);
+  background: transparent;
+}
+
+.script-highlight-layer .script-note-bracket {
+  color: var(--el-text-color-secondary);
   background: var(--el-color-warning-light-7);
 }
 
@@ -2305,7 +2350,7 @@ html.dark .episode-panel {
 .scene-line {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(calc(100px + var(--el-component-size)), 12%) var(--el-component-size);
+  grid-template-columns: minmax(100px, 0.6fr) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
@@ -2343,13 +2388,14 @@ html.dark .episode-panel {
 .scene-selection-controls .el-select,
 .scene-reference-controls .el-input {
   min-width: 0;
+  flex: 1;
 }
 
 .scene-selection-controls .el-select__wrapper,
 .scene-reference-controls .el-input__wrapper {
   background: transparent;
   box-shadow: none !important;
-  border-radius: var(--el-border-radius-base) 0 0 var(--el-border-radius-base);
+  border-radius: 0;
 }
 
 .scene-selection-controls > .el-button {
@@ -2360,6 +2406,43 @@ html.dark .episode-panel {
   margin: 0;
   padding: 0;
   border-radius: 0 var(--el-border-radius-base) var(--el-border-radius-base) 0;
+}
+
+.scene-reference-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--el-text-color-placeholder);
+  font: inherit;
+  cursor: pointer;
+}
+
+.scene-reference-copy:hover {
+  color: var(--el-text-color-regular);
+}
+
+.scene-reference-copy:disabled {
+  color: var(--el-text-color-disabled);
+  cursor: not-allowed;
+}
+
+.scene-detail-controls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.scene-detail-controls .el-select {
+  min-width: 0;
+  flex: 1;
+}
+
+.scene-detail-controls .scene-status-button {
+  flex-shrink: 0;
 }
 
 .scene-config-meta {
@@ -2525,7 +2608,8 @@ html.dark .episode-panel {
 }
 
 @container (max-width: 420px) {
-  .config-cell .character-line {
+  .config-cell .character-line,
+  .config-cell .scene-line {
     grid-template-columns: minmax(0, 1fr);
   }
 

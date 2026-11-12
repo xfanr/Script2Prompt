@@ -63,18 +63,18 @@ export async function runVoiceMarkerTests() {
   test('Full prompts reuse rendering with first-frame mode, prefixes and supplied context without mutating source', () => {
     const shot = createShot()
     shot.firstFrameMode = true
-    shot.text = '（（房间全景））\n程鹏OS（情绪坚定）：别动！\n手机VO：收到。\nVO（兴奋）：开始！'
+    shot.text = '【【房间全景】】\n程鹏OS（情绪坚定）：别动！\n手机VO：收到。\nVO（兴奋）：开始！'
     const original = shot.text
     const profile = config.prompt.profiles.find((profile) => profile.id === config.prompt.activeProfileId)!
     profile.shotPrefix = '分镜前缀'
     const result = composePrompt(config, shot, undefined, 12)
     assert(result.includes('00-01秒（景别只能使用远景）\n房间全景\n\n01-12秒（景别不限）\n分镜前缀'), 'first-frame or prefix changed')
-    assert(result.endsWith(formatShotDetailText(original).replace('（（房间全景））\n', '')), 'full prompt differs from direct formatter')
+    assert(result.endsWith(formatShotDetailText(original).replace('【【房间全景】】\n', '')), 'full prompt differs from direct formatter')
     assert(!result.includes('内心OS音') && shot.text === original, 'legacy instruction or source mutation')
   })
   test('Standalone detail equals the full prompt section with the chosen profile and first-frame timing', () => {
     const shot = createShot()
-    shot.text = '（（房间全景））\n程鹏OS：别动。\n手机VO：收到。'
+    shot.text = '【【房间全景】】\n程鹏OS：别动。\n手机VO：收到。'
     const profile = config.prompt.profiles[1]
     profile.shotPrefix = '专用方案前缀'
     for (const firstFrameMode of [false, true]) {
@@ -131,7 +131,7 @@ export async function runVoiceMarkerTests() {
     shot.firstFrameMode = true
     const profile = config.prompt.profiles[0]
     profile.shotPrefix = ''
-    for (const text of ['VO：旁白。', '（（ ））\nVO：旁白。', '（（@））\nVO：旁白。', '（（未闭合']) {
+    for (const text of ['VO：旁白。', '【【 】】\nVO：旁白。', '【【@】】\nVO：旁白。', '【【未闭合']) {
       shot.text = text
       const full = composePrompt(config, shot, profile.id, 8, [], '20-6')
       const detail = composeShotDetail(config, shot, profile.id, 8, [], '20-6')
@@ -140,10 +140,10 @@ export async function runVoiceMarkerTests() {
       assert(full.endsWith(`三、分镜详情\n${detail}`), 'detail copy differs from full prompt')
       assert(shot.text === text, 'source changed')
     }
-    shot.text = '（（自定义首帧@））\n正文@'
+    shot.text = '【【自定义首帧@】】\n正文@'
     assert(composeShotDetail(config, shot, profile.id, 8, [], '20-6').includes('自定义首帧@'), 'custom first-frame content changed')
     shot.firstFrameMode = false
-    assert(composeShotDetail(config, shot, profile.id, 8, [], '20-6') === shot.text, 'disabled first-frame mode changed raw at signs')
+    assert(composeShotDetail(config, shot, profile.id, 8, [], '20-6') === '正文@', 'disabled first-frame mode did not remove comments or changed raw at signs')
   })
   return { passed: results.filter((result) => result.passed).length, total: results.length, results }
 }

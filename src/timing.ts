@@ -59,9 +59,9 @@ interface ParsedTimingSegment {
   end: number
 }
 
-export function parseTimingSegments(text: string, characterNames: string[], firstFrameMode = false): ParsedTimingSegment[] {
-  const firstFrame = firstFrameMode ? parseFirstFrameText(text) : null
-  if (firstFrame) text = firstFrame.timingText
+export function parseTimingSegments(text: string, characterNames: string[], _firstFrameMode = false): ParsedTimingSegment[] {
+  const annotations = parseFirstFrameText(text)
+  text = annotations.timingText
   const names = normalizeCharacterNames(characterNames)
   const voiceMarker = '(?:[oO][sS]|[vV][oO])'
   const speakerPattern = names.length
@@ -117,16 +117,16 @@ export function parseTimingSegments(text: string, characterNames: string[], firs
     lineStart = lineEnd + 1
   }
 
-  const excluded = firstFrame?.range
-  if (!excluded) return result
-  return result.flatMap((segment) => {
+  return annotations.ranges.reduce((segments, excluded) => segments.flatMap((segment) => {
+    // Inline comments do not turn one action into two separately timed actions.
+    if (segment.kind === 'action') return [segment]
     if (segment.end <= excluded.start || segment.start >= excluded.end) return [segment]
     return [
       trimRange(text, segment.start, Math.min(segment.end, excluded.start)),
       trimRange(text, Math.max(segment.start, excluded.end), segment.end),
     ].filter((range) => range.start < range.end)
       .map((range) => ({ ...segment, ...range, sourceText: text.slice(range.start, range.end) }))
-  })
+  }), result)
 }
 
 function normalizeDialogueSegment(value: Partial<DialogueTimingSegment>, sourceText = ''): DialogueTimingSegment {
@@ -297,7 +297,7 @@ export function analyzeTimingRange(
   rangeEnd = text.length,
   firstFrameMode = false,
 ): TimingAnalysis {
-  const timingText = firstFrameMode ? parseFirstFrameText(text).timingText : text
+  const timingText = parseFirstFrameText(text).timingText
   const start = Math.max(0, Math.min(text.length, rangeStart))
   const end = Math.max(start, Math.min(text.length, rangeEnd))
   const analysis = createEmptyTimingAnalysis()

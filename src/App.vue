@@ -222,7 +222,7 @@
                       <section v-for="section in materialLibrarySections" :key="section.episode.id" class="material-library-search-section" :aria-label="`${section.episode.title}素材`">
                         <button v-if="!materialLibraryEpisode" class="material-library-search-heading" type="button" @click="openMaterialLibraryFolder(section.episode.id)">{{ section.episode.title }}</button>
                         <div class="material-management">
-                          <section v-if="materialLibraryEpisode || section.scenes.length" class="material-management-section">
+                          <section v-if="section.scenes.length || (materialLibraryEpisode && materialLibrarySearch.trim())" class="material-management-section">
                             <div class="material-scene-cards">
                               <MaterialCard v-for="item in section.scenes" :key="sceneAssetKey(item)" class="material-scene-card"
                                 :name="item.name" :label="`${sceneAssetLabel(item)}场景素材`" kind="scene"
@@ -236,14 +236,14 @@
                                   </el-popconfirm>
                                 </template>
                               </MaterialCard>
-                              <div v-if="materialLibraryEpisode && !section.scenes.length" class="material-management-empty">{{ materialLibrarySearch.trim() ? '未找到场景素材' : '暂无场景素材' }}</div>
+                              <div v-if="materialLibraryEpisode && !section.scenes.length" class="material-management-empty">未找到场景素材</div>
                             </div>
                           </section>
-                          <section v-if="materialLibraryEpisode || section.characters.length" class="material-management-section">
+                          <section v-if="section.characters.length || (materialLibraryEpisode && materialLibrarySearch.trim())" class="material-management-section">
                             <div class="material-character-cards">
                               <MaterialCard v-for="item in section.characters" :key="item.id" class="material-character-card"
                                 :name="item.name" :label="`${item.name}角色素材`" kind="character" :description="item.isMain ? '主角' : item.isEnsemble ? '群像' : '配角'"
-                                :used="item.used" :ensemble="item.isEnsemble" :references="item.referenceBlocks" :confirmed="section.confirmed" :reference-title="name => materialReferenceTitle(name, section.episode)"
+                                :used="item.used" :references="item.referenceBlocks" :confirmed="section.confirmed" :reference-title="name => materialReferenceTitle(name, section.episode)"
                                 @toggle="toggleMaterialConfirmation($event, section.episode)" @copy="copyMaterialReferenceName">
                                 <template #actions>
                                   <el-button class="sidebar-row-action-button" :icon="EditPen" text size="small" :aria-label="`修改角色${item.name}`" @click="openMaterialEditDialog('characters', item.name, undefined, section.episode)" />
@@ -252,7 +252,7 @@
                                   </el-popconfirm>
                                 </template>
                               </MaterialCard>
-                              <div v-if="materialLibraryEpisode && !section.characters.length" class="material-management-empty">{{ materialLibrarySearch.trim() ? '未找到角色' : '暂无角色' }}</div>
+                              <div v-if="materialLibraryEpisode && !section.characters.length" class="material-management-empty">未找到角色</div>
                             </div>
                           </section>
                           <section v-if="section.custom.length" class="material-management-section" aria-label="自定义配置">
@@ -483,28 +483,34 @@
                       </div>
                     </div>
                     <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line">
-                      <div class="scene-selection-controls">
-                        <el-select :model-value="scene.name ? sceneAssetKey(scene) : ''" placeholder="选择场景" aria-label="选择场景" @change="syncSceneFromAsset(scene, $event, episode)">
-                          <template #label="{ label }">{{ scene.name ? sceneAssetLabel(scene) : label }}</template>
-                          <el-option v-for="item in episode.scenes" :key="sceneAssetKey(item)" :label="sceneAssetLabel(item)" :value="sceneAssetKey(item)" />
-                        </el-select>
-                        <el-button :icon="PositionReference" :type="shot.usePositionReference ? 'primary' : undefined" :aria-pressed="shot.usePositionReference" aria-label="多角色位置参考" :title="shot.usePositionReference ? '关闭多角色位置参考' : '开启多角色位置参考'" @click="shot.usePositionReference = !shot.usePositionReference" />
-                      </div>
                       <div class="scene-selection-controls scene-reference-controls">
                         <el-select v-if="shot.usePositionReference" popper-class="shot-reference-dropdown" :model-value="referenceSelectionId(episode, index)" :aria-label="`分镜${index + 1}引用序号`" @update:model-value="selectShotReference(shot, $event)">
+                          <template #prefix>
+                            <button class="scene-reference-copy" type="button" title="复制引用序号" aria-label="复制引用序号" @click.stop="copySceneReference(shot, scene)"><el-icon><CopyDocument /></el-icon></button>
+                          </template>
                           <el-option-group v-for="source in continuousEpisodes(state.episodes, episode)" :key="source.id" label="">
                             <el-option v-for="(sourceShot, sourceIndex) in source.shots" :key="sourceShot.id" :label="formatShotNumber(source, sourceIndex)" :value="sourceShot.id" />
                           </el-option-group>
                         </el-select>
-                        <el-input v-else :model-value="scene.name ? sceneReferenceName(scene) : ''" readonly aria-label="场景引用名称" :title="scene.name ? sceneReferenceName(scene) : ''" />
-                        <el-button :icon="CopyDocument" :title="shot.usePositionReference ? '复制引用序号' : '复制场景引用'" :aria-label="shot.usePositionReference ? '复制引用序号' : '复制场景引用'" :disabled="!shot.usePositionReference && !scene.name" @click="copySceneReference(shot, scene)" />
+                        <el-input v-else :model-value="scene.name ? sceneReferenceName(scene) : ''" readonly aria-label="场景引用名称" :title="scene.name ? sceneReferenceName(scene) : ''">
+                          <template #prefix>
+                            <button class="scene-reference-copy" type="button" title="复制场景引用" aria-label="复制场景引用" :disabled="!scene.name" @click.stop="copySceneReference(shot, scene)"><el-icon><CopyDocument /></el-icon></button>
+                          </template>
+                        </el-input>
+                        <el-button :icon="PositionReference" :type="shot.usePositionReference ? 'primary' : undefined" :aria-pressed="shot.usePositionReference" aria-label="多角色位置参考" :title="shot.usePositionReference ? '关闭多角色位置参考' : '开启多角色位置参考'" @click="shot.usePositionReference = !shot.usePositionReference" />
                       </div>
-                      <el-popover trigger="click" placement="bottom-end" :width="280" popper-class="scene-status-popover">
-                        <template #reference>
-                          <el-button class="scene-status-button" :icon="SceneStatus" :type="scene.statusText?.trim() ? 'primary' : undefined" plain :title="scene.statusText?.trim() || '场景状态'" aria-label="场景状态" />
-                        </template>
-                        <el-input v-model="scene.statusText" class="scene-status-input" type="textarea" :rows="3" resize="vertical" placeholder="场景状态" aria-label="场景状态" />
-                      </el-popover>
+                      <div class="scene-detail-controls">
+                        <el-select :model-value="scene.name ? sceneAssetKey(scene) : ''" placeholder="选择场景" aria-label="选择场景" @change="syncSceneFromAsset(scene, $event, episode)">
+                          <template #label="{ label }">{{ scene.name ? sceneAssetLabel(scene) : label }}</template>
+                          <el-option v-for="item in episode.scenes" :key="sceneAssetKey(item)" :label="sceneAssetLabel(item)" :value="sceneAssetKey(item)" />
+                        </el-select>
+                        <el-popover trigger="click" placement="bottom-end" :width="280" popper-class="scene-status-popover">
+                          <template #reference>
+                            <el-button class="scene-status-button" :icon="SceneStatus" :type="scene.statusText?.trim() ? 'primary' : undefined" plain :title="scene.statusText?.trim() || '场景状态'" aria-label="场景状态" />
+                          </template>
+                          <el-input v-model="scene.statusText" class="scene-status-input" type="textarea" :rows="3" resize="vertical" placeholder="场景状态" aria-label="场景状态" />
+                        </el-popover>
+                      </div>
                       <el-button
                         class="config-edit-button"
                         :icon="EditPen"
@@ -1464,6 +1470,7 @@ import type { AppState, CharacterConfig, DialogueSpeechRate, Episode, EpisodeGro
 import { characterAssetsFor as assetsFor, initializeSharedCharacters, characterAppearance, characterUnits, validateCharacterOutfits } from './sharedCharacters'
 import { characterAvailableInUnit, compareCharacterAssets, episodeCharacterUnits, extendCharacterScopes, initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes, referencedCharacterNames } from './characterScopes'
 import { formatPromptReferences } from './prompt'
+import { parseFirstFrameText } from './firstFrame'
 import { GrapeFilled, MainCharacterFilled } from './icons'
 import { HomeBackIcon, GoStart, GoEnd, PointBalanceIcon, SceneStatus } from './icons'
 import { ProjectFolder, ProjectFolderFilled, ArchiveFolder, HistoryFolder, HistoryFolderFilled, MoreOneIcon, FolderConversion } from './icons'
@@ -1949,11 +1956,6 @@ function collectEpisodeMaterials(episode: Episode) {
     scenes: episode.scenes.map((asset) => ({ ...asset, ...referenceNames(scenes.get(sceneAssetKey(asset))!) })),
     characters: assetsFor(state, episode).map((asset) => {
       const usage = characters.get(asset.name.trim())!
-      if (asset.outfits.length > 1 && !asset.isEnsemble) {
-        const names = usage.references.get(0) ?? new Set<string>()
-        names.add(mode === 'basic' ? `${asset.name}@` : formatPromptReferenceName(`${asset.name}.`))
-        usage.references.set(0, names)
-      }
       const item = { ...asset, ...referenceNames(usage) }
       if (!item.references.length) item.references.push({ name: asset.name })
       return { ...item, voiceReference: asset.isEnsemble ? null : item.references.find(reference => /\.mp3$/i.test(reference.name)) ?? (voicedCharacters.has(asset.name) ? { name: `${asset.name}@` } : null) }
@@ -4177,6 +4179,11 @@ function promptPreviewStatus(shot: Shot): { type: 'success' | 'warning'; message
 function highlightedShotText(shot: Shot) {
   const text = shot.text || ' '
   const highlightedRanges = [
+    ...parseFirstFrameText(text).ranges.flatMap(({ start, end }) => [
+      { start, end: start + 2, className: 'script-note-bracket' },
+      { start: start + 2, end: end - 2, className: 'script-note' },
+      { start: end - 2, end, className: 'script-note-bracket' },
+    ]),
     ...Array.from(text.matchAll(/\[([^\[\]\r\n]+)\]/g))
       .filter((match) => match[1].trim())
       .map((match) => ({ start: match.index, end: match.index + match[0].length, className: 'manual-reference' })),
