@@ -1,100 +1,154 @@
 <template>
-  <div class="character-outfit-editor" :class="{ 'has-multiple': outfits.length > 1 }">
-    <template v-if="outfits.length > 1">
-      <slot />
-      <div class="character-outfit-list">
-        <section v-for="outfit in outfits" :key="outfit.id" class="character-outfit-card">
-          <el-form-item label="备注"><el-input v-model="outfit.note" /></el-form-item>
-          <el-form-item label="出现单元">
-            <div class="outfit-unit-grid">
-              <el-check-tag v-for="unit in units" :key="`${unit.episodeId}:${unit.unitNumber}`"
-                :checked="outfit.units.some(item => sameUnit(item, unit))"
-                :disabled="outfits.some(other => other.id !== outfit.id && other.units.some(item => sameUnit(item, unit)))"
-                @change="checked => selectUnit(outfit, unit, checked)">{{ unit.label }}</el-check-tag>
-            </div>
-            <span v-if="!units.length" class="empty-note">暂无使用单元</span>
-          </el-form-item>
-          <el-form-item class="material-appearance-field" label="形象描述" for="">
-            <template #label>
-              <span>形象描述</span>
-              <el-switch v-model="outfit.appearanceDescriptionEnabled" size="small" aria-label="启用形象描述" />
-            </template>
-            <el-input v-if="outfit.appearanceDescriptionEnabled" v-model="outfit.appearanceDescription" aria-label="形象描述" type="textarea" :rows="3" />
-          </el-form-item>
-        </section>
+  <div class="character-outfit-editor" :class="{ 'has-details': Boolean($slots.details) }">
+    <div class="character-editor-left">
+      <slot name="details" />
+      <CharacterUnitAssignment v-model="selectedUnits" :units="assignmentUnits" :outfits="outfitCards.map(outfit => ({ id: outfit.id, note: outfitLabel(outfit) }))" :disabled="disabled"
+        @assign="assign(outfitCards.find(outfit => outfit.id === $event)!)" @add-outfit="addOutfit" />
+    </div>
+    <div class="character-editor-right">
+    <nav v-if="outfitCards.length > 1" class="character-outfit-navigation" aria-label="服装定位">
+      <el-button class="character-outfit-navigation-previous" :icon="ArrowRight" text circle size="small" aria-label="向左滚动服装" @click="outfitNavigation!.scrollBy({ left: -outfitNavigation!.clientWidth, behavior: 'smooth' })" />
+      <div ref="outfitNavigation" class="character-outfit-navigation-track" @wheel.prevent="outfitNavigation!.scrollLeft += $event.deltaY || $event.deltaX">
+        <el-button v-for="outfit in outfitCards" :key="outfit.id" size="small" round :class="{ 'is-active': activeOutfitId === outfit.id }" :aria-current="activeOutfitId === outfit.id ? 'true' : undefined" :title="outfitLabel(outfit)" @click="goToOutfit(outfit.id)">{{ outfitLabel(outfit) }}</el-button>
       </div>
-    </template>
-    <template v-else>
-      <slot name="single-header" />
-      <el-form-item label="出现单元">
-        <div v-if="units.length" class="outfit-unit-grid">
-          <el-check-tag v-for="unit in units" :key="`${unit.episodeId}:${unit.unitNumber}`"
-            :checked="singleUnits.some(item => sameUnit(item, unit))"
-            @change="checked => selectSingleUnit(unit, checked)">{{ unit.label }}</el-check-tag>
-        </div>
-        <span v-else class="empty-note">暂无使用单元</span>
-      </el-form-item>
-      <slot />
-    </template>
-    <div v-if="allowAdd || outfits.length > 1" class="character-outfit-actions">
-      <el-button :icon="Plus" link type="primary" aria-label="新增服装" @click="add()">新增</el-button>
-      <el-button v-if="hasIncompleteSingle" :icon="SplitTurnDownRight" link type="primary" :disabled="!singleUnits.length" aria-label="拆分单元" @click="add(true)">拆分</el-button>
-      <el-dropdown v-if="outfits.length > 1" class="character-outfit-delete" trigger="click" @command="remove">
-        <el-button :icon="Delete" link type="primary" aria-label="删除服装" title="删除服装" />
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item v-for="(outfit, index) in outfits" :key="outfit.id" :command="outfit.id">{{ outfit.note.trim() || `未填写备注（${index + 1}）` }}</el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
+      <el-button :icon="ArrowRight" text circle size="small" aria-label="向右滚动服装" @click="outfitNavigation!.scrollBy({ left: outfitNavigation!.clientWidth, behavior: 'smooth' })" />
+    </nav>
+    <div ref="outfitList" class="character-outfit-list">
+      <section v-for="outfit in outfitCards" :key="outfit.id" class="character-outfit-card">
+        <header class="character-outfit-card-heading">
+          <el-input v-if="editingOutfit?.id === outfit.id" ref="renameInputs" v-model="renameDraft" class="character-outfit-note-input" aria-label="服装备注"
+            @blur="finishRename" @keydown.enter.stop.prevent="finishRename" @keydown.esc.stop.prevent="editingOutfit = null" />
+          <span v-else class="character-outfit-card-title" :title="outfitLabel(outfit)">{{ outfitLabel(outfit) }}</span>
+          <div class="character-outfit-card-actions" role="group" aria-label="服装操作">
+            <el-button :icon="EditPen" text type="primary" size="small" title="修改备注" aria-label="修改服装备注" @click="startRename(outfit)" />
+            <el-popconfirm :title="`确认删除“${outfitLabel(outfit)}”？`" :disabled="outfitCards.length === 1 || hasExternalUnits(outfit)" confirm-button-text="删除" cancel-button-text="取消" @confirm="remove(outfit.id)">
+              <template #reference><el-button :icon="Delete" text type="primary" size="small" :disabled="outfitCards.length === 1 || hasExternalUnits(outfit)" :title="outfitCards.length === 1 ? '至少保留一套服装' : hasExternalUnits(outfit) ? '此服装仍用于本次范围外的单元' : '删除服装'" aria-label="删除服装" /></template>
+            </el-popconfirm>
+          </div>
+        </header>
+        <p class="character-assignment-caption outfit-assignment-summary">{{ units.filter(unit => outfit.units.some(item => sameUnit(item, unit))).map(unit => unit.label).join(' · ') || '本次未分配单元' }}</p>
+        <el-form-item class="material-appearance-field" label="形象描述" for="">
+          <template #label>
+            <span>形象描述</span>
+            <el-checkbox v-model="outfit.appearanceDescriptionEnabled" size="small" aria-label="输出形象描述">输出</el-checkbox>
+            <slot name="appearance-actions" :outfit="outfit" />
+          </template>
+          <el-input v-if="outfit.appearanceDescriptionEnabled" v-model="outfit.appearanceDescription" aria-label="形象描述" type="textarea" :rows="3" resize="vertical" placeholder="输入角色的外貌、服装或造型描述（选填）" />
+        </el-form-item>
+      </section>
+    </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed, nextTick, reactive, ref } from 'vue'
+import type { InputInstance } from 'element-plus'
 import { createId } from '../defaults'
-import { computed, ref } from 'vue'
-import { Delete, Plus, SplitTurnDownRight } from '../icons'
+import { ArrowRight, Delete, EditPen } from '../icons'
+import CharacterUnitAssignment from './CharacterUnitAssignment.vue'
 import type { CharacterOutfit } from '../types'
 
 const outfits = defineModel<CharacterOutfit[]>('outfits', { required: true })
 const description = defineModel<string>('description', { required: true })
 const descriptionEnabled = defineModel<boolean>('descriptionEnabled', { required: true })
 const note = defineModel<string>('note', { required: true })
-const props = defineProps<{ units: { episodeId: string; unitNumber: number; label: string }[]; allowAdd: boolean }>()
+const props = defineProps<{ units: { episodeId: string; unitNumber: number; label: string; voiceOnly?: boolean }[]; assignedUnits?: Unit[]; disabled?: boolean }>()
+
 type Unit = { episodeId: string; unitNumber: number }
-const singleUnits = ref<Unit[]>(props.units.map(({ episodeId, unitNumber }) => ({ episodeId, unitNumber })))
-const hasIncompleteSingle = computed(() => outfits.value.length < 2 && props.units.some(unit => !singleUnits.value.some(item => sameUnit(item, unit))))
-defineExpose({ hasIncompleteSingle })
-const sameUnit = (a: { episodeId: string; unitNumber: number }, b: { episodeId: string; unitNumber: number }) => a.episodeId === b.episodeId && a.unitNumber === b.unitNumber
-function add(split = false) {
-  const next = [...outfits.value]
-  if (!next.length) {
-    next.push({ id: createId('outfit'), note: note.value.trim() || (split ? '原皮' : ''), appearanceDescription: description.value, appearanceDescriptionEnabled: descriptionEnabled.value, units: singleUnits.value.map(unit => ({ ...unit })) })
-    description.value = ''
-    descriptionEnabled.value = false
-    note.value = ''
-  }
-  const units = split ? props.units.filter(unit => !singleUnits.value.some(item => sameUnit(item, unit))).map(({ episodeId, unitNumber }) => ({ episodeId, unitNumber })) : []
-  next.push({ id: createId('outfit'), note: '', appearanceDescription: '', appearanceDescriptionEnabled: true, units })
-  outfits.value = next
+const singleUnits = ref<Unit[]>(props.assignedUnits?.map(unit => ({ ...unit })) ?? props.units.filter(unit => !unit.voiceOnly).map(({ episodeId, unitNumber }) => ({ episodeId, unitNumber })))
+const selectedUnits = ref<string[]>([])
+const singleOutfit = reactive<CharacterOutfit>({
+  id: createId('outfit'),
+  get note() { return note.value },
+  set note(value) { note.value = value },
+  get appearanceDescription() { return description.value },
+  set appearanceDescription(value) { description.value = value },
+  get appearanceDescriptionEnabled() { return descriptionEnabled.value },
+  set appearanceDescriptionEnabled(value) { descriptionEnabled.value = value },
+  get units() { return singleUnits.value },
+  set units(value) { singleUnits.value = value },
+})
+const outfitCards = computed(() => outfits.value.length > 1 ? outfits.value : [singleOutfit])
+const activeOutfitId = ref(outfitCards.value[0].id)
+const outfitList = ref<HTMLElement | null>(null)
+const outfitNavigation = ref<HTMLElement | null>(null)
+const unassignedUnits = computed(() => props.units.filter(unit => !unit.voiceOnly && !assignedOutfit(unit)))
+const assignmentUnits = computed(() => props.units.map(unit => {
+  const outfit = assignedOutfit(unit)
+  return { id: unitKey(unit), label: unit.label, note: unit.voiceOnly ? '仅音色' : props.disabled ? '群像' : outfit ? outfitLabel(outfit) : '待分配', pending: !outfit && !unit.voiceOnly, disabled: unit.voiceOnly }
+}))
+const hasIncompleteSingle = computed(() => outfits.value.length < 2 && unassignedUnits.value.length > 0)
+const editingOutfit = ref<CharacterOutfit | null>(null)
+const renameDraft = ref('')
+const renameInputs = ref<InputInstance[]>([])
+
+defineExpose({ hasIncompleteSingle, assignedUnits: singleUnits, singleOutfitId: computed(() => singleOutfit.id), addOutfit })
+const sameUnit = (a: Unit, b: Unit) => a.episodeId === b.episodeId && a.unitNumber === b.unitNumber
+const unitKey = (unit: Unit) => `${unit.episodeId}:${unit.unitNumber}`
+function assignedOutfit(unit: Unit) { return outfitCards.value.find(outfit => outfit.units.some(item => sameUnit(item, unit))) }
+function hasExternalUnits(outfit: CharacterOutfit) { return outfit.units.some(unit => !props.units.some(item => sameUnit(item, unit))) }
+
+function outfitLabel(outfit: CharacterOutfit) {
+  return outfit.note.trim() || (outfitCards.value.length === 1 ? '原皮' : '未命名服装')
 }
+
+function goToOutfit(id: string) {
+  activeOutfitId.value = id
+  const index = outfitCards.value.findIndex(outfit => outfit.id === id)
+  const navigation = outfitNavigation.value!
+  const button = navigation.children[index] as HTMLElement
+  navigation.scrollTo({ left: button.offsetLeft - navigation.offsetLeft - (navigation.clientWidth - button.offsetWidth) / 2, behavior: 'smooth' })
+  const list = outfitList.value!
+  const card = list.children[index] as HTMLElement
+  list.scrollTo({ top: list.scrollTop + card.getBoundingClientRect().top - list.getBoundingClientRect().top, behavior: 'smooth' })
+}
+
+async function startRename(outfit: CharacterOutfit) {
+  activeOutfitId.value = outfit.id
+  editingOutfit.value = outfit
+  renameDraft.value = outfit.note
+  await nextTick()
+  renameInputs.value[0]?.input?.focus({ preventScroll: true })
+  renameInputs.value[0]?.select()
+}
+
+function finishRename() {
+  if (editingOutfit.value) editingOutfit.value.note = renameDraft.value.trim()
+  editingOutfit.value = null
+}
+
+async function addOutfit() {
+  finishRename()
+  const next = outfits.value.length > 1 ? [...outfits.value] : [{ ...singleOutfit, note: note.value.trim() || '原皮', units: singleUnits.value.map(unit => ({ ...unit })) }]
+  const added: CharacterOutfit = {
+    id: createId('outfit'), note: '', appearanceDescription: '', appearanceDescriptionEnabled: false,
+    units: [],
+  }
+  next.push(added)
+  outfits.value = next
+  await startRename(added)
+  goToOutfit(added.id)
+}
+
 function remove(id: string) {
+  const index = outfits.value.findIndex(outfit => outfit.id === id)
   const remaining = outfits.value.filter(outfit => outfit.id !== id)
   if (remaining.length === 1) {
+    singleOutfit.id = remaining[0].id
     description.value = remaining[0].appearanceDescription
     descriptionEnabled.value = remaining[0].appearanceDescriptionEnabled
     note.value = remaining[0].note
-    singleUnits.value = props.units.map(({ episodeId, unitNumber }) => ({ episodeId, unitNumber }))
+    singleUnits.value = [...remaining[0].units.filter(unit => !props.units.some(item => sameUnit(item, unit))), ...props.units.filter(unit => !unit.voiceOnly).map(({ episodeId, unitNumber }) => ({ episodeId, unitNumber }))]
   }
   outfits.value = remaining.length === 1 ? [] : remaining
+  if (activeOutfitId.value === id) activeOutfitId.value = remaining[Math.min(index, remaining.length - 1)].id
 }
-function selectSingleUnit(unit: Unit, checked: boolean) {
-  if (checked) singleUnits.value.push({ episodeId: unit.episodeId, unitNumber: unit.unitNumber })
-  else singleUnits.value = singleUnits.value.filter(item => !sameUnit(item, unit))
-}
-function selectUnit(outfit: CharacterOutfit, unit: { episodeId: string; unitNumber: number }, checked: boolean) {
-  if (checked) outfit.units.push({ episodeId: unit.episodeId, unitNumber: unit.unitNumber })
-  else outfit.units = outfit.units.filter(item => !sameUnit(item, unit))
+
+function assign(outfit: CharacterOutfit) {
+  for (const card of outfitCards.value) card.units = card.units.filter(unit => !selectedUnits.value.includes(unitKey(unit)))
+  outfit.units.push(...props.units.filter(unit => selectedUnits.value.includes(unitKey(unit))).map(({ episodeId, unitNumber }) => ({ episodeId, unitNumber })))
+  activeOutfitId.value = outfit.id
+  if (outfitCards.value.length > 1) goToOutfit(outfit.id)
 }
 </script>

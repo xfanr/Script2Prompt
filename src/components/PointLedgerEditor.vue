@@ -1,8 +1,5 @@
 <template>
   <div class="point-ledger-editor">
-    <div class="point-ledger-toolbar">
-      <el-button :icon="Plus" type="primary" text @click="addInvoice">添加发票</el-button>
-    </div>
     <el-empty v-if="!modelValue.length" description="暂无积分记录" :image-size="70" />
     <div v-for="invoice in modelValue" :key="invoice.id" class="point-invoice">
       <div class="point-invoice-heading">
@@ -17,7 +14,9 @@
           <el-tooltip content="完整导出" placement="top">
             <el-button :icon="Share" text type="primary" aria-label="完整导出" @click="exportInvoice(invoice, 'full')" />
           </el-tooltip>
-          <el-button :icon="Delete" text type="primary" aria-label="删除发票" @click="removeInvoice(invoice)" />
+          <el-popconfirm :title="`确认删除发票“${invoice.number}”及全部使用记录？关联单集的成本与日期将重新计算。`" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeInvoice(invoice)">
+            <template #reference><el-button :icon="Delete" text type="primary" aria-label="删除发票" /></template>
+          </el-popconfirm>
         </div>
       </div>
       <el-form v-if="!invoice.reimbursed" label-position="top" hide-required-asterisk>
@@ -75,7 +74,9 @@
         </el-table-column>
         <el-table-column label="删除" width="56" align="center" class-name="point-usage-actions">
           <template #default="{ row: usage }">
-            <el-button :icon="Delete" text type="primary" size="small" aria-label="删除使用记录" @click="removeUsage(invoice, usage as PointUsageRecord)" />
+            <el-popconfirm title="确认删除这条使用记录？关联单集的成本与日期将重新计算。" confirm-button-text="删除" cancel-button-text="取消" @confirm="removeUsage(invoice, usage as PointUsageRecord)">
+              <template #reference><el-button :icon="Delete" text type="primary" size="small" aria-label="删除使用记录" /></template>
+            </el-popconfirm>
           </template>
         </el-table-column>
       </el-table>
@@ -86,9 +87,9 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { ElMessageBox, type CascaderInstance } from 'element-plus'
+import type { CascaderInstance } from 'element-plus'
 import { Delete, DocumentCopy, Plus, Share, Tickets } from '../icons'
-import { canSelectPointEpisode, createPointInvoice, createPointUsage, formatPointInvoiceExport, invoicePointPrice, invoiceUsedPoints, resolvePointEpisode } from '../pointLedger'
+import { canSelectPointEpisode, createPointUsage, formatPointInvoiceExport, invoicePointPrice, invoiceUsedPoints, resolvePointEpisode } from '../pointLedger'
 import { copyText } from '../clipboard'
 import { notify } from '../notification'
 import type { Episode, EpisodeGroup, PointInvoice, PointUsageRecord } from '../types'
@@ -174,10 +175,6 @@ function handleSelectorEscape(event: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', handleSelectorEscape, true))
 onUnmounted(() => window.removeEventListener('keydown', handleSelectorEscape, true))
 
-function addInvoice() {
-  emit('update:modelValue', [createPointInvoice(props.modelValue), ...props.modelValue])
-}
-
 async function exportInvoice(invoice: PointInvoice, mode: 'full' | 'simple') {
   try {
     const text = formatPointInvoiceExport(invoice, props.episodes, props.groups, mode)
@@ -224,24 +221,11 @@ function selectEpisodes(usage: PointUsageRecord, value: unknown) {
   }).filter((reference) => reference && canSelectPointEpisode(usage, reference, props.episodes, props.groups))
 }
 
-async function confirmDelete(message: string) {
-  try {
-    await ElMessageBox.confirm(message, '删除积分记录', {
-      type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消',
-    })
-    return true
-  } catch { return false }
+function removeInvoice(invoice: PointInvoice) {
+  emit('update:modelValue', props.modelValue.filter((item) => item.id !== invoice.id))
 }
 
-async function removeInvoice(invoice: PointInvoice) {
-  if (await confirmDelete(`确认删除发票“${invoice.number}”及全部使用记录？关联单集的成本与日期将重新计算。`)) {
-    emit('update:modelValue', props.modelValue.filter((item) => item.id !== invoice.id))
-  }
-}
-
-async function removeUsage(invoice: PointInvoice, usage: PointUsageRecord) {
-  if (await confirmDelete('确认删除这条使用记录？关联单集的成本与日期将重新计算。')) {
-    invoice.usages = invoice.usages.filter((item) => item.id !== usage.id)
-  }
+function removeUsage(invoice: PointInvoice, usage: PointUsageRecord) {
+  invoice.usages = invoice.usages.filter((item) => item.id !== usage.id)
 }
 </script>

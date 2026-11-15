@@ -39,7 +39,7 @@ export function useAppState(initialState: AppState, repository: LocalRepository)
     return saving
   }
 
-  async function replaceState(next: AppState, syncUpdate: { identity: string; update: (target: SyncTarget) => void }) {
+  async function replaceState(next: AppState, syncUpdate?: { identity: string; update: (target: SyncTarget) => void }) {
     const before = signature()
     if (!await saveNow()) throw new Error(saveError.value)
     if (signature() !== before) throw new Error('保存期间本地数据已变化，请重新下载后确认')

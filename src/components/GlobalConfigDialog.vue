@@ -490,7 +490,7 @@ async function resetFromServer() {
     await ElMessageBox.confirm('将重新读取服务器初始配置并替换当前草稿；点击“保存”后生效。', '重置全局配置', {
       type: 'warning',
       confirmButtonText: '重置',
-      cancelButtonText: '取消',
+      showCancelButton: false,
     })
   } catch {
     return

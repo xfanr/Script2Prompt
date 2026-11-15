@@ -458,7 +458,7 @@ export async function runTests() {
     await rejects(() => parseWebDavListing('<bad/>', 'http://localhost/dav/scripts/'), 'bad XML accepted')
     await rejects(() => parseWebDavListing('<d:multistatus xmlns:d="DAV:"><d:response><d:href>http://other.example/x.json</d:href><d:status>HTTP/1.1 200 OK</d:status></d:response></d:multistatus>', 'http://localhost/dav/scripts/'), 'external URL accepted')
   })
-  await test('Legacy generated timing IDs are stable across migration retries', async () => {
+  await test('Legacy generated timing and unit IDs are stable across migration retries', async () => {
     const f = await fixture()
     f.state.episodes[0].shots[0].text = 'An action without saved timing metadata.'
     f.state.episodes[0].shots[0].timingSegments = []

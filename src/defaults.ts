@@ -221,6 +221,7 @@ export function createShot(unitNumber = 1): Shot {
 export function createEpisodeGroup(promptProfileId: string): EpisodeGroup {
   return {
     confirmedMaterialReferences: [],
+    preparation: null,
     characters: [],
     id: createId('group'),
     title: '新剧集',
@@ -242,6 +243,8 @@ export function formatEpisodeTitle(index: number) {
 
 export function createEpisode(index = 1, pointCost = 0): Episode {
   return {
+    units: [],
+    preparation: null,
     showPreviousEpisodeUnit: false,
     showNextEpisodeUnit: false,
     confirmedMaterialReferences: [],

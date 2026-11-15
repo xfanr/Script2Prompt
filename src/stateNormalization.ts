@@ -11,6 +11,7 @@ import { normalizeGroupResults } from './groupResults'
 import { normalizeSplitScriptText } from './episodeScript'
 import { clearInteriorEpisodeContacts } from './episodeContacts'
 import { clearInteriorSplitEpisodeNumbers, normalizeSplitEpisodeNumber } from './episodeSplits'
+import { normalizeEpisodeUnits, normalizePreparation } from './scriptPreparation'
 import type { AppState, EpisodeProductionData, GlobalConfig, PromptReview, SceneAsset, SceneConfig, ShotViewMode } from './types'
 
 const shotViewModes: ShotViewMode[] = ['expanded', 'single-expanded']
@@ -135,6 +136,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     parsed.pointInvoices = normalizePointInvoices(parsed.pointInvoices)
     parsed.episodeGroups ??= []
     parsed.episodeGroups.forEach((group) => {
+      group.preparation = normalizePreparation(group.preparation)
       group.confirmedMaterialReferences = normalizeMaterialConfirmations(group.confirmedMaterialReferences)
       group.characters = group.characters == null ? null : normalizeCharacterAssets(group.characters)
       group.starred ??= false
@@ -150,6 +152,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
     const groupIds = new Set(parsed.episodeGroups.map((group) => group.id))
 
     parsed.episodes.forEach((episode) => {
+      episode.preparation = normalizePreparation(episode.preparation)
       episode.showPreviousEpisodeUnit = episode.showPreviousEpisodeUnit === true
       episode.showNextEpisodeUnit = episode.showNextEpisodeUnit === true
       episode.confirmedMaterialReferences = normalizeMaterialConfirmations(episode.confirmedMaterialReferences)
@@ -186,6 +189,8 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
         shot.characters ??= []
         shot.characters.forEach((character) => {
           character.characterId = typeof character.characterId === 'string' ? character.characterId : null
+          character.outfitId = typeof character.outfitId === 'string' ? character.outfitId : null
+          character.voiceOnly = character.voiceOnly === true
           character.statusText ??= ''
         })
         const storedTimingSegments = JSON.stringify(shot.timingSegments)
@@ -197,11 +202,15 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
         )
         shot.review = normalizePromptReview(shot.review)
       })
-      const unitMap = compactShotUnitNumbers(episode.shots ?? [])
+      const unitMap = Array.isArray(episode.units) && episode.units.length
+        ? new Map([...episode.units.map(unit => [unit.unitNumber, unit.unitNumber] as const), ...(episode.shots ?? []).map(shot => [shot.unitNumber, shot.unitNumber] as const)])
+        : compactShotUnitNumbers(episode.shots ?? [])
       const assets = parsed.episodeGroups.find(group => group.id === episode.groupId)?.characters ?? episode.characters
       for (const asset of assets) mapCharacterUnitReferences(asset, units => units.filter(unit => unit.episodeId !== episode.id || unitMap.has(unit.unitNumber))
         .map(unit => unit.episodeId === episode.id ? { ...unit, unitNumber: unitMap.get(unit.unitNumber)! } : unit))
       episode.splitScriptText = normalizeSplitScriptText(episode.splitScriptText, episode.shots ?? [])
+      episode.units = normalizeEpisodeUnits(episode.units, episode, assets)
+      episode.shots.forEach(shot => { shot.unitId = episode.units.find(unit => unit.unitNumber === shot.unitNumber)?.id ?? null })
     })
 
     if (!parsed.episodes.length) {

@@ -1,7 +1,7 @@
 import type { AppState, CharacterAsset, CharacterUnit, Episode } from './types'
 
 export function episodeCharacterUnits(episode: Episode): CharacterUnit[] {
-  return [...new Set(episode.shots.map(shot => shot.unitNumber))].sort((a, b) => a - b)
+  return [...new Set([...(episode.units ?? []).map(unit => unit.unitNumber), ...episode.shots.map(shot => shot.unitNumber)])].sort((a, b) => a - b)
     .map(unitNumber => ({ episodeId: episode.id, unitNumber }))
 }
 
@@ -21,7 +21,7 @@ export function characterAvailableInUnit(asset: CharacterAsset, episodeId: strin
   return asset.isMain || Boolean(asset.availableUnits?.some(unit => unit.episodeId === episodeId && unit.unitNumber === unitNumber))
 }
 
-export function referencedCharacterNames(episode: Episode): Set<string> {
+export function referencedCharacterNames(episode: Pick<Episode, 'shots'>): Set<string> {
   const names = new Set<string>()
   for (const shot of episode.shots) {
     shot.characters.forEach(character => names.add(character.name.trim()))
@@ -54,7 +54,7 @@ export function mapCharacterUnitReferences(asset: CharacterAsset, map: (units: C
 }
 
 export function pruneCharacterScopes(state: AppState) {
-  const units = new Map(state.episodes.map(episode => [episode.id, { groupId: episode.groupId, numbers: new Set(episode.shots.map(shot => shot.unitNumber)) }]))
+  const units = new Map(state.episodes.map(episode => [episode.id, { groupId: episode.groupId, numbers: new Set(episodeCharacterUnits(episode).map(unit => unit.unitNumber)) }]))
   const owners = [...state.episodeGroups.map(group => ({ groupId: group.id, episodeId: null, assets: group.characters ?? [] })),
     ...state.episodes.map(episode => ({ groupId: episode.groupId, episodeId: episode.id, assets: episode.characters }))]
   for (const owner of owners) {

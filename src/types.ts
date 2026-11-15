@@ -115,6 +115,8 @@ export interface CharacterOutfit {
 }
 
 export interface CharacterConfig {
+  outfitId?: string | null
+  voiceOnly?: boolean
   characterId: string | null
   id: string
   name: string
@@ -201,6 +203,7 @@ export interface ActionTimingSegment {
 export type ShotTimingSegment = DialogueTimingSegment | ActionTimingSegment
 
 export interface Shot {
+  unitId?: string | null
   id: string
   text: string
   remark: string
@@ -232,6 +235,7 @@ export interface GroupResults {
 }
 
 export interface EpisodeGroup {
+  preparation: ScriptPreparation | null
   confirmedMaterialReferences: string[]
   characters: CharacterAsset[] | null
   id: string
@@ -247,6 +251,8 @@ export interface EpisodeGroup {
 }
 
 export interface Episode {
+  units: EpisodeUnit[]
+  preparation: ScriptPreparation | null
   showPreviousEpisodeUnit: boolean
   showNextEpisodeUnit: boolean
   confirmedMaterialReferences: string[]
@@ -264,6 +270,50 @@ export interface Episode {
   splitScriptText: string | null
   extractedDialogueText: string | null
   shots: Shot[]
+}
+
+export interface UnitCharacter {
+  characterId: string
+  voiceOnly: boolean
+  outfitId: string | null
+  sourceNames: string[]
+}
+
+export interface EpisodeUnit {
+  id: string
+  unitNumber: number
+  initialNumber: string
+  sourceHeading: string
+  scriptText: string
+  scenes: SceneAsset[]
+  defaultSceneKey: string | null
+  characters: UnitCharacter[]
+}
+
+export interface PreparedUnit extends EpisodeUnit {
+  shots: Shot[]
+  issues: string[]
+}
+
+export interface PreparedEpisode {
+  id: string
+  episodeId: string
+  number: number
+  scriptText: string
+  action: 'new' | 'update' | 'skip'
+  existing: boolean
+  units: PreparedUnit[]
+  issues: string[]
+}
+
+export interface ScriptPreparation {
+  sourceText: string
+  episodes: PreparedEpisode[]
+  characters: CharacterAsset[]
+  aliases: { name: string; targetId: string | null }[]
+  materialView: 'unit' | 'character' | 'shots'
+  selectedUnitId: string | null
+  selectedCharacterId: string | null
 }
 
 export interface AppState {

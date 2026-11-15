@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><title>剧本准备回归检查</title><pre id="results">Running…</pre>
+<script type="module">
+import { runScriptPreparationTests } from './script-preparation.ts'
+window.testResults = await runScriptPreparationTests()
+document.querySelector('#results').textContent = JSON.stringify(window.testResults, null, 2)
+</script></html>

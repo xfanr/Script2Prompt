@@ -1,6 +1,6 @@
 import { createCharacterAsset } from './defaults'
 import { initializeCharacterScopes } from './characterScopes'
-import type { AppState, CharacterAsset, Episode, Shot } from './types'
+import type { AppState, CharacterAsset, Episode, Shot, UnitCharacter } from './types'
 
 export function characterAssetsFor(state: AppState, episode: Episode): CharacterAsset[] {
   return state.episodeGroups.find(group => group.id === episode.groupId)?.characters ?? episode.characters
@@ -40,11 +40,14 @@ export function initializeSharedCharacters(state: AppState, episode: Episode) {
   initializeCharacterScopes(state, episode, assets)
 }
 
-export function characterAppearance(asset: CharacterAsset, episodeId: string, shot: Shot) {
-  const outfit = asset.outfits?.find(outfit => outfit.units.some(unit => unit.episodeId === episodeId && unit.unitNumber === shot.unitNumber))
+export function characterAppearance(asset: CharacterAsset, episodeId: string, shot: Shot, unitCharacters: UnitCharacter[] = []) {
+  const character = shot.characters.find(c => c.characterId === asset.id || c.name === asset.name)
+  const selection = character?.outfitId ?? unitCharacters.find(c => c.characterId === asset.id)?.outfitId
+  const outfit = selection ? asset.outfits.find(outfit => outfit.id === selection) ?? (selection === 'original' ? asset.outfits[0] : undefined)
+    : asset.outfits?.find(outfit => outfit.units.some(unit => unit.episodeId === episodeId && unit.unitNumber === shot.unitNumber))
   const appearance = asset.outfits.length > 1 ? outfit : asset
   return {
-    description: appearance?.appearanceDescriptionEnabled ? appearance.appearanceDescription : '',
+    description: !character?.voiceOnly && appearance?.appearanceDescriptionEnabled ? appearance.appearanceDescription : '',
     referenceName: asset.outfits.length < 2 ? (asset.note ? `${asset.name}（${asset.note}）` : asset.name) : outfit ? `${asset.name}（${outfit.note}）` : null,
   }
 }
@@ -52,7 +55,7 @@ export function characterAppearance(asset: CharacterAsset, episodeId: string, sh
 export function characterUnits(state: AppState, episode: Episode, asset: CharacterAsset) {
   const episodes = state.episodes.filter(item => episode.groupId ? item.groupId === episode.groupId : item.id === episode.id)
     .sort((a, b) => Number(a.title.match(/\d+/)?.[0] ?? 0) - Number(b.title.match(/\d+/)?.[0] ?? 0))
-  return episodes.flatMap(item => [...new Set(item.shots.filter(shot => shot.characters.some(character => character.characterId === asset.id || character.name === asset.name)).map(shot => shot.unitNumber))]
+  return episodes.flatMap(item => [...new Set([...item.units?.filter(unit => unit.characters.some(c => c.characterId === asset.id && !c.voiceOnly)).map(unit => unit.unitNumber) ?? [], ...item.shots.filter(shot => shot.characters.some(character => !character.voiceOnly && (character.characterId === asset.id || character.name === asset.name))).map(shot => shot.unitNumber)])]
     .sort((a, b) => a - b).map(unitNumber => ({ episodeId: item.id, unitNumber, label: `${Number(item.title.match(/\d+/)?.[0] ?? 0)}-${unitNumber}` })))
 }
 

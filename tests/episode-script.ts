@@ -1,7 +1,7 @@
 import { normalizeGlobalConfig } from '../src/config'
 import { createEpisode, createInitialState, createShot } from '../src/defaults'
 import { assembleDataFiles, buildDataFiles, parseDataFile } from '../src/dataFiles'
-import { normalizeSplitScriptText } from '../src/episodeScript'
+import { normalizeSplitScriptText, organizeScriptText, splitBatchShotText } from '../src/episodeScript'
 import { normalizeAppState } from '../src/stateNormalization'
 import { LocalRepository } from '../src/storage'
 import { downloadDataFiles, uploadDataFiles } from '../src/webdavSync'
@@ -20,6 +20,17 @@ export async function runEpisodeScriptTests() {
     try { await action(); results.push({ name, passed: true }) }
     catch (error) { results.push({ name, passed: false, error: String(error) }) }
   }
+  await test('Script formatting preserves shot remarks and normalizes screenplay text for both editors', () => {
+    const text = '　△ 林晚: 你好...... \r\n\r\n▲转身\t\r\n--- #△ 保留...#\r\n　宋绪:　嗯...'
+    assert(organizeScriptText(text) === '林晚： 你好…\n转身\n--- #△ 保留...#\n宋绪：嗯…', 'formatting or protected remark changed')
+    assert(organizeScriptText('第一段 === 第二段---第三段') === '第一段\n===\n第二段\n---\n第三段', 'unit and shot separators changed')
+  })
+  await test('Shared quick splitter retains remarks and ignores empty separators', () => {
+    const segments = splitBatchShotText('第一镜\r\n--- #近景#\r\n第二镜\n---\n---\n===\n第三镜')
+    assert(segments.length === 3 && segments[1].text === '第二镜' && segments[1].remark === '近景', 'shot delimiters or remarks changed')
+    assert(segments.map(shot => shot.unitNumber).join() === '1,1,2', 'legacy unit delimiters changed')
+    assert(splitBatchShotText(' \n---\n').length === 0, 'empty separators created shots')
+  })
   await test('New episodes have an original script and an uninitialized split script', () => {
     const episode = createEpisode()
     assert(episode.scriptText === '' && episode.splitScriptText === null, 'unexpected defaults')

@@ -52,8 +52,9 @@ export async function runSharedCharacterTests() {
     assert(assets[1].note === '' && assets[1].outfits[1].note === '礼服', 'multiple-outfit notes changed')
     assert(assets[2].note === '日常服装', 'partial text was replaced')
   })
-  test('single appearance is opt-in without clearing text or changing references', () => {
-    assert(!asset.appearanceDescriptionEnabled, 'description enabled by default')
+  test('new appearance defaults off while disabling preserves text and references', () => {
+    assert(!asset.appearanceDescriptionEnabled, 'new description output enabled by default')
+    asset.appearanceDescriptionEnabled = false
     for (const mode of ['basic', 'detailed'] as const) {
       const output = composePrompt(config, first.shots[0], undefined, 8, [asset], '11-1', mode, '11-1', first.id)
       assert(!output.includes('当前描述'), 'disabled description rendered')

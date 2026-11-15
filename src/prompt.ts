@@ -10,6 +10,7 @@ import type {
   ReferenceMode,
   SceneAsset,
   Shot,
+  UnitCharacter,
 } from './types'
 
 function firstFrameShotPrompt(content: string, estimatedSeconds = 30) {
@@ -149,7 +150,10 @@ export function composeShotDetail(
     const name = content.trim()
     if (!name) return match
     const reference = prepareManualReferenceName(name, shot.text.slice(0, offset))
-    return `${name}[${reference}]`
+    const stem = name.replace(/\.[a-z\d]+$/i, '').replace(/\.+$/u, '')
+    const separator = stem.lastIndexOf('的')
+    const shortName = separator > 0 && stem.slice(0, separator).trim() ? stem.slice(separator + 1).trim() : ''
+    return `${shortName || name}[${reference}]`
   })
   const text = formatShotDetailText(expandedText, referenceMode === 'basic'
     ? []
@@ -173,6 +177,7 @@ export function composePrompt(
   referenceMode: ReferenceMode = globalConfig.prompt.referenceMode,
   appearanceReferencePrefix = '',
   episodeId = '',
+  unitCharacters: UnitCharacter[] = [],
 ) {
   const profile = activePromptProfile(globalConfig, promptProfileId)
   const characterCount = shot.characters.filter((character) => character.name.trim()).length
@@ -183,7 +188,7 @@ export function composePrompt(
     ])],
     ['二、场景与角色设定', joinPromptBlocks([
       profile.sceneRolePrefix,
-      composeSceneRoleSection(shot, characterAssets, referenceName, referenceMode, appearanceReferencePrefix, episodeId),
+      composeSceneRoleSection(shot, characterAssets, referenceName, referenceMode, appearanceReferencePrefix, episodeId, unitCharacters),
       profile.sceneRoleSuffix,
     ])],
   ]
@@ -194,10 +199,10 @@ export function composePrompt(
   ].join('\n\n')
 }
 
-function composeSceneRoleSection(shot: Shot, characterAssets: CharacterAsset[], referenceName: string | undefined, referenceMode: ReferenceMode, appearanceReferencePrefix: string, episodeId: string) {
+function composeSceneRoleSection(shot: Shot, characterAssets: CharacterAsset[], referenceName: string | undefined, referenceMode: ReferenceMode, appearanceReferencePrefix: string, episodeId: string, unitCharacters: UnitCharacter[]) {
   return joinPromptBlocks([
     composeSceneSettings(shot, referenceMode === 'basic' ? undefined : referenceName, referenceMode),
-    composeCharacterSettings(shot, characterAssets, referenceMode !== 'basic', referenceMode === 'detailed' ? appearanceReferencePrefix : '', episodeId),
+    composeCharacterSettings(shot, characterAssets, referenceMode !== 'basic', referenceMode === 'detailed' ? appearanceReferencePrefix : '', episodeId, unitCharacters),
   ])
 }
 
@@ -234,7 +239,7 @@ export function composeSceneSettings(shot: Shot, referenceName?: string, referen
   return lines.join('\n')
 }
 
-export function composeCharacterSettings(shot: Shot, characterAssets: CharacterAsset[] = [], resolveReferences = false, _appearanceReferencePrefix = '', episodeId = '') {
+export function composeCharacterSettings(shot: Shot, characterAssets: CharacterAsset[] = [], resolveReferences = false, _appearanceReferencePrefix = '', episodeId = '', unitCharacters: UnitCharacter[] = []) {
   const lines: string[] = []
 
   shot.characters
@@ -242,8 +247,8 @@ export function composeCharacterSettings(shot: Shot, characterAssets: CharacterA
     .forEach((character) => {
       const name = character.name.trim()
       const asset = characterAssets.find((asset) => asset.id === character.characterId) ?? characterAssets.find((asset) => asset.name === character.name.trim())
-      const appearance = asset ? characterAppearance(asset, episodeId, shot) : null
-      const parts = [asset?.isEnsemble ? name : `${name}的妆造是${resolveReferences ? ` [${appearance?.referenceName ?? name}] ` : '@'}`]
+      const appearance = asset ? characterAppearance(asset, episodeId, shot, unitCharacters) : null
+      const parts = character.voiceOnly ? [] : [asset?.isEnsemble ? name : `${name}的妆造是${resolveReferences ? ` [${appearance?.referenceName ?? name}] ` : '@'}`]
       const appearanceDescription = appearance?.description.trim()
 
       if (appearanceDescription) {
@@ -251,7 +256,7 @@ export function composeCharacterSettings(shot: Shot, characterAssets: CharacterA
       }
 
       if (character.includeVoice && !asset?.isEnsemble) {
-        parts.push(`音色是${resolveReferences ? ` [${name}.] ` : '@'}`)
+        parts.push(`${character.voiceOnly ? `${name}的` : ''}音色是${resolveReferences ? ` [${name}.] ` : '@'}`)
         if (asset?.voiceDescriptionEnabled && asset.voiceDescription.trim()) {
           parts.push(asset.voiceDescription.trim())
         }
@@ -261,7 +266,7 @@ export function composeCharacterSettings(shot: Shot, characterAssets: CharacterA
         parts.push(character.statusText.trim())
       }
 
-      lines.push(`${parts.join('，')}。`)
+      if (parts.length) lines.push(`${parts.join('，')}。`)
     })
 
   return lines.join('\n')

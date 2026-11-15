@@ -1,8 +1,8 @@
 import { defineComponent, h, type Component } from 'vue'
 import {
-  AddFour, Attention, Back, BeachUmbrella, CardTwo, CarouselVideo, CategoryManagement, CheckOne, CheckSmall, CircleRightUp,
+  AddFour, Attention, Back, BeachUmbrella, CardTwo, CategoryManagement, CheckOne, CheckSmall, CircleRightUp,
   CloseSmall, Copy, Crown, DataArrival, Delete as ParkDelete, Down, DownloadTwo,
-  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, FolderMinus, FolderSuccess, GoStart as ParkGoStart, GoEnd as ParkGoEnd, FilePdf as ParkFilePdf, Lightning, Local, Message, Moon as ParkMoon, More, MoreOne,
+  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, FolderMinus, FolderSuccess, FormatBrush, GoStart as ParkGoStart, GoEnd as ParkGoEnd, FilePdf as ParkFilePdf, Lightning, Local, Message, Moon as ParkMoon, More, MoreOne, MovieBoard,
   FolderConversion as ParkFolderConversion, Peoples, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, RightUser, Search as ParkSearch, SeoFolder, SettingTwo,
   Slide, SlideTwo, SortTwo, SplitTurnDownRight as ParkSplitTurnDownRight, Star as ParkStar, SubtractSelection, SubtractSelectionOne, SunOne, Switch as ParkSwitch, Sync,
   UploadTwo, User as ParkUser, VipOne, Voice, VoiceOff, Wallet, WritingFluently,
@@ -10,10 +10,15 @@ import {
 import '@icon-park/vue-next/styles/index.css'
 
 // Keep existing call sites and Element Plus icon sizing while applying the chosen themes.
-function icon(component: Component, theme: 'outline' | 'filled' = 'outline') {
+function icon(component: Component, theme: 'outline' | 'filled' | 'multi-color' = 'outline') {
   return defineComponent({
     name: 'AppIcon',
-    setup: () => () => h(component, { theme, size: '1em', fill: 'currentColor', strokeWidth: 4 }),
+    setup: () => () => h(component, {
+      theme, size: '1em', strokeWidth: 4,
+      fill: theme === 'multi-color'
+        ? ['var(--el-text-color-primary)', 'var(--el-color-primary)', 'var(--el-bg-color)', 'var(--el-color-primary-light-5)']
+        : 'currentColor',
+    }),
   })
 }
 
@@ -24,6 +29,7 @@ export const HomeBackIcon = icon(Back, 'filled')
 export const PointBalanceIcon = icon(Lightning, 'filled')
 export const CategoryManagementIcon = icon(CategoryManagement)
 export const SceneStatus = icon(WritingFluently)
+export const OrganizeScriptIcon = icon(FormatBrush)
 export const Check = icon(CheckSmall)
 export const CircleCheck = icon(CheckOne)
 export const CircleCheckFilled = icon(CheckOne, 'filled')
@@ -38,16 +44,16 @@ export const DataLine = icon(Slide)
 export const Delete = icon(ParkDelete)
 export const Document = icon(SlideTwo)
 export const DocumentCopy = icon(RightSmallUp)
-export const DialogueTabIcon = icon(Message)
+export const DialogueTabIcon = icon(Message, 'multi-color')
 export const Download = icon(DownloadTwo)
 export const EditPen = icon(Edit)
 export const Expand = icon(ExpandDown)
-export const ProjectFolder = icon(SeoFolder)
+export const ProjectFolder = icon(SeoFolder, 'multi-color')
 export const FolderConversion = icon(ParkFolderConversion)
-export const ProjectFolderFilled = icon(SeoFolder, 'filled')
+export const ProjectFolderFilled = ProjectFolder
 export const ArchiveFolder = icon(FolderSuccess)
-export const HistoryFolder = icon(FolderMinus)
-export const HistoryFolderFilled = icon(FolderMinus, 'filled')
+export const HistoryFolder = icon(FolderMinus, 'multi-color')
+export const HistoryFolderFilled = HistoryFolder
 export const FileMusic = icon(ParkFileMusic)
 export const FileMusicFilled = icon(ParkFileMusic, 'filled')
 export const FileRemovalFilled = icon(FileRemoval, 'filled')
@@ -63,13 +69,13 @@ export const MainCharacter = icon(RightUser)
 export const MainCharacterFilled = icon(RightUser, 'filled')
 export const Location = icon(Local)
 export const PositionReference = icon(Local)
-export const MaterialTabIcon = icon(CarouselVideo)
+export const ScriptAnalysisIcon = icon(MovieBoard, 'multi-color')
 export const Microphone = icon(Voice)
 export const Moon = icon(ParkMoon)
 export const MoreFilled = icon(More, 'filled')
 export const MoreOneIcon = icon(MoreOne)
 export const Mute = icon(VoiceOff)
-export const Notebook = icon(Slide)
+export const Notebook = icon(Slide, 'multi-color')
 export const Plus = icon(AddFour)
 export const Position = icon(BeachUmbrella)
 export const Refresh = icon(Sync)

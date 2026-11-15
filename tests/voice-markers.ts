@@ -145,5 +145,74 @@ export async function runVoiceMarkerTests() {
     shot.firstFrameMode = false
     assert(composeShotDetail(config, shot, profile.id, 8, [], '20-6') === '正文@', 'disabled first-frame mode did not remove comments or changed raw at signs')
   })
+  test('Possessive manual references shorten only the visible name in both reference modes', () => {
+    const local = structuredClone(config)
+    const profile = local.prompt.profiles[0]
+    profile.shotPrefix = ''
+    const shot = createShot()
+    const examples = [
+      ['[aa的bb]', 'bb [aa的bb.png] '],
+      ['[林晚的红色的包]', '包 [林晚的红色的包.png] '],
+      ['[林晚的手表.png]', '手表 [林晚的手表.png] '],
+      ['[林晚的声音.mp3]', '声音 [林晚的声音.mp3] '],
+      ['[林晚的声音.]', '声音 [林晚的声音.mp3] '],
+      ['音色参考[林晚的声音]', '音色参考声音 [林晚的声音.mp3] '],
+      ['音色是 [林晚的声音.MP3]', '音色是 声音 [林晚的声音.MP3] '],
+      ['AA[林晚的手表]，DD。', 'AA手表 [林晚的手表.png] ，DD。'],
+      ['[ aa 的 bb ]', 'bb [aa 的 bb.png] '],
+    ]
+    for (const mode of ['basic', 'detailed'] as const) {
+      for (const [text, expected] of examples) {
+        shot.text = text
+        const detail = composeShotDetail(local, shot, profile.id, 8, [], undefined, mode)
+        assert(detail === expected, `${mode} ${text}: ${JSON.stringify(detail)}`)
+        assert(composePrompt(local, shot, profile.id, 8, [], undefined, mode).endsWith(`三、分镜详情\n${detail}`), 'full and detail outputs differ')
+        assert(shot.text === text, 'source text changed')
+        assert(composeShotDetail(local, shot, profile.id, 8, [], undefined, mode) === detail, 'repeated rendering changed output')
+      }
+    }
+  })
+  test('Other names and multiple references keep existing expansion and spacing rules', () => {
+    const local = structuredClone(config)
+    const profile = local.prompt.profiles[0]
+    profile.shotPrefix = ''
+    const shot = createShot()
+    shot.text = '[手表][林晚的包]\n[的包]，[林晚的]，[林晚的.png]，[ ]'
+    assert(composeShotDetail(local, shot, profile.id) === '手表 [手表.png] 包 [林晚的包.png] \n的包 [的包.png] ，林晚的 [林晚的.png] ，林晚的.png [林晚的.png] ， [ ] ', 'ordinary or incomplete possessive names changed')
+  })
+  test('First-frame manual references shorten while comments remain excluded', () => {
+    const local = structuredClone(config)
+    const profile = local.prompt.profiles[0]
+    profile.shotPrefix = ''
+    const shot = createShot()
+    shot.text = '【【[林晚的首帧图]】】\n[林晚的包]【【[林晚的注释]】】'
+    shot.firstFrameMode = true
+    const detail = composeShotDetail(local, shot, profile.id, 8)
+    assert(detail.includes('首帧图 [林晚的首帧图.png] ') && detail.endsWith('包 [林晚的包.png] '), 'first-frame references not shortened')
+    assert(!detail.includes('注释'), 'comment leaked into output')
+    shot.firstFrameMode = false
+    assert(composeShotDetail(local, shot, profile.id) === '包 [林晚的包.png] ', 'inactive first-frame block not excluded')
+  })
+  test('Automatic references and manual references outside shot text remain unchanged', () => {
+    const local = structuredClone(config)
+    const profile = local.prompt.profiles[0]
+    profile.basePrefix = '全局 [剧组的背景]'
+    profile.shotPrefix = '前缀 [剧组的前缀]'
+    const shot = createShot()
+    shot.characters = [{ ...createCharacterConfig('林晚的妈妈', true), statusText: '[林晚的状态]' }]
+    shot.scenes[0].name = '医院'
+    shot.scenes[0].statusText = '[林晚的场景]'
+    shot.text = '[林晚的包]'
+    const asset = createCharacterAsset('林晚的妈妈', '[林晚的手表]', '[林晚的声音]')
+    asset.appearanceDescriptionEnabled = true
+    asset.voiceDescriptionEnabled = true
+    const full = composePrompt(local, shot, profile.id, 8, [asset], '1-1-1', 'detailed')
+    assert(full.includes('全局 [剧组的背景.png] ') && full.includes('前缀 [剧组的前缀.png] '), 'global profile references changed')
+    assert(full.includes('林晚的妈妈的妆造是 [林晚的妈妈.png] '), 'automatic appearance reference changed')
+    for (const name of ['手表', '声音', '状态', '场景']) {
+      assert(full.includes(` [林晚的${name}.png] `) && !full.includes(`${name} [林晚的${name}.png] `), `reference outside shot text changed: ${name}`)
+    }
+    assert(full.endsWith('包 [林晚的包.png] '), 'shot text reference not simplified')
+  })
   return { passed: results.filter((result) => result.passed).length, total: results.length, results }
 }

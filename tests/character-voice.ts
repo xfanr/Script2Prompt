@@ -37,6 +37,7 @@ export async function runCharacterVoiceTests() {
     const episode = state.episodes[0]
     episode.characters = [createCharacterAsset('村民们', '男女老少，穿着各异', '不应输出的音色')]
     episode.shots[0].characters = [createCharacterConfig('村民们', true)]
+    episode.characters[0].appearanceDescriptionEnabled = false
     assert(composeCharacterSettings(episode.shots[0], episode.characters) === '村民们。', 'disabled ensemble description rendered')
     episode.characters[0].appearanceDescriptionEnabled = true
     assert(composeCharacterSettings(episode.shots[0], episode.characters) === '村民们，男女老少，穿着各异。', 'ensemble output incorrect')
@@ -123,9 +124,9 @@ export async function runCharacterVoiceTests() {
     episode.characters[0].voiceDescription = '   '
     assert(composeCharacterSettings(episode.shots[0], episode.characters) === '程鹏的妆造是@，音色是@。', 'empty description changed legacy prompt')
   })
-  await test('Voice descriptions are opt-in without disabling voice references or clearing text', () => {
+  await test('New voice descriptions default off; disabling preserves voice references and text', () => {
     const state = fixture(), episode = state.episodes[0], asset = episode.characters[0]
-    assert(!createCharacterAsset('程鹏', '', '已有文字').voiceDescriptionEnabled, 'new descriptions enabled by default')
+    assert(!createCharacterAsset('程鹏', '', '已有文字').voiceDescriptionEnabled, 'new description output enabled by default')
     asset.voiceDescriptionEnabled = false
     assert(composeCharacterSettings(episode.shots[0], episode.characters) === '程鹏的妆造是@，音色是@。', 'disabled description rendered or voice reference removed')
     const output = composePrompt(config, episode.shots[0], undefined, undefined, episode.characters)

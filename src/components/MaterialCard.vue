@@ -3,7 +3,7 @@
     <div class="material-card-summary">
       <div class="material-card-meta">
         <span class="material-card-type" :aria-label="kind === 'scene' ? '场景' : kind === 'character' ? '角色' : '引用'">{{ kind === 'scene' ? '📍' : kind === 'character' ? '🙂' : '🍎' }}</span>
-        <span v-if="description" class="material-card-description">{{ description }}</span>
+        <slot name="description"><span v-if="description" class="material-card-description">{{ description }}</span></slot>
       </div>
       <div class="material-card-name-area">
         <span class="material-card-name" :title="name">{{ name }}</span>

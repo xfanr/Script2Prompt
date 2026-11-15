@@ -4,6 +4,7 @@
       <PointLedgerEditor v-if="modelValue" v-model="draft" :episodes="episodes" :groups="episodeGroups" />
     </div>
     <template #footer>
+      <el-button @click="draft.unshift(createPointInvoice(draft))">添加发票</el-button>
       <el-button type="primary" @click="save">保存</el-button>
     </template>
   </el-dialog>
@@ -13,7 +14,7 @@
 import { ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import PointLedgerEditor from './PointLedgerEditor.vue'
-import { normalizePointInvoices } from '../pointLedger'
+import { createPointInvoice, normalizePointInvoices } from '../pointLedger'
 import { notify } from '../notification'
 import type { Episode, EpisodeGroup, PointInvoice } from '../types'
 
