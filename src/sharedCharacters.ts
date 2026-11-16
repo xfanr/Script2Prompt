@@ -47,6 +47,7 @@ export function characterAppearance(asset: CharacterAsset, episodeId: string, sh
     : asset.outfits?.find(outfit => outfit.units.some(unit => unit.episodeId === episodeId && unit.unitNumber === shot.unitNumber))
   const appearance = asset.outfits.length > 1 ? outfit : asset
   return {
+    outfitName: appearance ? appearance.note || '原皮' : '',
     description: !character?.voiceOnly && appearance?.appearanceDescriptionEnabled ? appearance.appearanceDescription : '',
     referenceName: asset.outfits.length < 2 ? (asset.note ? `${asset.name}（${asset.note}）` : asset.name) : outfit ? `${asset.name}（${outfit.note}）` : null,
   }

@@ -79,13 +79,13 @@
             </nav>
           </div>
           <nav v-if="workspaceView === 'library'" class="project-section-menu" aria-label="项目分类">
-            <el-button v-for="section in projectSections" :key="section.id" text :icon="projectSection === section.id ? section.filledIcon : section.icon" :aria-pressed="projectSection === section.id" @click="selectProjectSection(section.id)">{{ section.title }}</el-button>
+            <el-button v-for="section in projectSections" :key="section.id" size="large" text :icon="projectSection === section.id ? section.filledIcon : section.icon" :aria-pressed="projectSection === section.id" @click="selectProjectSection(section.id)">{{ section.title }}</el-button>
           </nav>
           <nav v-else-if="workspaceView === 'editor' && activeEpisode" class="stage-header" aria-label="工作区菜单">
-            <el-button :icon="Notebook" text @click="openGroupSummary(activeEpisode.groupId ?? 'ungrouped')">数据</el-button>
-            <el-button :icon="ScriptAnalysisIcon" text @click="openPreparation">剧本</el-button>
+            <el-button :icon="Notebook" size="large" text @click="openGroupSummary(activeEpisode.groupId ?? 'ungrouped')">数据</el-button>
+            <el-button :icon="ScriptAnalysisIcon" size="large" text @click="openPreparation">剧本</el-button>
             <el-dropdown class="dialogue-episode-dropdown" trigger="hover" @command="openDialogueDialog">
-              <el-button :icon="DialogueTabIcon" text @click="openDialogueDialog(activeEpisode)">台词</el-button>
+              <el-button :icon="DialogueTabIcon" size="large" text @click="openDialogueDialog(activeEpisode)">台词</el-button>
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item v-for="episode in activeGroupEpisodes" :key="episode.id" :command="episode">{{ episode.title }}</el-dropdown-item>
@@ -293,7 +293,7 @@
                     :icon="isShotReviewed(shot) ? StarFilled : Star"
                     circle
                     type="warning"
-                    :plain="!isShotReviewed(shot)"
+                    plain
                     size="small"
                     :title="isShotReviewed(shot) ? '编辑评分' : '填写评分'"
                     :aria-label="isShotReviewed(shot) ? '编辑评分' : '填写评分'"
@@ -473,7 +473,7 @@
                             <button class="scene-reference-copy" type="button" title="复制场景引用" aria-label="复制场景引用" :disabled="!scene.name" @click.stop="copySceneReference(shot, scene)"><el-icon><CopyDocument /></el-icon></button>
                           </template>
                         </el-input>
-                        <el-button :icon="PositionReference" :type="shot.usePositionReference ? 'primary' : undefined" :aria-pressed="shot.usePositionReference" aria-label="多角色位置参考" :title="shot.usePositionReference ? '关闭多角色位置参考' : '开启多角色位置参考'" @click="shot.usePositionReference = !shot.usePositionReference" />
+                        <el-button :icon="PositionReference" :type="shot.usePositionReference ? 'primary' : undefined" :plain="shot.usePositionReference" :aria-pressed="shot.usePositionReference" aria-label="多角色位置参考" :title="shot.usePositionReference ? '关闭多角色位置参考' : '开启多角色位置参考'" @click="shot.usePositionReference = !shot.usePositionReference" />
                       </div>
                       <div class="scene-detail-controls">
                         <el-select :model-value="scene.name ? sceneAssetKey(scene) : ''" placeholder="选择场景" aria-label="选择场景" @change="syncSceneFromAsset(scene, $event, episode)">
@@ -518,34 +518,40 @@
                         aria-label="拖拽排序"
                       />
                       <div class="character-identity-controls">
-                        <el-input :model-value="character.name" class="character-name-input" readonly aria-label="角色名称">
-                          <template #prefix>
-                            <el-tooltip
-                              :content="characterAppearanceInfo(character.name, shot).description"
-                              :disabled="!characterAppearanceInfo(character.name, shot).description"
-                              placement="top"
-                              popper-class="character-appearance-tooltip"
-                            >
-                              <el-icon
-                                class="character-appearance-icon"
-                                :class="{ 'has-description': Boolean(characterAppearanceInfo(character.name, shot).description) }"
-                                :aria-label="characterAppearanceInfo(character.name, shot).description ? '查看形象描述' : '暂无形象描述'"
-                              >
-                                <component :is="characterAppearanceInfo(character.name, shot).icon" />
-                              </el-icon>
-                            </el-tooltip>
-                          </template>
-                          <template #append>
+                        <div class="character-name-input el-input el-input--prefix el-input-group el-input-group--append" role="group" aria-label="角色名称">
+                          <div class="el-input__wrapper">
+                            <span class="el-input__prefix">
+                              <span class="el-input__prefix-inner">
+                                <el-tooltip
+                                  :content="characterAppearanceInfo(character, shot).description"
+                                  :disabled="!characterAppearanceInfo(character, shot).description"
+                                  placement="top"
+                                  popper-class="character-appearance-tooltip"
+                                >
+                                  <el-icon
+                                    class="character-appearance-icon"
+                                    :class="{ 'has-description': Boolean(characterAppearanceInfo(character, shot).description) }"
+                                    :aria-label="characterAppearanceInfo(character, shot).description ? '查看形象描述' : '暂无形象描述'"
+                                  >
+                                    <component :is="characterAppearanceInfo(character, shot).icon" />
+                                  </el-icon>
+                                </el-tooltip>
+                              </span>
+                            </span>
+                            <span class="character-name-text">{{ character.name }}<span v-if="characterAppearanceInfo(character, shot).outfitName" class="character-outfit-name">{{ ' ' + characterAppearanceInfo(character, shot).outfitName }}</span></span>
+                          </div>
+                          <div class="el-input-group__append">
                             <el-button
                               :disabled="isEnsembleCharacter(character.name, episode)"
                               :type="isEnsembleCharacter(character.name, episode) ? undefined : !shot.thirtySecondMode && isVoiceOverflow(shot) && character.includeVoice ? 'danger' : character.includeVoice ? 'primary' : undefined"
+                              :plain="character.includeVoice"
                               :icon="!isEnsembleCharacter(character.name, episode) && character.includeVoice ? Microphone : Mute"
                               :title="isEnsembleCharacter(character.name, episode) ? '角色群像不使用音色' : characterVoiceDescription(character.name, episode) || (character.includeVoice ? '关闭音色' : '开启音色')"
                               :aria-label="isEnsembleCharacter(character.name, episode) ? '角色群像不使用音色' : character.includeVoice ? '关闭音色' : '开启音色'"
                               @click="character.includeVoice = !character.includeVoice"
                             />
-                          </template>
-                        </el-input>
+                          </div>
+                        </div>
                       </div>
                       <el-input
                         v-model="character.statusText"
@@ -846,7 +852,7 @@
                 <template #prefix><span class="group-summary-select-prefix">绩效</span></template>
                 <el-option v-for="tier in groupResultTiers" :key="tier.playCount" :label="tier.label" :value="tier.playCount" />
               </el-select>
-              <el-button :type="activeGroupSummary.results.received ? 'primary' : 'default'" :icon="Coin" aria-label="到账" :title="activeGroupSummary.results.received ? '取消到账' : '到账'" :aria-pressed="activeGroupSummary.results.received" @click="activeGroupSummary.results.received = !activeGroupSummary.results.received" />
+              <el-button :type="activeGroupSummary.results.received ? 'primary' : 'default'" :plain="activeGroupSummary.results.received" :icon="Coin" aria-label="到账" :title="activeGroupSummary.results.received ? '取消到账' : '到账'" :aria-pressed="activeGroupSummary.results.received" @click="activeGroupSummary.results.received = !activeGroupSummary.results.received" />
             </div>
             <el-input v-model="activeGroupSummary.title" class="group-short-name" size="default" aria-label="简称">
               <template #prepend>简称</template>
@@ -4152,14 +4158,16 @@ async function cloneShotCharacters(target: Shot, sourceId: string) {
   notify.success('已克隆角色配置')
 }
 
-function characterAppearanceInfo(name: string, shot: Shot) {
+function characterAppearanceInfo(character: CharacterConfig, shot: Shot) {
   const episode = episodeForShot(shot)
-  const asset = assetsFor(state, episode).find(character => character.name === name)
-  const description = asset ? characterAppearance(asset, episode.id, shot, unitCharactersFor(episode, shot)).description : ''
+  const asset = assetsFor(state, episode).find(asset => asset.name === character.name)
+  const appearance = asset ? characterAppearance(asset, episode.id, shot, unitCharactersFor(episode, shot)) : null
+  const description = appearance?.description ?? ''
+  const outfitName = asset?.isEnsemble || character.voiceOnly ? '' : appearance?.outfitName
   const icon = asset?.isMain ? description ? MainCharacterFilled : MainCharacter
     : asset?.isEnsemble ? description ? GrapeFilled : Grape
     : description ? UserFilled : User
-  return { description, icon }
+  return { description, icon, outfitName }
 }
 
 function characterVoiceDescription(name: string, episode = activeEpisode.value!) {

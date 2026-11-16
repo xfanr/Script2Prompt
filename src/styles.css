@@ -1159,7 +1159,7 @@ html.dark .episode-panel {
   height: 32px;
   padding: 0 10px;
   border-radius: 999px;
-  background: var(--el-fill-color-light);
+  background: var(--el-fill-color);
   box-shadow: 0 0 0 1px var(--el-border-color-lighter) inset;
   font-size: var(--el-font-size-small);
 }
@@ -1226,6 +1226,10 @@ html.dark .episode-panel {
 
 .material-library-folder:hover {
   background: var(--el-fill-color-light);
+}
+
+.workspace-body .material-library-folder:hover {
+  background: var(--el-fill-color);
 }
 
 .material-library-folder > span:last-child {
@@ -2081,7 +2085,7 @@ html.dark .episode-panel {
   flex: 1 1 auto;
   border: 1px solid var(--el-border-color);
   border-radius: 4px;
-  background: var(--el-fill-color);
+  background: var(--el-fill-color-extra-light);
   overflow: hidden;
 }
 
@@ -2191,10 +2195,7 @@ html.dark .episode-panel {
   font: inherit;
 }
 
-.script-highlight-layer .voice-marker {
-  background: var(--el-color-primary);
-}
-
+.script-highlight-layer .voice-marker,
 .script-highlight-layer .phone-voice-marker,
 .script-highlight-layer .manual-reference {
   background: var(--el-color-warning-light-7);
@@ -2217,7 +2218,7 @@ html.dark .episode-panel {
 }
 
 .script-highlight-layer .timing-segment.is-dialogue {
-  background: var(--el-color-primary-light-8);
+  background: var(--el-color-primary-light-9);
 }
 
 .script-highlight-layer .timing-segment.is-highlighted.is-dialogue {
@@ -2233,7 +2234,7 @@ html.dark .episode-panel {
 }
 
 .script-highlight-layer .matched-character.with-voice {
-  background: var(--el-color-primary-light-3);
+  background: var(--el-color-primary-light-5);
 }
 
 .timing-popover-anchor {
@@ -2436,7 +2437,7 @@ html.dark .episode-panel {
 .scene-line {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(100px, 0.6fr) minmax(0, 1fr);
+  grid-template-columns: minmax(calc(8em + 0.5em + 43px + var(--el-component-size)), 0.75fr) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
@@ -2540,7 +2541,7 @@ html.dark .episode-panel {
 .character-line {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(100px, 0.6fr) minmax(0, 1fr);
+  grid-template-columns: minmax(calc(8em + 0.5em + 43px + var(--el-component-size)), 0.75fr) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
 }
@@ -2623,10 +2624,25 @@ html.dark .episode-panel {
 
 .character-name-input {
   width: 100%;
+  height: var(--el-component-size);
 }
 
-.character-name-input .el-input__inner {
+.character-name-input .el-input__wrapper {
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+.character-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   cursor: default;
+}
+
+.character-outfit-name {
+  color: var(--el-text-color-secondary);
+  font-size: var(--el-font-size-small);
 }
 
 .character-name-input .el-input-group__append {
@@ -2640,22 +2656,23 @@ html.dark .episode-panel {
   min-width: var(--el-component-size);
   height: var(--el-component-size);
   margin: 0;
+  margin-left: -1px;
   padding: 0;
   border-radius: 0 var(--el-border-radius-base) var(--el-border-radius-base) 0;
 }
 
 .character-name-input .el-input-group__append button.el-button--primary,
-.character-name-input .el-input-group__append button.el-button--primary:hover {
-  color: var(--el-color-white);
-  background-color: var(--el-color-primary);
-  border-color: var(--el-color-primary);
+.character-name-input .el-input-group__append button.el-button--danger {
+  color: var(--el-button-text-color);
+  background-color: var(--el-button-bg-color);
+  border-color: var(--el-button-border-color);
 }
 
-.character-name-input .el-input-group__append button.el-button--danger,
+.character-name-input .el-input-group__append button.el-button--primary:hover,
 .character-name-input .el-input-group__append button.el-button--danger:hover {
-  color: var(--el-color-white);
-  background-color: var(--el-color-danger);
-  border-color: var(--el-color-danger);
+  color: var(--el-button-hover-text-color);
+  background-color: var(--el-button-hover-bg-color);
+  border-color: var(--el-button-hover-border-color);
 }
 
 .character-appearance-icon {
