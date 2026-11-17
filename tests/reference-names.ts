@@ -14,6 +14,7 @@ export async function runReferenceNameTests() {
   for (const mode of ['basic', 'detailed'] as const) {
     test(mode + ' references', () => {
       const shot = createShot()
+      shot.usePositionReference = true
       shot.characters = [createCharacterConfig('宋绪', true)]
       shot.text = '道具[徽章]，宋绪OS：你好。'
       const output = composePrompt(config, shot, undefined, 8, [], '10-6', mode, '10-1')

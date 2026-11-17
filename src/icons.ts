@@ -1,11 +1,11 @@
 import { defineComponent, h, type Component } from 'vue'
 import {
-  AddFour, Attention, Back, BeachUmbrella, CardTwo, CategoryManagement, CheckOne, CheckSmall, CircleRightUp,
+  AddFour, Attention, Back, CardTwo, CategoryManagement, CheckOne, CheckSmall, CircleRightUp, CityOne,
   CloseSmall, Copy, Crown, DataArrival, Delete as ParkDelete, Down, DownloadTwo,
-  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, FolderMinus, FolderSuccess, FormatBrush, GoStart as ParkGoStart, GoEnd as ParkGoEnd, FilePdf as ParkFilePdf, Lightning, Local, Message, Moon as ParkMoon, More, MoreOne, MovieBoard,
+  Edit, ExpandDown, FileMusic as ParkFileMusic, FileRemoval, FileSuccess as ParkFileSuccess, Flag as ParkFlag, FolderMinus, FolderSuccess, FormatBrush, GoStart as ParkGoStart, GoEnd as ParkGoEnd, FilePdf as ParkFilePdf, Gps, Lightning, Local, Message, Moon as ParkMoon, More, MoreOne, MovieBoard, Outdoor, Socks,
   FolderConversion as ParkFolderConversion, Peoples, PlaybackProgress, Plus as ParkPlus, PreviewOpen, Right, RightSmallUp, RightUser, Search as ParkSearch, SeoFolder, SettingTwo,
   Slide, SlideTwo, SortTwo, SplitTurnDownRight as ParkSplitTurnDownRight, Star as ParkStar, SubtractSelection, SubtractSelectionOne, SunOne, Switch as ParkSwitch, Sync,
-  UploadTwo, User as ParkUser, VipOne, Voice, VoiceOff, Wallet, WritingFluently,
+  UploadTwo, User as ParkUser, VipOne, Voice, VoiceOff, Wallet,
 } from '@icon-park/vue-next'
 import '@icon-park/vue-next/styles/index.css'
 
@@ -28,7 +28,6 @@ export const ArrowRight = icon(Right)
 export const HomeBackIcon = icon(Back, 'filled')
 export const PointBalanceIcon = icon(Lightning, 'filled')
 export const CategoryManagementIcon = icon(CategoryManagement)
-export const SceneStatus = icon(WritingFluently)
 export const OrganizeScriptIcon = icon(FormatBrush)
 export const Check = icon(CheckSmall)
 export const CircleCheck = icon(CheckOne)
@@ -37,6 +36,7 @@ export const Close = icon(CloseSmall)
 export const CloseBold = icon(CloseSmall)
 export const Coin = icon(Wallet)
 export const CloneCharacters = icon(CardTwo)
+export const OutfitDescriptionIcon = icon(Socks)
 export const CopyDocument = icon(Copy)
 export const CrownFilled = icon(Crown, 'filled')
 export const DataAnalysis = icon(SlideTwo)
@@ -67,7 +67,8 @@ export const Grape = icon(Peoples)
 export const GrapeFilled = icon(Peoples, 'filled')
 export const MainCharacter = icon(RightUser)
 export const MainCharacterFilled = icon(RightUser, 'filled')
-export const Location = icon(Local)
+export const Location = icon(CityOne)
+export const SceneReferenceIcon = icon(Gps, 'filled')
 export const PositionReference = icon(Local)
 export const ScriptAnalysisIcon = icon(MovieBoard, 'multi-color')
 export const Microphone = icon(Voice)
@@ -77,7 +78,7 @@ export const MoreOneIcon = icon(MoreOne)
 export const Mute = icon(VoiceOff)
 export const Notebook = icon(Slide, 'multi-color')
 export const Plus = icon(AddFour)
-export const Position = icon(BeachUmbrella)
+export const Position = icon(Outdoor)
 export const Refresh = icon(Sync)
 export const Search = icon(ParkSearch)
 export const Setting = icon(SettingTwo)

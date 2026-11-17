@@ -175,5 +175,48 @@ export async function runSharedCharacterTests() {
     assert(JSON.stringify(first.shots[0].characters) === original, 'migration changed shot configuration')
     assert(characterAssetsFor(state, first)[0].id === asset.id, 'migration recreated shared character')
   })
+  test('shot appearance output respects global gate without changing shared assets or other shots', () => {
+    const localAsset = createCharacterAsset('林晚', '浅色衬衫')
+    const shot = createShot()
+    shot.characters = [{ ...createCharacterConfig('林晚'), characterId: localAsset.id }]
+    const other = createShot()
+    other.characters = [{ ...createCharacterConfig('林晚'), characterId: localAsset.id }]
+    const output = () => composePrompt(config, shot, undefined, 8, [localAsset], '11-1', 'detailed', '11-1', first.id)
+    assert(!output().includes('浅色衬衫'), 'default changed')
+    shot.characters[0].includeAppearance = true
+    assert(!output().includes('浅色衬衫'), 'local enable bypassed global gate')
+    assert(!localAsset.appearanceDescriptionEnabled, 'global setting changed')
+    assert(!characterAppearance(localAsset, first.id, other).description, 'other shot changed')
+    localAsset.appearanceDescriptionEnabled = true
+    assert(output().includes('浅色衬衫'), 'enabled description missing')
+    shot.characters[0].includeAppearance = false
+    assert(!output().includes('浅色衬衫') && output().includes('林晚.png'), 'local disable changed reference or failed')
+    assert(characterAppearance(localAsset, first.id, other).description === '浅色衬衫', 'other shot affected by local disable')
+    const snapshot = JSON.parse(JSON.stringify(state))
+    snapshot.episodes[0].characters = [localAsset]
+    snapshot.episodes[0].shots = [shot]
+    const restored = normalizeAppState(snapshot, config).episodes[0].shots[0].characters[0]
+    assert(restored.includeAppearance === false, 'local flag lost on reload')
+  })
+  test('outfit selection follows unit and retains independent description output', () => {
+    const localAsset = createCharacterAsset('林晚')
+    localAsset.outfits = [
+      { id: 'skin-a', note: '原皮', appearanceDescription: '衬衫', appearanceDescriptionEnabled: true, units: [] },
+      { id: 'skin-b', note: '礼服', appearanceDescription: '长裙', appearanceDescriptionEnabled: false, units: [] },
+    ]
+    const shot = createShot()
+    shot.characters = [{ ...createCharacterConfig('林晚'), characterId: localAsset.id }]
+    const unit = [{ characterId: localAsset.id, voiceOnly: false, outfitId: 'skin-a', sourceNames: [] }]
+    const resolve = () => characterAppearance(localAsset, first.id, shot, unit)
+    assert(resolve().unitOutfitName === '原皮' && resolve().description === '衬衫', 'unit default missing')
+    shot.characters[0].outfitId = 'skin-b'
+    shot.characters[0].includeAppearance = true
+    assert(resolve().referenceName === '林晚（礼服）' && !resolve().description && !resolve().appearanceEnabled, 'override bypassed outfit output gate')
+    assert(resolve().unitOutfitName === '原皮' && !localAsset.outfits[1].appearanceDescriptionEnabled, 'unit or global modified')
+    shot.characters[0].outfitId = null
+    assert(resolve().outfitName === '原皮', 'follow unit not restored')
+    shot.characters[0].voiceOnly = true
+    assert(!resolve().description, 'voice-only description output')
+  })
   return { passed: results.filter(item => item.passed).length, total: results.length, results }
 }

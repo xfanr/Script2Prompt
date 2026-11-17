@@ -182,7 +182,7 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
           index < shots.length - 1,
         ))
         shot.scenes = normalizeShotScenes(shot.scenes, episode.scenes)
-        shot.usePositionReference = shot.usePositionReference !== false
+        shot.usePositionReference = shot.usePositionReference === true
         shot.useReverseAngle = false
         const hadStoredFirstFrameMode = typeof shot.firstFrameMode === 'boolean'
         shot.firstFrameMode = hadStoredFirstFrameMode ? shot.firstFrameMode : false
@@ -191,7 +191,9 @@ export function normalizeAppState(value: unknown, defaultGlobalConfig: GlobalCon
           character.characterId = typeof character.characterId === 'string' ? character.characterId : null
           character.outfitId = typeof character.outfitId === 'string' ? character.outfitId : null
           character.voiceOnly = character.voiceOnly === true
+          character.includeAppearance = typeof character.includeAppearance === 'boolean' ? character.includeAppearance : undefined
           character.statusText ??= ''
+          delete (character as typeof character & { statusBindingId?: unknown }).statusBindingId
         })
         const storedTimingSegments = JSON.stringify(shot.timingSegments)
         shot.timingSegments = reconcileTimingSegments(

@@ -98,6 +98,7 @@ export async function runVoiceMarkerTests() {
   })
   test('Full prompt resolves position, appearance and voice references while retaining unrelated at signs', () => {
     const shot = createShot()
+    shot.usePositionReference = true
     shot.characters = [createCharacterConfig('温妤', true)]
     shot.text = 'AAA@，BBB。\nCCC，[DDD]。\n温妤OS（坚定）：继续。\n温妤VO：回应。\n温妤手机VO：收到。\nVO：旁白。\n手机VO：未知来电。'
     const assets = [createCharacterAsset('温妤')]
@@ -128,6 +129,7 @@ export async function runVoiceMarkerTests() {
   })
   test('First-frame placeholders use the same shot reference as positioning and standalone detail copy', () => {
     const shot = createShot()
+    shot.usePositionReference = true
     shot.firstFrameMode = true
     const profile = config.prompt.profiles[0]
     profile.shotPrefix = ''

@@ -205,7 +205,7 @@ export function createShot(unitNumber = 1): Shot {
     connectNext: false,
     connectNextCount: 0,
     scenes: [createSceneConfig()],
-    usePositionReference: true,
+    usePositionReference: false,
     useReverseAngle: false,
     firstFrameMode: false,
     characters: [],

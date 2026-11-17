@@ -56,11 +56,13 @@ export async function runSceneRoleTests() {
     const text = composeSceneSettings({ ...shot, scenes: [selected] })
     assert(text.includes('深夜，室外，Office，Rain [深夜·Office] ') && !text.includes('多角色位置参考'), 'scene reference or state incorrect')
   })
-  await test('Positioning defaults on for new and legacy shots and scene references follow output modes', () => {
-    assert(createShot().usePositionReference, 'new shot default disabled')
+  await test('Positioning defaults off for new and legacy shots and preserves explicit activation', () => {
+    assert(!createShot().usePositionReference, 'new shot default enabled')
     const legacy = JSON.parse(JSON.stringify(state))
     delete legacy.episodes[0].shots[0].usePositionReference
-    assert(normalizeAppState(legacy, config).episodes[0].shots[0].usePositionReference, 'legacy default disabled')
+    assert(!normalizeAppState(legacy, config).episodes[0].shots[0].usePositionReference, 'legacy default enabled')
+    legacy.episodes[0].shots[0].usePositionReference = true
+    assert(normalizeAppState(legacy, config).episodes[0].shots[0].usePositionReference, 'explicit activation lost')
     const current = createShot()
     current.scenes = [createSceneConfig('民政局门口', '白天', '室外')]
     current.usePositionReference = false
@@ -121,6 +123,7 @@ export async function runSceneRoleTests() {
     episode.title = '第 05 集'
     episode.shots = Array.from({ length: 8 }, (_, index) => createShot(Math.min(index + 1, 3)))
     const current = episode.shots[5]
+    current.usePositionReference = true
     assert(formatShotNumber(episode, 5) === '5-3-4', 'actual shot number changed')
     assert(formatShotReference(episode, 5) === '5-3-4', 'default is not the full formal shot number')
     current.referenceShotNumber = 6
@@ -181,6 +184,7 @@ export async function runSceneRoleTests() {
   })
   await test('Cross-episode references use selected source units in positioning and first frames', () => {
     const current = createEpisode(2), middle = createEpisode(3), source = createEpisode(4)
+    current.shots[0].usePositionReference = true
     current.shots[0].referenceEpisodeId = source.id
     current.shots[0].referenceShotNumber = 3
     current.shots[0].firstFrameMode = true

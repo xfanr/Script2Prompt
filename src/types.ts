@@ -115,6 +115,7 @@ export interface CharacterOutfit {
 }
 
 export interface CharacterConfig {
+  includeAppearance?: boolean
   outfitId?: string | null
   voiceOnly?: boolean
   characterId: string | null

@@ -42,13 +42,21 @@ export function initializeSharedCharacters(state: AppState, episode: Episode) {
 
 export function characterAppearance(asset: CharacterAsset, episodeId: string, shot: Shot, unitCharacters: UnitCharacter[] = []) {
   const character = shot.characters.find(c => c.characterId === asset.id || c.name === asset.name)
-  const selection = character?.outfitId ?? unitCharacters.find(c => c.characterId === asset.id)?.outfitId
-  const outfit = selection ? asset.outfits.find(outfit => outfit.id === selection) ?? (selection === 'original' ? asset.outfits[0] : undefined)
+  const selection = unitCharacters.find(c => c.characterId === asset.id)?.outfitId
+  const unitOutfit = selection ? asset.outfits.find(outfit => outfit.id === selection) ?? (selection === 'original' ? asset.outfits[0] : undefined)
     : asset.outfits?.find(outfit => outfit.units.some(unit => unit.episodeId === episodeId && unit.unitNumber === shot.unitNumber))
+  const outfit = character?.outfitId ? asset.outfits.find(outfit => outfit.id === character.outfitId) ?? (character.outfitId === 'original' ? asset.outfits[0] : undefined) : unitOutfit
   const appearance = asset.outfits.length > 1 ? outfit : asset
+  const appearanceEnabled = appearance?.appearanceDescriptionEnabled === true
+  const includeAppearance = !character?.voiceOnly && appearanceEnabled && character?.includeAppearance !== false
   return {
+    appearanceEnabled,
+    includeAppearance,
+    outfitId: outfit?.id ?? null,
+    unitOutfitId: unitOutfit?.id ?? null,
+    unitOutfitName: asset.outfits.length > 1 ? unitOutfit?.note || '待分配' : asset.note || '原皮',
     outfitName: appearance ? appearance.note || '原皮' : '',
-    description: !character?.voiceOnly && appearance?.appearanceDescriptionEnabled ? appearance.appearanceDescription : '',
+    description: includeAppearance ? appearance?.appearanceDescription ?? '' : '',
     referenceName: asset.outfits.length < 2 ? (asset.note ? `${asset.name}（${asset.note}）` : asset.name) : outfit ? `${asset.name}（${outfit.note}）` : null,
   }
 }
