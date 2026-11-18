@@ -5,21 +5,22 @@
     </button>
     <template #dropdown>
       <el-dropdown-menu>
-        <el-dropdown-item command="main" :disabled="character.isMain">主角</el-dropdown-item>
-        <el-dropdown-item command="ordinary" :disabled="!character.isMain && !character.isEnsemble">配角</el-dropdown-item>
-        <el-dropdown-item command="ensemble" :disabled="character.isEnsemble">群像</el-dropdown-item>
+        <el-dropdown-item class="single-choice-option" command="main" :disabled="character.isMain">主角</el-dropdown-item>
+        <el-dropdown-item class="single-choice-option" command="ordinary" :disabled="!character.isMain && !character.isEnsemble">配角</el-dropdown-item>
+        <el-dropdown-item class="single-choice-option" command="ensemble" :disabled="character.isEnsemble">群像</el-dropdown-item>
       </el-dropdown-menu>
     </template>
   </el-dropdown>
 </template>
 
 <script setup lang="ts">
+import { DEFAULT_OUTFIT_NAME } from '../defaults'
 import type { CharacterAsset } from '../types'
 
 const props = defineProps<{ character: CharacterAsset }>()
 function changeType(type: 'main' | 'ordinary' | 'ensemble') {
   props.character.isMain = type === 'main'
   props.character.isEnsemble = type === 'ensemble'
-  if (type === 'main' && !props.character.outfits.length && !props.character.note.trim()) props.character.note = '原皮'
+  if (type === 'main' && !props.character.outfits.length && !props.character.note.trim()) props.character.note = DEFAULT_OUTFIT_NAME
 }
 </script>

@@ -96,6 +96,8 @@
               ><el-option
                 v-for="asset in batch.characters.filter((asset) => asset.name !== alias.name)"
                 :key="asset.id"
+                class="single-choice-option"
+                :disabled="asset.id === alias.targetId"
                 :value="asset.id"
                 :label="asset.name" /></el-select
             ><el-link underline="never" @click="mergeAlias(alias)">合并</el-link
@@ -134,6 +136,8 @@
                     ><el-option
                       v-for="scene in reviewScenes"
                       :key="sceneAssetKey(scene)"
+                      class="single-choice-option"
+                      :disabled="sceneAssetKey(scene) === current.unit.defaultSceneKey"
                       :value="sceneAssetKey(scene)"
                       :label="sceneLabel(scene)" /></el-select
                 ></el-form-item>
@@ -187,6 +191,8 @@
                             ><el-option
                               v-for="outfit in outfitOptions(assetFor(usage.characterId)!)"
                               :key="outfit.id"
+                              class="single-choice-option"
+                              :disabled="outfit.id === usage.outfitId"
                               :value="outfit.id"
                               :label="outfit.note || '未命名服装'"
                           /></el-select>
@@ -229,7 +235,7 @@
                     <el-button class="preparation-person-edit" :icon="EditPen" text size="small" aria-label="修改角色资料" @click="emit('edit-character', selectedCharacter.id)">修改</el-button>
                     <el-form class="preparation-person-fields" label-position="top">
                       <CharacterUnitAssignment v-model="assignment" class="preparation-character-assignment" button-size="default" :units="assignmentUnits" :outfits="outfitOptions(selectedCharacter).map(outfit => ({ id: outfit.id, note: outfit.note || '未命名服装' }))"
-                        :disabled="selectedCharacter.isEnsemble" @assign="assignOutfit" @add-outfit="emit('edit-character', selectedCharacter.id, true)" />
+                        :disabled="selectedCharacter.isEnsemble" @assign="assignOutfit" @add-outfit="addOutfit" />
                     </el-form>
                   </section>
 
@@ -260,20 +266,20 @@
                   <div class="preparation-role-list" aria-label="分镜场景角色列表">
                     <article class="material-card has-references is-compact preparation-role-row">
                       <span class="preparation-shot-scene-name">📍 场景</span>
-                      <el-select :model-value="selectedShot.scenes[0]?.name ? sceneAssetKey(selectedShot.scenes[0]) : ''" :empty-values="[null, undefined]" placeholder="跟随单元" aria-label="准备分镜场景" @change="setShotScene">
-                        <el-option value="" label="跟随单元" />
-                        <el-option v-for="scene in current.unit.scenes" :key="sceneAssetKey(scene)" :value="sceneAssetKey(scene)" :label="sceneLabel(scene)" />
+                      <el-select :model-value="selectedShotSceneKey" :empty-values="[null, undefined]" placeholder="跟随单元" aria-label="准备分镜场景" @change="setShotScene">
+                        <el-option class="single-choice-option" value="" label="跟随单元" :disabled="!selectedShotSceneKey" />
+                        <el-option v-for="scene in current.unit.scenes" :key="sceneAssetKey(scene)" class="single-choice-option" :disabled="sceneAssetKey(scene) === selectedShotSceneKey" :value="sceneAssetKey(scene)" :label="sceneLabel(scene)" />
                       </el-select>
                     </article>
-                    <article v-for="usage in unitCharacters" :key="usage.characterId" class="material-card has-references is-compact preparation-role-row">
+                    <article v-for="{ usage, asset, selection } in shotCharacterRows" :key="usage.characterId" class="material-card has-references is-compact preparation-role-row">
                       <div class="material-card-summary">
-                        <div class="material-card-meta"><span class="material-card-type" aria-label="角色">🙂</span><CharacterTypeMenu :character="assetFor(usage.characterId)!" /></div>
-                        <div class="material-card-name-area"><span class="material-card-name" :title="assetFor(usage.characterId)!.name">{{ assetFor(usage.characterId)!.name }}</span></div>
+                        <div class="material-card-meta"><span class="material-card-type" aria-label="角色">🙂</span><CharacterTypeMenu :character="asset" /></div>
+                        <div class="material-card-name-area"><span class="material-card-name" :title="asset.name">{{ asset.name }}</span></div>
                       </div>
-                      <span v-if="assetFor(usage.characterId)!.isEnsemble" class="secondary">群像不分配服装</span>
-                      <el-select v-else :disabled="usage.voiceOnly" :model-value="selectedShot.characters.find(c => c.characterId === usage.characterId)?.outfitId ?? ''" :empty-values="[null, undefined]" placeholder="跟随单元" :aria-label="`${assetFor(usage.characterId)!.name}分镜服装`" @change="id => setShotOutfit(usage.characterId, id)">
-                        <el-option value="" label="跟随单元" />
-                        <el-option v-for="outfit in outfitOptions(assetFor(usage.characterId)!)" :key="outfit.id" :value="outfit.id" :label="outfit.note || '未命名服装'" />
+                      <span v-if="asset.isEnsemble" class="secondary">群像不分配服装</span>
+                      <el-select v-else :disabled="usage.voiceOnly" :model-value="selection.value" :empty-values="[null, undefined]" :aria-label="`${asset.name}分镜服装`" @change="id => setShotOutfit(usage.characterId, id)">
+                        <template #label>{{ selection.label }}</template>
+                        <el-option v-for="outfit in selection.options" :key="outfit.value" class="single-choice-option" :disabled="outfit.disabled" :value="outfit.value" :label="outfit.label">{{ outfit.label }}{{ outfit.value === '' ? ' · 跟随单元' : '' }}</el-option>
                       </el-select>
                       <span v-if="usage.voiceOnly" class="secondary">仅音色</span>
                     </article>
@@ -302,7 +308,7 @@
         placeholder="第1集&#10;1-1 日 内 客厅&#10;人物：……"
       />
       <template #footer>
-        <el-button class="preparation-organize-toggle" :icon="OrganizeScriptIcon" text circle :bg="organizeOnImport" :aria-pressed="organizeOnImport" aria-label="导入时自动整理" :title="organizeOnImport ? '自动整理正文：已开启' : '自动整理正文：已关闭'" @click="organizeOnImport = !organizeOnImport" />
+        <el-button class="preparation-organize-toggle" :icon="OrganizeScriptIcon" text circle :bg="organizeOnImport" :aria-pressed="organizeOnImport" aria-label="自动整理正文" title="自动整理正文" @click="organizeOnImport = !organizeOnImport" />
         <el-button type="primary" round @click="analyze">识别分集</el-button>
       </template>
     </el-dialog>
@@ -319,9 +325,10 @@ import {
   createId,
   createSceneConfig,
   createShot,
+  DEFAULT_OUTFIT_NAME,
   sceneAssetKey,
 } from '../defaults'
-import { analyzeScript, legacyEpisodeUnits, outfitOptions, parseCharacterBiographies, preparationPending, setPreparedUnitScript } from '../scriptPreparation'
+import { analyzeScript, legacyEpisodeUnits, outfitOptions, parseCharacterBiographies, preparationPending, setPreparedUnitScript, stripScriptMetadata } from '../scriptPreparation'
 import { normalizeSplitScriptText, organizeScriptText, splitBatchShotText } from '../episodeScript'
 import { detectCharacters } from '../prompt'
 import { analyzeTimingRange } from '../timing'
@@ -331,14 +338,15 @@ import PreparationMaterialMenu from './PreparationMaterialMenu.vue'
 import CharacterUnitAssignment from './CharacterUnitAssignment.vue'
 import CharacterTypeMenu from './CharacterTypeMenu.vue'
 import { compareCharacterAssets, mapCharacterUnitReferences, referencedCharacterNames } from '../characterScopes'
+import { characterUnits as formalCharacterUnits, shotOutfitSelection } from '../sharedCharacters'
 import { notify } from '../notification'
 import type { AppState, CharacterAsset, PreparedEpisode, SceneAsset, ScriptPreparation, Shot } from '../types'
 
 const batch = defineModel<ScriptPreparation>({ required: true })
 const props = defineProps<{ state: AppState; groupId: string | null; groupTitle: string; saving: boolean }>()
-const emit = defineEmits<{ close: []; apply: []; 'add-material': [kind: 'characters' | 'scenes', unitIds: string[], anchor: HTMLElement]; 'edit-character': [characterId: string, addOutfit?: boolean] }>()
+const emit = defineEmits<{ close: []; apply: []; 'add-material': [kind: 'characters' | 'scenes', unitIds: string[], anchor: HTMLElement]; 'edit-character': [characterId: string] }>()
 const importVisible = ref(false)
-const organizeOnImport = ref(false)
+const organizeOnImport = ref(true)
 const characterImportVisible = ref(false)
 const characterImportText = ref('')
 const biographyNames = computed(() => parseCharacterBiographies(characterImportText.value))
@@ -395,6 +403,15 @@ const assignmentUnits = computed(() => characterUnits.value.map(item => ({
 const selectedShot = computed(
   () => current.value?.unit.shots.find((shot) => shot.id === selectedShotId.value) ?? current.value?.unit.shots[0],
 )
+const shotCharacterRows = computed(() => unitCharacters.value.map(usage => {
+  const asset = assetFor(usage.characterId)!
+  const shotOutfitId = selectedShot.value?.characters.find(character => character.characterId === usage.characterId)?.outfitId
+  return { usage, asset, selection: shotOutfitSelection(outfitOptions(asset), usage.outfitId, shotOutfitId) }
+}))
+const selectedShotSceneKey = computed(() => {
+  const scene = selectedShot.value?.scenes[0]
+  return scene?.name ? sceneAssetKey(scene) : ''
+})
 watch(() => current.value ? `${current.value.episode.number}-${current.value.unit.unitNumber}` : '', value => {
   unitNumberDraft.value = value
 }, { immediate: true })
@@ -404,7 +421,10 @@ watch(() => current.value?.unit, unit => {
   if (unit && (unit.shots.length > 1 || unit.shots.some(shot => shot.remark.trim())) && !/^\s*---/m.test(unit.scriptText)) {
     unit.scriptText = normalizeSplitScriptText(undefined, unit.shots) ?? unit.scriptText
   }
-  if (unit && !unit.shots.some(shot => shot.text.trim()) && unit.scriptText.trim()) updateSplitShots(unit.scriptText)
+  if (unit) {
+    const body = stripScriptMetadata(unit.scriptText)
+    if (body !== unit.scriptText || (body.trim() && !unit.shots.some(shot => shot.text.trim()))) updateSplitShots(body)
+  }
 }, { immediate: true })
 const shotPreviews = computed(() => {
   const names = batch.value.characters.map(asset => asset.name)
@@ -497,7 +517,7 @@ function deleteUnits(unitIds: string[]) {
 
 function importMainCharacters() {
   const names = newBiographyNames.value
-  batch.value.characters.push(...names.map(name => ({ ...createCharacterAsset(name, '', '', false), isMain: true, note: '原皮' })))
+  batch.value.characters.push(...names.map(name => ({ ...createCharacterAsset(name, '', '', false), isMain: true, note: DEFAULT_OUTFIT_NAME })))
   characterImportVisible.value = false
   notify.success(`已添加 ${names.length} 个主角`)
 }
@@ -534,6 +554,29 @@ function assignOutfit(id: string) {
   for (const item of characterUnits.value) if (assignment.value.includes(item.unit.id)) item.usage.outfitId = id
 }
 
+function addOutfit(name: string) {
+  const asset = selectedCharacter.value!
+  if (asset.outfits.length < 2) {
+    const owner = props.state.episodes.find(episode => episode.id === props.state.activeEpisodeId)!
+    const updatedEpisodes = new Set(batch.value.episodes.filter(episode => episode.action !== 'skip').map(episode => episode.episodeId))
+    const original = {
+      ...outfitOptions(asset)[0],
+      id: createId('outfit'),
+      units: formalCharacterUnits(props.state, owner, asset).filter(unit => !updatedEpisodes.has(unit.episodeId))
+        .map(({ episodeId, unitNumber }) => ({ episodeId, unitNumber })),
+    }
+    for (const { unit, usage } of characterUnits.value) {
+      if (usage.outfitId === 'original') usage.outfitId = original.id
+      for (const shot of unit.shots) for (const character of shot.characters) {
+        if (character.characterId === asset.id && character.outfitId === 'original') character.outfitId = original.id
+      }
+    }
+    asset.outfits = [original]
+  }
+  const id = createId('outfit')
+  asset.outfits.push({ id, note: name, appearanceDescription: '', appearanceDescriptionEnabled: false, units: [] })
+  assignOutfit(id)
+}
 
 
 function mergeAlias(alias: ScriptPreparation['aliases'][number]) {

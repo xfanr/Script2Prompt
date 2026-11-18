@@ -5,6 +5,8 @@ import {
   createId,
   createSceneConfig,
   createShot,
+  DEFAULT_OUTFIT_NAME,
+  normalizeOutfitName,
   sceneAssetKey,
 } from './defaults'
 import { normalizeSplitScriptText, splitBatchShotText } from './episodeScript'
@@ -87,9 +89,19 @@ const timePattern =
   /^(?:白天|白昼|日间|清晨|清早|早晨|黎明|破晓|上午|中午|午后|下午|傍晚|黄昏|入夜|深夜|半夜|午夜|凌晨|夜晚|晚上|晚间|日|夜|晨)(?:[／/](?:日|夜))?$/
 const spacePattern = /^(?:室内|室外|内|外)(?:[／/](?:内|外))?$/
 const sceneNumberPattern = /^(\d+)\s*[-－‐‑‒–—−]\s*(\d+)\s*(.*)$/
+const bareScenePattern = /^(?:日|夜|晨|白天|深夜|傍晚|清晨)[\s-]+(?:内|外|室内|室外)[\s-]+/
+const castLinePattern = /^(?:出场人物|人物|角色)\s*[:：](.*)$/
+const headingCastPattern = /(?:出场人物|人物|角色)\s*[:：](.*)$/
+
+export function stripScriptMetadata(text: string) {
+  return text.split(/\r\n?|\n/).filter((line) => {
+    const trimmed = line.trim()
+    return !sceneNumberPattern.test(trimmed) && !bareScenePattern.test(trimmed) && !castLinePattern.test(trimmed)
+  }).join('\n')
+}
 
 export function parseSceneHeading(heading: string): { scenes: SceneAsset[]; cast: string; continuation: string | null; issues: string[] } {
-  const castMatch = heading.match(/(?:出场人物|人物|角色)\s*[:：](.*)$/)
+  const castMatch = heading.match(headingCastPattern)
   const cast = castMatch?.[1] ?? ''
   const text = heading.slice(0, castMatch?.index ?? heading.length).trim()
   const continuation = text.match(/^接\s*(\d+)\s*[-－‐‑‒–—−]\s*(\d+)/)
@@ -190,7 +202,7 @@ export function outfitOptions(asset: CharacterAsset) {
     : [
         {
           id: 'original',
-          note: asset.note || '原皮',
+          note: asset.note || DEFAULT_OUTFIT_NAME,
           appearanceDescription: asset.appearanceDescription,
           appearanceDescriptionEnabled: asset.appearanceDescriptionEnabled,
           units: [],
@@ -293,6 +305,10 @@ export function normalizePreparation(value: unknown): ScriptPreparation | null {
   delete legacy.mode
   batch.selectedUnitId = typeof batch.selectedUnitId === 'string' ? batch.selectedUnitId : (batch.episodes[0]?.units[0]?.id ?? null)
   batch.selectedCharacterId = typeof batch.selectedCharacterId === 'string' ? batch.selectedCharacterId : null
+  for (const asset of batch.characters) {
+    asset.note = normalizeOutfitName(asset.note)
+    for (const outfit of asset.outfits) outfit.note = normalizeOutfitName(outfit.note)
+  }
   batch.episodes.forEach((ep) => {
     ep.issues ??= []
     ep.units.forEach((u) => {
@@ -396,7 +412,8 @@ export function analyzeScript(
   // 人物表先建立候选库，再用对白与动作补充每个单元的使用关系。
   for (const chunk of chunks)
     for (const line of chunk.lines) {
-      const cast = line.match(/(?:出场人物|人物|角色)\s*[:：](.*)$/)
+      const heading = line.trim()
+      const cast = heading.match(sceneNumberPattern.test(heading) || bareScenePattern.test(heading) ? headingCastPattern : castLinePattern)
       if (cast)
         castNames(cast[1])
           .filter((name) => baseName(name))
@@ -430,7 +447,7 @@ export function analyzeScript(
       const line = original.trim()
       if (/^第\s*[\d０-９一二三四五六七八九十百零〇两]+\s*集/.test(line) && !unit) continue
       const numbered = line.match(sceneNumberPattern)
-      const bare = /^(?:日|夜|晨|白天|深夜|傍晚|清晨)[\s-]+(?:内|外|室内|室外)[\s-]+/.test(line)
+      const bare = bareScenePattern.test(line)
       if (numbered || bare) {
         const parsed = parseSceneHeading(numbered?.[3] ?? line)
         const old = existing?.units.find((u) => u.unitNumber === prepared.units.length + 1)
@@ -497,7 +514,7 @@ export function analyzeScript(
         if (!usage.sourceNames.includes(raw)) usage.sourceNames.push(raw)
       }
       for (const line of u.scriptText.split('\n')) {
-        const cast = line.trimStart().match(/^(?:出场人物|人物|角色)\s*[:：](.*)$/)
+        const cast = line.trim().match(castLinePattern)
         if (cast) {
           castNames(cast[1])
             .filter((name) => baseName(name))
@@ -515,13 +532,12 @@ export function analyzeScript(
             for (const asset of [...characters]) if (action.includes(asset.name)) add(asset.name, false)
         }
       }
-      const castLines = /^[ \t　]*(?:出场人物|人物|角色)[ \t　]*[:：][^\r\n]*(?:\r?\n|$)/gm
-      const text = u.scriptText.replace(castLines, '').trim()
+      const text = stripScriptMetadata(u.scriptText).trim()
       u.scriptText = text
       const previous = existing?.shots.filter((shot) => shot.unitNumber === u.unitNumber) ?? []
       const oldUnit = existing?.units.find((unit) => unit.id === u.id)
       u.shots =
-        oldUnit?.scriptText.replace(castLines, '').trim() === text && previous.length
+        oldUnit && stripScriptMetadata(oldUnit.scriptText).trim() === text && previous.length
           ? JSON.parse(JSON.stringify(previous))
           : [
               {
@@ -697,7 +713,7 @@ export function rebindUnitCharacters(units: EpisodeUnit[], shots: Shot[], source
     const next = target.find((item) => item.name === asset.name)!
     if (!id) return null
     if (next.outfits.length < 2) return 'original'
-    const note = id === 'original' ? asset.note || '原皮' : asset.outfits.find((outfit) => outfit.id === id)?.note
+    const note = id === 'original' ? asset.note || DEFAULT_OUTFIT_NAME : asset.outfits.find((outfit) => outfit.id === id)?.note
     return next.outfits.find((outfit) => outfit.note === note)?.id ?? null
   }
   for (const unit of units)

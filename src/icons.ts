@@ -10,13 +10,13 @@ import {
 import '@icon-park/vue-next/styles/index.css'
 
 // Keep existing call sites and Element Plus icon sizing while applying the chosen themes.
-function icon(component: Component, theme: 'outline' | 'filled' | 'multi-color' = 'outline') {
+function icon(component: Component, theme: 'outline' | 'filled' | 'two-tone' = 'outline') {
   return defineComponent({
     name: 'AppIcon',
     setup: () => () => h(component, {
       theme, size: '1em', strokeWidth: 4,
-      fill: theme === 'multi-color'
-        ? ['var(--el-text-color-primary)', 'var(--el-color-primary)', 'var(--el-bg-color)', 'var(--el-color-primary-light-5)']
+      fill: theme === 'two-tone'
+        ? ['var(--el-text-color-primary)', 'var(--el-color-primary)']
         : 'currentColor',
     }),
   })
@@ -44,15 +44,15 @@ export const DataLine = icon(Slide)
 export const Delete = icon(ParkDelete)
 export const Document = icon(SlideTwo)
 export const DocumentCopy = icon(RightSmallUp)
-export const DialogueTabIcon = icon(Message, 'multi-color')
+export const DialogueTabIcon = icon(Message, 'two-tone')
 export const Download = icon(DownloadTwo)
 export const EditPen = icon(Edit)
 export const Expand = icon(ExpandDown)
-export const ProjectFolder = icon(SeoFolder, 'multi-color')
+export const ProjectFolder = icon(SeoFolder, 'two-tone')
 export const FolderConversion = icon(ParkFolderConversion)
 export const ProjectFolderFilled = ProjectFolder
 export const ArchiveFolder = icon(FolderSuccess)
-export const HistoryFolder = icon(FolderMinus, 'multi-color')
+export const HistoryFolder = icon(FolderMinus, 'two-tone')
 export const HistoryFolderFilled = HistoryFolder
 export const FileMusic = icon(ParkFileMusic)
 export const FileMusicFilled = icon(ParkFileMusic, 'filled')
@@ -70,13 +70,13 @@ export const MainCharacterFilled = icon(RightUser, 'filled')
 export const Location = icon(CityOne)
 export const SceneReferenceIcon = icon(Gps, 'filled')
 export const PositionReference = icon(Local)
-export const ScriptAnalysisIcon = icon(MovieBoard, 'multi-color')
+export const ScriptAnalysisIcon = icon(MovieBoard, 'two-tone')
 export const Microphone = icon(Voice)
 export const Moon = icon(ParkMoon)
 export const MoreFilled = icon(More, 'filled')
 export const MoreOneIcon = icon(MoreOne)
 export const Mute = icon(VoiceOff)
-export const Notebook = icon(Slide, 'multi-color')
+export const Notebook = icon(Slide, 'two-tone')
 export const Plus = icon(AddFour)
 export const Position = icon(Outdoor)
 export const Refresh = icon(Sync)

@@ -44,7 +44,7 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref } from 'vue'
 import type { InputInstance } from 'element-plus'
-import { createId } from '../defaults'
+import { createId, DEFAULT_OUTFIT_NAME } from '../defaults'
 import { ArrowRight, Delete, EditPen } from '../icons'
 import CharacterUnitAssignment from './CharacterUnitAssignment.vue'
 import type { CharacterOutfit } from '../types'
@@ -83,14 +83,14 @@ const editingOutfit = ref<CharacterOutfit | null>(null)
 const renameDraft = ref('')
 const renameInputs = ref<InputInstance[]>([])
 
-defineExpose({ hasIncompleteSingle, assignedUnits: singleUnits, singleOutfitId: computed(() => singleOutfit.id), addOutfit })
+defineExpose({ hasIncompleteSingle, assignedUnits: singleUnits, singleOutfitId: computed(() => singleOutfit.id) })
 const sameUnit = (a: Unit, b: Unit) => a.episodeId === b.episodeId && a.unitNumber === b.unitNumber
 const unitKey = (unit: Unit) => `${unit.episodeId}:${unit.unitNumber}`
 function assignedOutfit(unit: Unit) { return outfitCards.value.find(outfit => outfit.units.some(item => sameUnit(item, unit))) }
 function hasExternalUnits(outfit: CharacterOutfit) { return outfit.units.some(unit => !props.units.some(item => sameUnit(item, unit))) }
 
 function outfitLabel(outfit: CharacterOutfit) {
-  return outfit.note.trim() || (outfitCards.value.length === 1 ? '原皮' : '未命名服装')
+  return outfit.note.trim() || (outfitCards.value.length === 1 ? DEFAULT_OUTFIT_NAME : '未命名服装')
 }
 
 function goToOutfit(id: string) {
@@ -118,17 +118,16 @@ function finishRename() {
   editingOutfit.value = null
 }
 
-async function addOutfit() {
+function addOutfit(name: string) {
   finishRename()
-  const next = outfits.value.length > 1 ? [...outfits.value] : [{ ...singleOutfit, note: note.value.trim() || '原皮', units: singleUnits.value.map(unit => ({ ...unit })) }]
+  const next = outfits.value.length > 1 ? [...outfits.value] : [{ ...singleOutfit, note: outfitLabel(singleOutfit), units: singleUnits.value.map(unit => ({ ...unit })) }]
   const added: CharacterOutfit = {
-    id: createId('outfit'), note: '', appearanceDescription: '', appearanceDescriptionEnabled: false,
+    id: createId('outfit'), note: name, appearanceDescription: '', appearanceDescriptionEnabled: false,
     units: [],
   }
   next.push(added)
   outfits.value = next
-  await startRename(added)
-  goToOutfit(added.id)
+  assign(added, next)
 }
 
 function remove(id: string) {
@@ -145,10 +144,10 @@ function remove(id: string) {
   if (activeOutfitId.value === id) activeOutfitId.value = remaining[Math.min(index, remaining.length - 1)].id
 }
 
-function assign(outfit: CharacterOutfit) {
-  for (const card of outfitCards.value) card.units = card.units.filter(unit => !selectedUnits.value.includes(unitKey(unit)))
+function assign(outfit: CharacterOutfit, cards = outfitCards.value) {
+  for (const card of cards) card.units = card.units.filter(unit => !selectedUnits.value.includes(unitKey(unit)))
   outfit.units.push(...props.units.filter(unit => selectedUnits.value.includes(unitKey(unit))).map(({ episodeId, unitNumber }) => ({ episodeId, unitNumber })))
   activeOutfitId.value = outfit.id
-  if (outfitCards.value.length > 1) goToOutfit(outfit.id)
+  if (cards.length > 1) void nextTick(() => goToOutfit(outfit.id))
 }
 </script>

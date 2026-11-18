@@ -363,8 +363,8 @@
                           </el-tag>
                           <template #dropdown>
                             <el-dropdown-menu>
-                              <el-dropdown-item command="SD2.0" :disabled="!shot.thirtySecondMode">SD2.0</el-dropdown-item>
-                              <el-dropdown-item command="SD2.5" :disabled="shot.thirtySecondMode">SD2.5</el-dropdown-item>
+                              <el-dropdown-item class="single-choice-option" command="SD2.0" :disabled="!shot.thirtySecondMode">SD2.0</el-dropdown-item>
+                              <el-dropdown-item class="single-choice-option" command="SD2.5" :disabled="shot.thirtySecondMode">SD2.5</el-dropdown-item>
                             </el-dropdown-menu>
                           </template>
                         </el-dropdown>
@@ -452,20 +452,22 @@
                     </div>
                     <div v-for="scene in shot.scenes" :key="scene.id" class="config-line scene-line">
                       <div class="scene-selection-controls scene-reference-controls">
-                        <button class="scene-reference-copy" type="button" title="复制场景引用" aria-label="复制场景引用" :disabled="!scene.name && !shot.usePositionReference" @click="copySceneReference(shot, scene)"><el-icon><SceneReferenceIcon /></el-icon></button>
-                        <span class="scene-name-control" :title="scene.name || '选择场景'">{{ scene.name || '选择场景' }}</span>
+                        <span class="shot-reference-name scene-name-control" :title="scene.name || '选择场景'" @dblclick.stop.prevent="(scene.name || shot.usePositionReference) && copySceneReference(shot, scene)">
+                          <el-icon aria-hidden="true"><SceneReferenceIcon /></el-icon>
+                          <span class="shot-reference-name-label">{{ scene.name || '选择场景' }}</span>
+                        </span>
                         <el-select v-if="shot.usePositionReference" class="scene-position-reference-select" popper-class="shot-reference-dropdown" :model-value="referenceSelectionId(episode, index)" :aria-label="`分镜${index + 1}引用序号`" @visible-change="!$event && expandedReferenceShotIds.delete(shot.id)" @update:model-value="selectShotReference(shot, $event)">
                           <template #label>{{ formatShotReference(episode, index, state.episodes) }}</template>
                           <template #header>
                             <el-checkbox :model-value="expandedReferenceShotIds.has(shot.id)" @click.stop @change="$event ? expandedReferenceShotIds.add(shot.id) : expandedReferenceShotIds.delete(shot.id)">相邻集数</el-checkbox>
                           </template>
-                          <el-option v-for="option in shotReferenceOptions(episode, shot)" :key="option.id" :class="{ 'is-episode-start': option.divided, 'material-choice-current': option.id === referenceSelectionId(episode, index) }" :disabled="option.id === referenceSelectionId(episode, index)" :label="option.label" :value="option.id" />
+                          <el-option v-for="option in shotReferenceOptions(episode, shot)" :key="option.id" class="single-choice-option" :class="{ 'is-episode-start': option.divided }" :disabled="option.id === referenceSelectionId(episode, index)" :label="option.label" :value="option.id" />
                         </el-select>
                         <el-dropdown v-else class="scene-meta-dropdown" trigger="click" @command="syncSceneFromAsset(scene, $event, episode)">
                           <button class="scene-config-meta" type="button" aria-label="选择场景" :title="[scene.time, scene.space].filter(value => value !== '无').join('·')">{{ [scene.time, scene.space].filter(value => value !== '无').join('·') }}</button>
                           <template #dropdown>
                             <el-dropdown-menu>
-                              <el-dropdown-item v-for="item in episode.scenes" :key="sceneAssetKey(item)" :command="sceneAssetKey(item)" :disabled="sceneAssetKey(item) === sceneAssetKey(scene)" :class="{ 'material-choice-current': sceneAssetKey(item) === sceneAssetKey(scene) }">{{ sceneAssetLabel(item) }}</el-dropdown-item>
+                              <el-dropdown-item v-for="item in episode.scenes" :key="sceneAssetKey(item)" class="single-choice-option" :command="sceneAssetKey(item)" :disabled="sceneAssetKey(item) === sceneAssetKey(scene)">{{ sceneAssetLabel(item) }}</el-dropdown-item>
                             </el-dropdown-menu>
                           </template>
                         </el-dropdown>
@@ -510,16 +512,15 @@
                       />
                       <div class="character-identity-controls">
                         <div class="character-name-input" role="group" aria-label="角色素材">
-                          <button class="character-reference-copy" type="button" title="复制角色引用" :aria-label="`复制${character.name}角色引用`" :disabled="!characterAppearanceInfo(character, shot).referenceName" @click="copyCharacterReference(character, shot)">
-                            <el-icon><component :is="characterAppearanceInfo(character, shot).icon" /></el-icon>
-                          </button>
-                          <span class="character-name-text" :title="character.name">{{ character.name }}</span>
+                          <span class="shot-reference-name character-name-text" :title="character.name" @dblclick.stop.prevent="copyCharacterReference(character, shot)">
+                            <el-icon aria-hidden="true"><component :is="characterAppearanceInfo(character, shot).icon" /></el-icon>
+                            <span class="shot-reference-name-label">{{ character.name }}</span>
+                          </span>
                           <el-dropdown v-if="characterAppearanceInfo(character, shot).outfits.length > 1 && !character.voiceOnly" class="character-outfit-dropdown" trigger="click" @command="character.outfitId = $event || null">
                             <button class="character-outfit-name is-selectable" type="button" :title="characterAppearanceInfo(character, shot).outfitName" :aria-label="`${character.name}服装`">{{ characterAppearanceInfo(character, shot).outfitName || '待分配' }}</button>
                             <template #dropdown>
                               <el-dropdown-menu>
-                                <el-dropdown-item :command="''" :disabled="characterAppearanceInfo(character, shot).outfitId === characterAppearanceInfo(character, shot).unitOutfitId" :class="{ 'material-choice-current': characterAppearanceInfo(character, shot).outfitId === characterAppearanceInfo(character, shot).unitOutfitId }">跟随单元 · {{ characterAppearanceInfo(character, shot).unitOutfitName }}</el-dropdown-item>
-                                <el-dropdown-item v-for="(outfit, outfitIndex) in characterAppearanceInfo(character, shot).outfits" :key="outfit.id" :command="outfit.id" :divided="outfitIndex === 0" :disabled="characterAppearanceInfo(character, shot).outfitId === outfit.id" :class="{ 'material-choice-current': characterAppearanceInfo(character, shot).outfitId === outfit.id }">{{ outfit.note }}</el-dropdown-item>
+                                <el-dropdown-item v-for="outfit in shotOutfitSelection(characterAppearanceInfo(character, shot).outfits, characterAppearanceInfo(character, shot).unitOutfitId, character.outfitId).options" :key="outfit.value" class="single-choice-option" :command="outfit.value" :disabled="outfit.disabled">{{ outfit.label }}{{ outfit.value === '' ? ' · 跟随单元' : '' }}</el-dropdown-item>
                               </el-dropdown-menu>
                             </template>
                           </el-dropdown>
@@ -831,7 +832,7 @@
             <el-dropdown trigger="click" @command="groupPromptProfileId = $event">
               <el-link class="group-summary-profile" underline="never" aria-label="提示词方案">{{ promptProfileOptions.find(profile => profile.value === groupPromptProfileId)?.label }}</el-link>
               <template #dropdown><el-dropdown-menu>
-                <el-dropdown-item v-for="profile in promptProfileOptions" :key="profile.value" :command="profile.value" :disabled="profile.value === groupPromptProfileId">{{ profile.label }}</el-dropdown-item>
+                <el-dropdown-item v-for="profile in promptProfileOptions" :key="profile.value" class="single-choice-option" :command="profile.value" :disabled="profile.value === groupPromptProfileId">{{ profile.label }}</el-dropdown-item>
               </el-dropdown-menu></template>
             </el-dropdown>
             <el-segmented
@@ -848,7 +849,7 @@
             <div v-if="activeGroupSummary" class="group-summary-reward">
               <el-select :model-value="groupResultTier?.playCount" :placeholder="groupResultPlaceholder" size="default" clearable aria-label="播放与提成档位" @change="updateGroupResultTier">
                 <template #prefix><span class="group-summary-select-prefix">绩效</span></template>
-                <el-option v-for="tier in groupResultTiers" :key="tier.playCount" :label="tier.label" :value="tier.playCount" />
+                <el-option v-for="tier in groupResultTiers" :key="tier.playCount" class="single-choice-option" :disabled="tier.playCount === groupResultTier?.playCount" :label="tier.label" :value="tier.playCount" />
               </el-select>
               <el-button :type="activeGroupSummary.results.received ? 'primary' : 'default'" :plain="activeGroupSummary.results.received" :icon="Coin" aria-label="到账" :title="activeGroupSummary.results.received ? '取消到账' : '到账'" :aria-pressed="activeGroupSummary.results.received" @click="activeGroupSummary.results.received = !activeGroupSummary.results.received" />
             </div>
@@ -935,8 +936,8 @@
                 </el-link>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="isHistoricalContactPerson(row.episode)" disabled>{{ row.episode.contactPerson }}</el-dropdown-item>
-                    <el-dropdown-item v-for="option in state.globalConfig.dataCollection.contactPersonOptions" :key="option.id" :command="option.label">{{ option.label }}</el-dropdown-item>
+                    <el-dropdown-item v-if="isHistoricalContactPerson(row.episode)" class="single-choice-option" disabled>{{ row.episode.contactPerson }}</el-dropdown-item>
+                    <el-dropdown-item v-for="option in state.globalConfig.dataCollection.contactPersonOptions" :key="option.id" class="single-choice-option" :disabled="option.label === row.episode.contactPerson" :command="option.label">{{ option.label }}</el-dropdown-item>
                     <el-dropdown-item v-if="!state.globalConfig.dataCollection.contactPersonOptions.length" class="contact-person-empty" disabled>请先在全局设置中添加数据</el-dropdown-item>
                     <el-dropdown-item v-if="row.episode.contactPerson" command="" divided>清空</el-dropdown-item>
                   </el-dropdown-menu>
@@ -1162,10 +1163,10 @@
         <div class="episode-script-columns">
           <div class="episode-script-source-panel">
             <div class="episode-script-panel-title">
-              <span>原始剧本</span>
+              <span>剧本正文</span>
             </div>
             <el-input
-              :model-value="dialogueEpisode?.scriptText ?? ''"
+              :model-value="dialogueSourceText"
               class="episode-script-source-input"
               type="textarea"
               :rows="16"
@@ -1356,6 +1357,7 @@ import {
   createSceneAsset,
   createSceneConfig,
   createShot,
+  DEFAULT_OUTFIT_NAME,
   normalizeCharacterAssets,
   normalizeShotSceneSelection,
   sceneAssetKey,
@@ -1385,7 +1387,7 @@ import {
   type TimingAnalysis,
 } from './timing'
 import type { AppState, CharacterConfig, CharacterUnit, DialogueSpeechRate, Episode, EpisodeGroup, EpisodeProductionData, ExportPayload, GlobalConfig, PendingDetection, PromptReview, SceneAsset, SceneConfig, SceneSpace, SceneTime, Shot, ShotTimingSegment } from './types'
-import { characterAssetsFor as assetsFor, initializeSharedCharacters, characterAppearance, characterUnits, validateCharacterOutfits } from './sharedCharacters'
+import { characterAssetsFor as assetsFor, initializeSharedCharacters, characterAppearance, characterUnits, shotOutfitSelection, validateCharacterOutfits } from './sharedCharacters'
 import { characterAvailableInUnit, compareCharacterAssets, episodeCharacterUnits, extendCharacterScopes, initializeCharacterScopes, mapCharacterUnitReferences, pruneCharacterScopes, referencedCharacterNames } from './characterScopes'
 import { formatPromptReferences } from './prompt'
 import { parseFirstFrameText } from './firstFrame'
@@ -1399,7 +1401,7 @@ import { normalizeMaterialConfirmations } from './defaults'
 import CharacterOutfitEditor from './components/CharacterOutfitEditor.vue'
 import CharacterTypeMenu from './components/CharacterTypeMenu.vue'
 import ScriptPreparationWorkspace from './components/ScriptPreparationWorkspace.vue'
-import { createPreparation, preparationState, normalizeEpisodeUnits, normalizePreparation, legacyEpisodeUnits, remapPreparation, rebindUnitCharacters } from './scriptPreparation'
+import { createPreparation, preparationState, normalizeEpisodeUnits, normalizePreparation, legacyEpisodeUnits, remapPreparation, rebindUnitCharacters, stripScriptMetadata } from './scriptPreparation'
 import type { ScriptPreparation } from './types'
 import type { CharacterOutfit, CharacterAsset } from './types'
 import { useAppState } from './useAppState'
@@ -1614,7 +1616,7 @@ const materialCharacterIsEnsembleDraft = computed(() => materialCharacterTypeDra
 const materialCharacterAvailableUnitsDraft = ref<NonNullable<CharacterAsset['availableUnits']>>([])
 const materialCharacterOutfitsDraft = ref<CharacterOutfit[]>([])
 watch([materialCharacterTypeDraft, () => materialCharacterOutfitsDraft.value.length], ([type, count]) => {
-  if (type === 'main' && count < 2 && !materialCharacterNoteDraft.value.trim()) materialCharacterNoteDraft.value = '原皮'
+  if (type === 'main' && count < 2 && !materialCharacterNoteDraft.value.trim()) materialCharacterNoteDraft.value = DEFAULT_OUTFIT_NAME
 })
 const materialEditingEpisodeId = ref<string | null>(null)
 const materialEditingEpisode = computed(() => state.episodes.find(episode => episode.id === materialEditingEpisodeId.value) ?? activeEpisode.value)
@@ -1696,6 +1698,7 @@ const reviewDialogVisible = ref(false)
 const dialogueDialogVisible = ref(false)
 const dialogueEpisodeId = ref<string | null>(null)
 const dialogueEpisode = computed(() => state.episodes.find(episode => episode.id === dialogueEpisodeId.value))
+const dialogueSourceText = computed(() => stripScriptMetadata(dialogueEpisode.value?.scriptText ?? ''))
 const activeReviewShot = ref<Shot | null>(null)
 const activeReviewEpisodeId = ref<string | null>(null)
 const reviewSummaryEpisodeId = ref<string | null>(null)
@@ -3570,7 +3573,7 @@ function loadCharacterDraft(character: CharacterAsset) {
   materialCharacterOutfitsDraft.value = JSON.parse(JSON.stringify(character.outfits))
 }
 
-async function openPreparationCharacterEdit(characterId: string, addOutfit = false) {
+function openPreparationCharacterEdit(characterId: string) {
   const batch = preparationBatch.value
   const character = batch.characters.find(asset => asset.id === characterId)!
   preparationMaterialTargetIds.value = batch.episodes.flatMap(episode => episode.units.filter(unit => unit.characters.some(usage => usage.characterId === characterId)).map(unit => unit.id))
@@ -3593,7 +3596,6 @@ async function openPreparationCharacterEdit(characterId: string, addOutfit = fal
     ...used.filter(unit => unit.outfitId).map(({ episodeId, unitNumber }) => ({ episodeId, unitNumber })),
   ]
   materialDialogVisible.value = true
-  if (addOutfit) { await nextTick(); await materialOutfitEditorRef.value!.addOutfit() }
 }
 
 function openPreparationMaterialAdd(kind: MaterialKind, unitIds: string[], anchor: HTMLElement) {
@@ -3636,7 +3638,7 @@ function commitPreparationMaterial() {
     voiceDescription: materialCharacterVoiceDraft.value.trim(),
     isEnsemble: materialCharacterIsEnsembleDraft.value,
     isMain: materialCharacterTypeDraft.value === 'main',
-    note: materialCharacterNoteDraft.value.trim() || (materialCharacterTypeDraft.value === 'main' && materialCharacterOutfitsDraft.value.length < 2 ? '原皮' : ''),
+    note: materialCharacterNoteDraft.value.trim() || (materialCharacterTypeDraft.value === 'main' && materialCharacterOutfitsDraft.value.length < 2 ? DEFAULT_OUTFIT_NAME : ''),
     appearanceDescriptionEnabled: materialCharacterAppearanceEnabledDraft.value,
     voiceDescriptionEnabled: materialCharacterVoiceEnabledDraft.value,
     availableUnits: materialCharacterAvailableUnitsDraft.value.map(unit => ({ ...unit })),
@@ -3739,7 +3741,7 @@ function commitMaterialDialog() {
       return false
     }
 
-    materialCharacterNoteDraft.value = materialCharacterNoteDraft.value.trim() || (materialCharacterTypeDraft.value === 'main' && materialCharacterOutfitsDraft.value.length < 2 ? '原皮' : '')
+    materialCharacterNoteDraft.value = materialCharacterNoteDraft.value.trim() || (materialCharacterTypeDraft.value === 'main' && materialCharacterOutfitsDraft.value.length < 2 ? DEFAULT_OUTFIT_NAME : '')
     const draftAsset = { ...(assetsFor(state, episode).find(item => item.name === editing?.value) ?? createCharacterAsset(nextName)), outfits: materialCharacterOutfitsDraft.value }
     const outfitError = validateCharacterOutfits(state, episode, draftAsset)
     if (outfitError) { notify.warning(outfitError); return false }
@@ -4213,7 +4215,7 @@ function characterAppearanceInfo(character: CharacterConfig, shot: Shot) {
   const appearance = asset ? characterAppearance(asset, episode.id, shot, unitCharactersFor(episode, shot)) : null
   const outfitName = asset?.isEnsemble || character.voiceOnly ? '' : appearance?.outfitName
   const icon = asset?.isMain ? MainCharacterFilled : asset?.isEnsemble ? GrapeFilled : UserFilled
-  return { icon, outfitName, outfits: asset?.outfits ?? [], outfitId: appearance?.outfitId ?? null, unitOutfitId: appearance?.unitOutfitId ?? null, unitOutfitName: appearance?.unitOutfitName, appearanceEnabled: appearance?.appearanceEnabled ?? false, includeAppearance: appearance?.includeAppearance ?? false, description: appearance?.description ?? '', referenceName: appearance?.referenceName }
+  return { icon, outfitName, outfits: asset?.outfits ?? [], unitOutfitId: appearance?.unitOutfitId ?? null, appearanceEnabled: appearance?.appearanceEnabled ?? false, includeAppearance: appearance?.includeAppearance ?? false, description: appearance?.description ?? '', referenceName: appearance?.referenceName }
 }
 
 async function copyCharacterReference(character: CharacterConfig, shot: Shot) {
@@ -4965,15 +4967,15 @@ function openDialogueDialog(episode: Episode) {
   dialogueEpisodeId.value = episode.id
   const savedDialogue = episode.extractedDialogueText
   dialogueView.value = 'original'
-  dialogueOriginalDraft.value = savedDialogue ?? extractDialogueText(episode.scriptText)
+  dialogueOriginalDraft.value = savedDialogue ?? extractDialogueText(dialogueSourceText.value)
   dialogueReplacedDraft.value = savedDialogue == null
-    ? extractDialogueText(episode.scriptText, state.globalConfig.dialogueExtraction.replacementRules)
+    ? extractDialogueText(dialogueSourceText.value, state.globalConfig.dialogueExtraction.replacementRules)
     : replaceDialogueText(savedDialogue, state.globalConfig.dialogueExtraction.replacementRules)
   dialogueDialogVisible.value = true
 }
 
 function resetDialogueExtraction() {
-  const original = dialogueEpisode.value?.scriptText ?? ''
+  const original = dialogueSourceText.value
   dialogueOriginalDraft.value = extractDialogueText(original)
   dialogueReplacedDraft.value = extractDialogueText(original, state.globalConfig.dialogueExtraction.replacementRules)
 }
@@ -5111,7 +5113,8 @@ async function copyShotNumber(shot: Shot) {
 }
 
 async function copySceneReference(shot: Shot, scene: SceneConfig) {
-  const label = shot.usePositionReference ? formatPromptReferenceName(formatShotReference(episodeForShot(shot), shotIndex(shot), state.episodes)) : sceneReferenceName(scene)
+  const reference = shot.usePositionReference ? formatShotReference(episodeForShot(shot), shotIndex(shot), state.episodes) : sceneReferenceName(scene)
+  const label = formatPromptReferenceName(reference)
   if (await copyText(label)) notify.success(`已复制${shot.usePositionReference ? '引用序号' : '场景引用'} ${label}`)
   else notify.error('复制失败，请手动选择文本复制')
 }

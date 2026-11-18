@@ -7,8 +7,9 @@ import {
   createInitialState,
   createShot,
 } from '../src/defaults'
-import { analyzeScript, createPreparation, normalizePreparation, parseCharacterBiographies, preparationPending, preparationState, scriptTime, setPreparedUnitScript } from '../src/scriptPreparation'
+import { analyzeScript, createPreparation, normalizePreparation, parseCharacterBiographies, preparationPending, preparationState, scriptTime, setPreparedUnitScript, stripScriptMetadata } from '../src/scriptPreparation'
 import { organizeScriptText } from '../src/episodeScript'
+import { extractDialogueText } from '../src/dialogue'
 import { normalizeAppState } from '../src/stateNormalization'
 import { buildDataFiles, assembleDataFiles, parseDataFile } from '../src/dataFiles'
 import { composePrompt } from '../src/prompt'
@@ -54,9 +55,9 @@ export async function runScriptPreparationTests() {
   function setup() {
     const state = createInitialState(config),
       group = createEpisodeGroup(config.prompt.activeProfileId),
-      role = createCharacterAsset('林晚', '原皮描述')
+      role = createCharacterAsset('林晚', '原始服装描述')
     role.isMain = true
-    role.note = '原皮'
+    role.note = '原始'
     role.appearanceDescriptionEnabled = true
     group.characters = [role]
     state.episodeGroups = [group]
@@ -119,10 +120,20 @@ export async function runScriptPreparationTests() {
     const batch = analyzeScript(text, state, group.id, [role]), unit = batch.episodes[0].units[0]
     const names = unit.characters.map(usage => batch.characters.find(asset => asset.id === usage.characterId)!.name)
     assert(['林晚', '护士', '司机', '助理'].every(name => names.includes(name)), 'roster roles were lost')
-    assert(!batch.characters.some(asset => asset.name === '角色'), 'roster label became a speaking role')
+    assert(!batch.characters.some(asset => asset.name === '角色' || asset.name === '只是台词'), 'roster label or words in dialogue became a role')
     assert(unit.scriptText === '林晚：人物：只是台词，不是名单。\n△护士走近。', 'cast line remained or dialogue was removed')
     assert(unit.shots[0].text === unit.scriptText, 'initial shot contains cast metadata')
     assert(batch.sourceText === text && batch.episodes[0].scriptText.includes('人物：林晚'), 'original imported script was changed')
+  })
+  await test('Dialogue source and extraction exclude scene headings and cast lists but preserve spoken words', () => {
+    const { state, group, role } = setup()
+    role.isMain = false
+    const text = '第1集\n1-1：日 内 客厅 人物：林晚、护士\n人物：护士\n林晚：人物：只是台词。\n夜 外 门口 角色：司机\n司机：来了。'
+    const batch = analyzeScript(text, state, group.id, [role])
+    const episode = preparationState(state, batch, group.id, state.episodes[0].id).episodes[0]
+    const body = stripScriptMetadata(episode.scriptText)
+    assert(body === '第1集\n林晚：人物：只是台词。\n司机：来了。', 'scene headings or cast lists leaked into the dialogue source')
+    assert(extractDialogueText(body) === '人物\n只是台词\n来了', 'metadata leaked into extracted dialogue or spoken words changed')
   })
   await test('Removing legacy cast metadata preserves unchanged multi-shot configurations', () => {
     const { state, group, role } = setup(), episode = state.episodes[0]
@@ -356,6 +367,20 @@ export async function runScriptPreparationTests() {
     const shots = normalizePreparation({ ...JSON.parse(JSON.stringify(batch)), mode: 'shots' })!
     assert(shots.materialView === 'shots' && !('mode' in shots), 'old shot workspace did not become a tab')
     assert(JSON.stringify(restored.episodes) === JSON.stringify(batch.episodes), 'mode migration changed unit contents')
+  })
+  await test('Loading a draft renames its legacy default outfit without changing assignments', () => {
+    const { state, group, role } = setup()
+    role.note = '原皮'
+    role.outfits = [
+      { id: 'casual', note: '常服', appearanceDescription: '保留描述', units: [] },
+      { id: 'formal', note: '晚礼服', appearanceDescription: '', units: [] },
+    ]
+    const batch = analyzeScript(source, state, group.id, [role])
+    batch.episodes[0].units[0].characters[0].outfitId = 'casual'
+    const restored = normalizePreparation(batch)!
+    const asset = restored.characters.find(asset => asset.id === role.id)!
+    assert(asset.note === '原始' && asset.outfits[0].note === '原始' && asset.outfits[1].note === '晚礼服', 'draft outfit names changed incorrectly')
+    assert(restored.episodes[0].units[0].characters[0].outfitId === 'casual' && asset.outfits[0].appearanceDescription === '保留描述', 'assignment or description changed')
   })
   await test('Drafts, units, outfit overrides survive local storage and WebDAV file round trips', async () => {
     const { state, group, role } = setup()

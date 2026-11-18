@@ -1,6 +1,6 @@
-import { createCharacterAsset } from './defaults'
+import { createCharacterAsset, DEFAULT_OUTFIT_NAME } from './defaults'
 import { initializeCharacterScopes } from './characterScopes'
-import type { AppState, CharacterAsset, Episode, Shot, UnitCharacter } from './types'
+import type { AppState, CharacterAsset, CharacterOutfit, Episode, Shot, UnitCharacter } from './types'
 
 export function characterAssetsFor(state: AppState, episode: Episode): CharacterAsset[] {
   return state.episodeGroups.find(group => group.id === episode.groupId)?.characters ?? episode.characters
@@ -54,10 +54,28 @@ export function characterAppearance(asset: CharacterAsset, episodeId: string, sh
     includeAppearance,
     outfitId: outfit?.id ?? null,
     unitOutfitId: unitOutfit?.id ?? null,
-    unitOutfitName: asset.outfits.length > 1 ? unitOutfit?.note || '待分配' : asset.note || '原皮',
-    outfitName: appearance ? appearance.note || '原皮' : '',
+    unitOutfitName: asset.outfits.length > 1 ? unitOutfit?.note || '待分配' : asset.note || DEFAULT_OUTFIT_NAME,
+    outfitName: appearance ? appearance.note || DEFAULT_OUTFIT_NAME : '',
     description: includeAppearance ? appearance?.appearanceDescription ?? '' : '',
     referenceName: asset.outfits.length < 2 ? (asset.note ? `${asset.name}（${asset.note}）` : asset.name) : outfit ? `${asset.name}（${outfit.note}）` : null,
+  }
+}
+
+export function shotOutfitSelection(outfits: CharacterOutfit[], unitOutfitId: string | null, shotOutfitId?: string | null) {
+  const findOutfit = (id: string | null | undefined) => outfits.find(outfit => outfit.id === id) ?? (id === 'original' ? outfits[0] : undefined)
+  const unitOutfit = findOutfit(unitOutfitId)
+  const fixedOutfit = findOutfit(shotOutfitId)
+  const selectedOutfit = shotOutfitId ? fixedOutfit : unitOutfit
+  const value = fixedOutfit?.id ?? shotOutfitId ?? ''
+  const options = outfits.map(outfit => ({
+    value: outfit === unitOutfit ? '' : outfit.id,
+    label: outfit.note || '未命名服装',
+  }))
+  if (!unitOutfit) options.push({ value: '', label: '待分配' })
+  return {
+    value,
+    label: selectedOutfit ? selectedOutfit.note || '未命名服装' : '待分配',
+    options: options.map(option => ({ ...option, disabled: option.value === value })),
   }
 }
 

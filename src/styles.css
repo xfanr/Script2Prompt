@@ -2448,10 +2448,28 @@ html.dark .episode-panel {
   border-top: 1px solid var(--el-border-color-light);
 }
 
-.el-dropdown-menu .el-dropdown-menu__item.material-choice-current,
-.shot-reference-dropdown .el-select-dropdown__item.material-choice-current {
-  color: var(--el-color-primary);
-  font-weight: 700;
+.el-dropdown-menu__item.single-choice-option,
+.el-select-dropdown__item.single-choice-option {
+  position: relative;
+  padding-inline-end: 36px;
+}
+
+.el-dropdown-menu__item.single-choice-option.is-disabled,
+.el-select-dropdown__item.single-choice-option.is-disabled {
+  color: var(--el-text-color-disabled);
+  font-weight: 400;
+}
+
+.single-choice-option.is-disabled::after {
+  position: absolute;
+  inset-inline-end: 16px;
+  top: 50%;
+  width: 5px;
+  height: 9px;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  content: '';
+  transform: translateY(-60%) rotate(45deg);
 }
 
 .scene-selection-controls {
@@ -2474,20 +2492,30 @@ html.dark .episode-panel {
   font-size: var(--el-font-size-base);
 }
 
-.scene-name-control {
-  display: block;
-  flex: 0 0 6em;
-  width: 6em;
-  padding: 0;
-  border: 0;
-  background: transparent;
+.shot-reference-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
   color: var(--el-text-color-regular);
-  font: inherit;
+  cursor: default;
+  user-select: none;
+}
+
+.shot-reference-name .el-icon {
+  flex: 0 0 14px;
+  color: var(--el-text-color-secondary);
+}
+
+.shot-reference-name-label {
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  text-align: left;
-  cursor: default;
+}
+
+.scene-name-control {
+  flex: 0 0 calc(6em + 20px);
 }
 
 .scene-selection-controls > .el-button {
@@ -2498,28 +2526,6 @@ html.dark .episode-panel {
   margin: 0;
   padding: 0;
   border-radius: 0 var(--el-border-radius-base) var(--el-border-radius-base) 0;
-}
-
-.scene-reference-copy {
-  display: inline-flex;
-  flex: 0 0 14px;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--el-text-color-placeholder);
-  font: inherit;
-  cursor: pointer;
-}
-
-.scene-reference-copy:hover {
-  color: var(--el-text-color-regular);
-}
-
-.scene-reference-copy:disabled {
-  color: var(--el-text-color-disabled);
-  cursor: not-allowed;
 }
 
 .scene-reference-controls .scene-position-reference-select {
@@ -2667,27 +2673,8 @@ html.dark .episode-panel {
   overflow: hidden;
 }
 
-.character-reference-copy {
-  display: inline-flex;
-  flex: 0 0 14px;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--el-text-color-placeholder);
-  font-size: var(--el-font-size-base);
-  cursor: pointer;
-}
-
-.character-reference-copy:disabled { cursor: not-allowed; }
-
 .character-name-text {
-  flex: 0 0 4em;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 0 0 calc(4em + 20px);
 }
 
 .character-outfit-dropdown { flex: 0 0 auto; margin-left: auto; }
@@ -4447,10 +4434,8 @@ html.dark .episode-panel {
 .character-assignment-grid button:disabled { color: var(--el-text-color-disabled); cursor: default; }
 .character-assignment-grid small { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--el-text-color-secondary); }
 .character-assignment-grid .pending small { color: var(--el-color-warning); }
-.character-assignment-count,
 .character-assignment-caption { color: var(--el-text-color-secondary); font-size: var(--el-font-size-small); }
-.character-assignment-count { margin: 12px 0; }
-.character-assignment-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.character-assignment-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .character-assignment-options .el-button { margin: 0; }
 .outfit-assignment-summary { margin: 0 0 8px; line-height: 1.4; overflow-wrap: anywhere; }
 .character-outfit-list {

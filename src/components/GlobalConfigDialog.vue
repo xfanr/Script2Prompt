@@ -31,7 +31,7 @@
                     <el-icon><CategoryManagementIcon /></el-icon>方案管理
                   </button>
                 </template>
-                <el-option v-for="profile in draft.prompt.profiles" :key="profile.id" :label="profile.name" :value="profile.id" />
+                <el-option v-for="profile in draft.prompt.profiles" :key="profile.id" class="single-choice-option" :disabled="profile.id === selectedProfileId" :label="profile.name" :value="profile.id" />
               </el-select>
             </el-form-item>
             <el-form-item label="基础设定前缀">
@@ -59,7 +59,7 @@
                     <el-icon><CategoryManagementIcon /></el-icon>模板管理
                   </button>
                 </template>
-                <el-option v-for="template in draft.prompt.ensembleAppearanceTemplates" :key="template.id" :label="template.name" :value="template.id" />
+                <el-option v-for="template in draft.prompt.ensembleAppearanceTemplates" :key="template.id" class="single-choice-option" :disabled="template.id === draft.prompt.activeEnsembleAppearanceTemplateId" :label="template.name" :value="template.id" />
               </el-select>
             </el-form-item>
             <el-form-item label="群像描述模板">

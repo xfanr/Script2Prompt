@@ -27,28 +27,28 @@ export async function runSharedCharacterTests() {
   state.activeEpisodeId = second.id
   initializeSharedCharacters(state, second)
   const asset = characterAssetsFor(state, second)[0]
-  test('single-outfit main characters default to original skin without replacing custom notes', () => {
+  test('single-outfit main characters use the original outfit name without replacing custom notes', () => {
     const assets = normalizeCharacterAssets([
       { ...createCharacterAsset('林晚'), isMain: true },
       { ...createCharacterAsset('自定主角'), isMain: true, note: '红色礼服' },
       createCharacterAsset('配角'),
     ])
-    assert(assets[0].note === '原皮', 'main character default note missing')
+    assert(assets[0].note === '原始', 'main character default note missing')
     assert(assets[1].note === '红色礼服' && assets[2].note === '', 'custom or supporting note replaced')
-    assert(characterAppearance(assets[0], first.id, first.shots[0]).referenceName === '林晚（原皮）', 'appearance reference missing default note')
+    assert(characterAppearance(assets[0], first.id, first.shots[0]).referenceName === '林晚（原始）', 'appearance reference missing default note')
     const detailed = composePrompt(config, first.shots[0], undefined, 8, assets, '11-1', 'detailed', '11-1', first.id)
-    assert(detailed.includes('[林晚（原皮）.png]') && detailed.includes('[林晚.mp3]'), 'default note changed appearance or voice references incorrectly')
+    assert(detailed.includes('[林晚（原始）.png]') && detailed.includes('[林晚.mp3]'), 'default note changed appearance or voice references incorrectly')
   })
-  test('legacy outfit notes become original skin and multiple outfits keep explicit assignment', () => {
+  test('only exact legacy names become the original outfit name', () => {
     const assets = normalizeCharacterAssets([
       { ...createCharacterAsset('单套'), note: ' 常服 ' },
       { ...createCharacterAsset('多套'), isMain: true, outfits: [
-        { id: 'original', note: '常服', appearanceDescription: '', units: [] },
+        { id: 'original', note: '原皮', appearanceDescription: '', units: [] },
         { id: 'formal', note: '礼服', appearanceDescription: '', units: [] },
       ] },
       { ...createCharacterAsset('保留原文'), note: '日常服装' },
     ])
-    assert(assets[0].note === '原皮' && assets[1].outfits[0].note === '原皮', 'legacy note not renamed')
+    assert(assets[0].note === '原始' && assets[1].outfits[0].note === '原始', 'legacy note not renamed')
     assert(assets[1].note === '' && assets[1].outfits[1].note === '礼服', 'multiple-outfit notes changed')
     assert(assets[2].note === '日常服装', 'partial text was replaced')
   })
@@ -201,20 +201,20 @@ export async function runSharedCharacterTests() {
   test('outfit selection follows unit and retains independent description output', () => {
     const localAsset = createCharacterAsset('林晚')
     localAsset.outfits = [
-      { id: 'skin-a', note: '原皮', appearanceDescription: '衬衫', appearanceDescriptionEnabled: true, units: [] },
+      { id: 'skin-a', note: '原始', appearanceDescription: '衬衫', appearanceDescriptionEnabled: true, units: [] },
       { id: 'skin-b', note: '礼服', appearanceDescription: '长裙', appearanceDescriptionEnabled: false, units: [] },
     ]
     const shot = createShot()
     shot.characters = [{ ...createCharacterConfig('林晚'), characterId: localAsset.id }]
     const unit = [{ characterId: localAsset.id, voiceOnly: false, outfitId: 'skin-a', sourceNames: [] }]
     const resolve = () => characterAppearance(localAsset, first.id, shot, unit)
-    assert(resolve().unitOutfitName === '原皮' && resolve().description === '衬衫', 'unit default missing')
+    assert(resolve().unitOutfitName === '原始' && resolve().description === '衬衫', 'unit default missing')
     shot.characters[0].outfitId = 'skin-b'
     shot.characters[0].includeAppearance = true
     assert(resolve().referenceName === '林晚（礼服）' && !resolve().description && !resolve().appearanceEnabled, 'override bypassed outfit output gate')
-    assert(resolve().unitOutfitName === '原皮' && !localAsset.outfits[1].appearanceDescriptionEnabled, 'unit or global modified')
+    assert(resolve().unitOutfitName === '原始' && !localAsset.outfits[1].appearanceDescriptionEnabled, 'unit or global modified')
     shot.characters[0].outfitId = null
-    assert(resolve().outfitName === '原皮', 'follow unit not restored')
+    assert(resolve().outfitName === '原始', 'follow unit not restored')
     shot.characters[0].voiceOnly = true
     assert(!resolve().description, 'voice-only description output')
   })

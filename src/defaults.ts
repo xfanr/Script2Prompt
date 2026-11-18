@@ -2,6 +2,7 @@ import type { AppState, CharacterAsset, CharacterConfig, ContactPersonOption, Di
 
 export const STORAGE_KEY = 'script2prompt.appState.v1'
 export const APP_VERSION = 12
+export const DEFAULT_OUTFIT_NAME = '原始'
 export const DEFAULT_ENSEMBLE_APPEARANCE_TEMPLATE = '一组外貌、发型和服装各不相同的角色，保持个体差异，避免重复面孔。'
 
 export function normalizeMaterialConfirmations(value: unknown): string[] {
@@ -45,6 +46,10 @@ export function createCharacterAsset(name = '', appearanceDescription = '', voic
   }
 }
 
+export function normalizeOutfitName(name: string) {
+  return name.trim().replace(/^(?:常服|原皮)$/, DEFAULT_OUTFIT_NAME)
+}
+
 export function normalizeCharacterAssets(value: unknown): CharacterAsset[] {
   if (!Array.isArray(value)) {
     return []
@@ -70,12 +75,12 @@ export function normalizeCharacterAssets(value: unknown): CharacterAsset[] {
     if (normalized.isMain) normalized.isEnsemble = false
     normalized.availableUnits = Array.isArray(asset.availableUnits) ? asset.availableUnits.filter(unit => unit && typeof unit.episodeId === 'string' && Number.isInteger(unit.unitNumber) && unit.unitNumber > 0)
       .map(unit => ({ episodeId: unit.episodeId, unitNumber: unit.unitNumber })) : null
-    normalized.note = typeof asset.note === 'string' ? asset.note.trim().replace(/^常服$/, '原皮') : ''
+    normalized.note = typeof asset.note === 'string' ? normalizeOutfitName(asset.note) : ''
     normalized.appearanceDescriptionEnabled = asset.appearanceDescriptionEnabled === true
     normalized.voiceDescriptionEnabled = asset.voiceDescriptionEnabled === true
     normalized.outfits = Array.isArray(asset.outfits) ? asset.outfits.filter(outfit => outfit && typeof outfit === 'object').map((outfit) => ({
       id: typeof outfit.id === 'string' && outfit.id ? outfit.id : createId('outfit'),
-      note: typeof outfit.note === 'string' ? outfit.note.trim().replace(/^常服$/, '原皮') : '',
+      note: typeof outfit.note === 'string' ? normalizeOutfitName(outfit.note) : '',
       appearanceDescription: typeof outfit.appearanceDescription === 'string' ? outfit.appearanceDescription : '',
       appearanceDescriptionEnabled: outfit.appearanceDescriptionEnabled === true,
       units: Array.isArray(outfit.units) ? outfit.units.filter((unit) => unit && typeof unit.episodeId === 'string' && Number.isInteger(unit.unitNumber) && unit.unitNumber > 0) : [],
@@ -87,7 +92,7 @@ export function normalizeCharacterAssets(value: unknown): CharacterAsset[] {
       normalized.note = normalized.outfits[0].note || normalized.note
       normalized.outfits = []
     }
-    if (normalized.isMain && !normalized.outfits.length && !normalized.note) normalized.note = '原皮'
+    if (normalized.isMain && !normalized.outfits.length && !normalized.note) normalized.note = DEFAULT_OUTFIT_NAME
     return normalized
   }).filter((item): item is CharacterAsset => Boolean(item))
 
