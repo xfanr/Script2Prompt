@@ -31,6 +31,9 @@ html:root {
   --el-color-danger-light-8: #ffccc7;
   --el-color-danger-light-9: #fff1f0;
   --el-color-danger-dark-2: #cf1322;
+  --header-icon-gradient-start: var(--el-color-info-light-5);
+  --header-icon-gradient-middle: var(--el-color-primary-light-5);
+  --header-icon-gradient-end: var(--el-color-primary-light-3);
   color: #1f2a44;
   background: var(--el-bg-color-page);
   font-family: "Microsoft YaHei UI", "Noto Sans SC", "PingFang SC", sans-serif;
@@ -55,6 +58,13 @@ html.dark:root {
   --el-color-danger-light-8: #5c0011;
   --el-color-danger-light-9: #5c0011;
   --el-color-danger-dark-2: #ff4d4f;
+  --header-icon-gradient-start: var(--el-text-color-primary);
+  --header-icon-gradient-middle: var(--el-text-color-regular);
+  --header-icon-gradient-end: var(--el-color-primary-dark-2);
+}
+
+.header-icon-definitions {
+  position: absolute;
 }
 
 * {
@@ -269,16 +279,26 @@ html.dark .el-overlay {
   background: var(--el-bg-color);
 }
 
-.project-section-menu {
+.project-section-menu,
+.stage-header {
   display: flex;
   align-items: center;
   justify-self: center;
   gap: 32px;
 }
 
-.project-section-menu .el-button {
+:is(.project-section-menu, .stage-header) .el-button {
   color: var(--el-text-color-regular);
   font-size: var(--el-font-size-medium);
+}
+
+:is(.project-section-menu, .stage-header) .el-button > .el-icon {
+  font-size: 1.3em;
+}
+
+:is(.project-section-menu, .stage-header) .el-button > .el-icon + span {
+  margin-inline-start: 10px;
+  letter-spacing: 0.04em;
 }
 
 .project-section-menu .el-button.is-text:not(.is-disabled):hover {
@@ -903,12 +923,8 @@ html.dark .episode-panel {
 }
 
 .stage-header {
-  display: flex;
   min-width: 0;
   max-width: 100%;
-  justify-self: center;
-  align-items: center;
-  gap: 16px;
 }
 
 .stage-page-title {
@@ -941,10 +957,6 @@ html.dark .episode-panel {
 
 .stage-page-title > :not(.stage-group-switch) {
   flex-shrink: 0;
-}
-
-.stage-header > .el-button {
-  margin: 0;
 }
 
 .stage-title-switch-trigger {
@@ -2771,9 +2783,15 @@ html.dark .episode-panel {
 
 .shot-overwrite-footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
   padding: 8px 12px;
   border-top: 1px solid var(--el-border-color-light);
+}
+
+.shot-overwrite-footer .el-checkbox {
+  margin-right: 0;
 }
 
 .status-sync-suffix-icon.is-disabled {

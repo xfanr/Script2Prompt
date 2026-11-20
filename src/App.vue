@@ -1,6 +1,15 @@
 <template>
   <el-config-provider>
     <div class="app-shell" :inert="isReplacing">
+      <svg class="header-icon-definitions" width="0" height="0" focusable="false" aria-hidden="true">
+        <defs>
+          <linearGradient id="workbench-header-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="48" y2="0">
+            <stop offset="0%" stop-color="var(--header-icon-gradient-start)" />
+            <stop offset="55.29%" stop-color="var(--header-icon-gradient-middle)" />
+            <stop offset="100%" stop-color="var(--header-icon-gradient-end)" />
+          </linearGradient>
+        </defs>
+      </svg>
       <el-alert v-if="saveError" class="storage-save-error" type="error" :closable="false" show-icon title="更改尚未保存">
         <div>{{ saveError }}</div>
         <el-button size="small" @click="saveNow">重试保存</el-button>
@@ -432,16 +441,16 @@
                           :disabled="!composeCharacterSettings(shot, assetsFor(state, episode))"
                           @click="copyCharacterSettings(shot)"
                         />
-                        <ShotOverwriteMenu :disabled="!shot.characters.length" :options="expanded => characterCloneSources(shot, expanded).map(item => ({ value: item.shot.id, label: `${formatShotNumber(item.episode, item.index)} · ${item.shot.characters.length} 人${item.adjacentLabel ? ` · ${item.adjacentLabel}` : ''}`, disabled: item.shot.id === shot.id, divided: item.divided }))" @confirm="overwriteShotCharacters(shot, $event)">
-                          <el-button class="title-copy-button" :icon="CloneCharacters" text type="primary" :disabled="!shot.characters.length" title="覆盖角色配置" aria-label="覆盖角色配置" />
+                        <ShotOverwriteMenu scene-option :disabled="!shot.characters.length && !hasConfiguredScenes(shot) && !shot.usePositionReference" :options="expanded => materialOverwriteTargets(shot, expanded).map(item => ({ value: item.shot.id, label: `${formatShotNumber(item.episode, item.index)} · ${item.shot.characters.length} 人${item.adjacentLabel ? ` · ${item.adjacentLabel}` : ''}`, disabled: item.shot.id === shot.id, divided: item.divided }))" @confirm="(ids, includeScenes) => overwriteShotMaterials(shot, ids, includeScenes)">
+                          <el-button class="title-copy-button" :icon="OverwriteIcon" text type="primary" :disabled="!shot.characters.length && !hasConfiguredScenes(shot) && !shot.usePositionReference" title="覆盖素材配置" aria-label="覆盖素材配置" />
                         </ShotOverwriteMenu>
                       </div>
                       <div class="character-heading-actions">
                         <CharacterAddMenu :assets="availableCharacterAssets(shot)" @select="addCharacterToShot(shot, $event)">
-                          <el-button class="title-copy-button" :icon="AddIcon" text type="primary" title="添加角色" aria-label="添加角色" />
+                          <el-button class="title-copy-button" :icon="SelectCharacterIcon" text type="primary" title="选择角色" aria-label="选择角色" />
                         </CharacterAddMenu>
                         <el-dropdown trigger="click" @command="removeCharacterFromShot(shot, $event)">
-                          <el-button class="title-copy-button" :icon="Delete" text type="primary" title="删除角色" aria-label="删除角色" :disabled="!shot.characters.length" />
+                          <el-button class="title-copy-button" :icon="DeleteCharacterIcon" text type="primary" title="删除角色" aria-label="删除角色" :disabled="!shot.characters.length" />
                           <template #dropdown>
                             <el-dropdown-menu>
                               <el-dropdown-item v-for="character in shot.characters" :key="character.id" :command="character.id">{{ character.name }}</el-dropdown-item>
@@ -476,7 +485,7 @@
                       <el-input v-model="scene.statusText" class="scene-status-input" placeholder="输入场景状态" aria-label="场景状态">
                         <template #suffix>
                           <ShotOverwriteMenu :options="expanded => sceneStatusTargets(shot, expanded)" @confirm="overwriteSceneStatus(shot, scene, $event)">
-                            <el-icon class="status-sync-suffix-icon" title="覆盖场景状态" aria-label="覆盖场景状态"><CloneCharacters /></el-icon>
+                            <el-icon class="status-sync-suffix-icon" title="覆盖场景状态" aria-label="覆盖场景状态"><OverwriteIcon /></el-icon>
                           </ShotOverwriteMenu>
                         </template>
                       </el-input>
@@ -555,9 +564,9 @@
                         placeholder="输入角色状态"
                       >
                         <template #suffix>
-                          <el-icon v-if="!character.name.trim()" class="status-sync-suffix-icon is-disabled" title="请先选择角色" aria-label="请先选择角色"><CloneCharacters /></el-icon>
+                          <el-icon v-if="!character.name.trim()" class="status-sync-suffix-icon is-disabled" title="请先选择角色" aria-label="请先选择角色"><OverwriteIcon /></el-icon>
                           <ShotOverwriteMenu v-else :options="expanded => characterStatusSources(shot, character, expanded).map(option => ({ value: option.character.id, label: option.label, disabled: option.character.id === character.id, divided: option.divided }))" @confirm="confirmCharacterStatusOverwrite(shot, character, $event)">
-                            <el-icon class="status-sync-suffix-icon" title="覆盖角色状态" aria-label="覆盖角色状态"><CloneCharacters /></el-icon>
+                            <el-icon class="status-sync-suffix-icon" title="覆盖角色状态" aria-label="覆盖角色状态"><OverwriteIcon /></el-icon>
                           </ShotOverwriteMenu>
                         </template>
                       </el-input>
@@ -1336,7 +1345,7 @@ import { linkedSourceShotIds, neighboringEpisode, visibleShotCards } from './nei
 import EpisodeSplitNumberCell from './components/EpisodeSplitNumberCell.vue'
 import { activePromptProfile, cloneGlobalConfig, mergeGlobalConfigs, normalizeGlobalConfigSnapshot, normalizeReferenceMode } from './config'
 import { ElDialog, ElPopover, ElMessageBox, type CascaderValue, type DropdownInstance } from 'element-plus'
-import { AddIcon, ArrowDown, Check, CircleCheckFilled, Close, CloseBold, Coin, CloneCharacters, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Download, EditPen, Grape, Location, MainCharacter, ScriptAnalysisIcon, Microphone, Moon, MoreFilled, Mute, Notebook, NextEpisodeUnit, Position, PositionReference, PreviousEpisodeUnit, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, WarningFilled } from './icons'
+import { AddIcon, ArrowDown, Check, CircleCheckFilled, Close, CloseBold, Coin, CopyDocument, DataAnalysis, DataLine, Delete, DialogueTabIcon, Download, EditPen, Grape, Location, MainCharacter, ScriptAnalysisIcon, Microphone, Moon, MoreFilled, Mute, Notebook, NextEpisodeUnit, OverwriteIcon, Position, PositionReference, PreviousEpisodeUnit, Search, Setting, Sort, Star, StarFilled, Sunny, Upload, User, UserFilled, WarningFilled } from './icons'
 import { extractDialogueText, replaceDialogueText } from './dialogue'
 import { normalizeSplitScriptText, organizeScriptText, splitBatchShotText, type BatchShotSegment } from './episodeScript'
 import { clearInteriorEpisodeContacts, contactEditableEpisodeIds, renameEpisodeContacts } from './episodeContacts'
@@ -1392,7 +1401,7 @@ import { characterAvailableInUnit, compareCharacterAssets, episodeCharacterUnits
 import { formatPromptReferences } from './prompt'
 import { parseFirstFrameText } from './firstFrame'
 import { GrapeFilled, MainCharacterFilled, OutfitDescriptionIcon } from './icons'
-import { HomeBackIcon, GoStart, GoEnd, PointBalanceIcon, SceneReferenceIcon } from './icons'
+import { DeleteCharacterIcon, HomeBackIcon, GoStart, GoEnd, PointBalanceIcon, SceneReferenceIcon, SelectCharacterIcon } from './icons'
 import { ProjectFolder, ProjectFolderFilled, ArchiveFolder, HistoryFolder, HistoryFolderFilled, MoreOneIcon } from './icons'
 import MaterialCard from './components/MaterialCard.vue'
 import ShotOverwriteMenu from './components/ShotOverwriteMenu.vue'
@@ -4118,15 +4127,14 @@ function removeCharacterFromShot(shot: Shot, id: string) {
   shot.characters = shot.characters.filter((character) => character.id !== id)
 }
 
-function characterCloneSources(target: Shot, expanded: boolean) {
-  const currentEpisode = episodeForShot(target)
-  if (!currentEpisode) return []
-  const targetIndex = shotIndex(target)
+function materialOverwriteTargets(source: Shot, expanded: boolean) {
+  const currentEpisode = episodeForShot(source)
+  const sourceIndex = shotIndex(source)
   const sources = continuousEpisodes(state.episodes, currentEpisode).filter(episode => expanded || episode.id === currentEpisode.id)
     .flatMap(episode => episode.shots.map((shot, index) => ({
       episode, shot, index,
       adjacentLabel: episode.id === currentEpisode.id
-        ? index === targetIndex - 1 ? '前' : index === targetIndex + 1 ? '后' : ''
+        ? index === sourceIndex - 1 ? '前' : index === sourceIndex + 1 ? '后' : ''
         : '',
     })))
   return sources.map((item, index) => ({ ...item, divided: index > 0 && item.episode.id !== sources[index - 1].episode.id }))
@@ -4134,10 +4142,12 @@ function characterCloneSources(target: Shot, expanded: boolean) {
 
 function shotReferenceOptions(episode: Episode, shot: Shot) {
   const expanded = expandedReferenceShotIds.value.has(shot.id)
-  return continuousEpisodes(state.episodes, episode).flatMap(source => source.shots.flatMap((item, index) => {
-    if (!expanded && source.id !== episode.id) return []
+  const sources = continuousEpisodes(state.episodes, episode)
+  const episodeIndex = sources.findIndex(source => source.id === episode.id)
+  return sources.flatMap((source, sourceIndex) => source.shots.flatMap((item, index) => {
     const uses = shotReferenceUseCounts.value.get(`${source.id}:${index + 1}`) ?? 0
-    return [{ id: item.id, label: `${formatShotNumber(source, index)}${uses > 1 ? ` · ${uses} 次` : ''}`, episodeId: source.id }]
+    if (!expanded && sourceIndex !== episodeIndex && (!uses || Math.abs(sourceIndex - episodeIndex) !== 1)) return []
+    return [{ id: item.id, label: `${formatShotNumber(source, index)}${uses > 0 ? ` · ${uses} 次` : ''}`, episodeId: source.id }]
   })).map((option, index, options) => ({ ...option, divided: index > 0 && option.episodeId !== options[index - 1].episodeId }))
 }
 
@@ -4154,10 +4164,12 @@ function selectShotReference(shot: Shot, sourceShotId: string) {
   shot.referenceShotNumber = source.shots.findIndex(shot => shot.id === sourceShotId) + 1
 }
 
-async function overwriteShotCharacters(source: Shot, selectedIds: string[]) {
+async function overwriteShotMaterials(source: Shot, selectedIds: string[], includeScenes: boolean) {
   const sourceEpisode = episodeForShot(source)
   const sourceAssets = assetsFor(state, sourceEpisode)
-  const targets = characterCloneSources(source, true).filter(item => selectedIds.includes(item.shot.id))
+  const targets = materialOverwriteTargets(source, true).filter(item => selectedIds.includes(item.shot.id))
+  const referenceEpisodeId = source.referenceEpisodeId ?? sourceEpisode.id
+  const referenceShotNumber = source.referenceShotNumber ?? shotIndex(source) + 1
   const assetDrafts = new Map<string, { episode: Episode; assets: CharacterAsset[] }>()
   const episodeDrafts = new Map<string, Episode>()
   for (const { episode, shot: target } of targets) {
@@ -4179,11 +4191,24 @@ async function overwriteShotCharacters(source: Shot, selectedIds: string[]) {
         if (!matched) { notify.warning(`目标分集的${character.name}缺少服装“${outfit.note}”，请先添加`); return }
         outfitId = matched.id
       }
-      characters.push({ ...character, id: createId('character'), characterId: asset!.id, outfitId })
+      const includeVoice = target.characters.find(item => item.name === character.name)?.includeVoice ?? false
+      characters.push({ ...character, id: createId('character'), characterId: asset!.id, outfitId, includeVoice })
     }
     if (!episodeDrafts.has(episode.id)) episodeDrafts.set(episode.id, { ...episode, shots: [...episode.shots] })
     const draft = episodeDrafts.get(episode.id)!
-    draft.shots = draft.shots.map(shot => shot.id === target.id ? { ...shot, characters, pendingDetection: null, autoSyncNotice: null, undoCharacters: null } : shot)
+    const nextShot = { ...target, characters, pendingDetection: null, autoSyncNotice: null, undoCharacters: null }
+    if (includeScenes) {
+      nextShot.scenes = source.scenes.map(scene => ({ ...scene, id: createId('scene') }))
+      nextShot.usePositionReference = source.usePositionReference
+      if (source.usePositionReference) {
+        nextShot.referenceEpisodeId = referenceEpisodeId === episode.id ? null : referenceEpisodeId
+        nextShot.referenceShotNumber = referenceShotNumber
+      }
+      draft.scenes = [...draft.scenes, ...source.scenes
+        .filter(scene => scene.name.trim() && !draft.scenes.some(asset => sceneAssetKey(asset) === sceneAssetKey(scene)))
+        .map(scene => createSceneAsset(scene.name, scene.time, scene.space))]
+    }
+    draft.shots = draft.shots.map(shot => shot.id === target.id ? nextShot : shot)
   }
   const proposed = {
     ...state,
@@ -4203,10 +4228,11 @@ async function overwriteShotCharacters(source: Shot, selectedIds: string[]) {
     else episode.characters = assets
   }
   for (const { episode, shot } of targets) {
-    const draft = episodeDrafts.get(episode.id)!.shots.find(item => item.id === shot.id)!
-    Object.assign(shot, draft)
+    const draft = episodeDrafts.get(episode.id)!
+    if (includeScenes) episode.scenes = draft.scenes
+    Object.assign(shot, draft.shots.find(item => item.id === shot.id)!)
   }
-  notify.success(`已覆盖 ${targets.length} 条角色配置`)
+  notify.success(`已覆盖 ${targets.length} 条${includeScenes ? '素材' : '角色'}配置`)
 }
 
 function characterAppearanceInfo(character: CharacterConfig, shot: Shot) {

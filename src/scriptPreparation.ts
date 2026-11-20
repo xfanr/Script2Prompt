@@ -54,6 +54,11 @@ export function parseCharacterBiographies(text: string): string[] {
     const line = lines[i].replace(/\\([.*#()\-])/g, '$1').replace(/\*\*|__/g, '')
       .replace(/^#{1,6}\s*/, '').replace(/^(?:(?:\d+|[一二三四五六七八九十]+)[.、)]|\((?:\d+|[一二三四五六七八九十]+)\)|[-*•])\s*/, '').trim();
     if (!line || /^其他(?:功能)?(?:人物|角色)/.test(line)) continue;
+    const tableCell = line.match(/^\\?\|\s*([^|]+?)\s*\\?\|/)?.[1];
+    if (tableCell) {
+      if (bareName.test(tableCell) && !labels.has(tableCell) && !/^(?:角色名称|角色姓名)$/.test(tableCell)) names.add(tableCell);
+      continue;
+    }
     const match = line.match(fieldName) ?? line.match(heading);
     let candidate = match?.[1];
     if (!candidate && (i === 0 || !lines[i - 1]) && bareName.test(line)) {

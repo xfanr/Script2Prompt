@@ -52,6 +52,20 @@ export async function runScriptPreparationTests() {
     assert(names.join('/') === '林晚/陆远', names.join('/'))
     assert(!parseCharacterBiographies('人物小传\n\n性格：冷静\n年龄：26岁\n其他功能角色：房东、律师').length, 'metadata became a role')
   })
+  await test('Biography import reads the name column of Markdown tables with plain or escaped pipes', () => {
+    const expected = ['梁颜欢', '赵雅', '陈琬婷', '林思思', '王天钢', '梁振天', '梁母', '傅少', '小周']
+    const text = [
+      '| 角色名称 | 年龄 | 性别 | 性格 | 造型 |',
+      '| :--- | ---: | :---: | --- | --- |',
+      '| 梁颜欢 | 30岁 | 女 | 果决冷静 | 黑色礼服 |',
+      ...expected.slice(1).map(name => '\\| ' + name + ' | 25岁 | 女 | 性格描述 | 造型描述 |'),
+      '| **梁颜欢** | 30岁 | 女 | 果决冷静 | 西装 |',
+      '|  | 25岁 | 女 | 未填写姓名 | 制服 |',
+      '陆远（男主）',
+    ].join('\n')
+    const names = parseCharacterBiographies(text)
+    assert(names.join('/') === [...expected, '陆远'].join('/'), names.join('/'))
+  })
   function setup() {
     const state = createInitialState(config),
       group = createEpisodeGroup(config.prompt.activeProfileId),
